@@ -39,7 +39,9 @@ shared local memory server for AI assistants.
   a separate batch limit and configurable concurrency: any positive whole number,
   defaulting to 10 requests. Actual parallel work is bounded by the current batch.
 - Durable card retry budgets: an initial attempt and two automatic retries,
-  followed by an explicit user retry when needed.
+  followed by an explicit user retry when needed. The memory screen shows which
+  errors can retry automatically and which need user action; Retry all errors
+  requeues eligible failures with a fresh budget while preserving pauses.
 - Clickable memory counters and paginated browsing, plus a local HTML graph and
   history view. Graph connections reflect sources and shared card keywords.
 - Global synchronization pause and per-mailbox import pause, retaining access

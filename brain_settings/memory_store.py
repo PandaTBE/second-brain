@@ -417,6 +417,13 @@ class MemoryStore:
         with self._connection() as connection:
             return has_due(connection, time.time() if now is None else now, clause, allowed)
 
+    def requeue_card_errors(self, allowed_source_ids=None):
+        from .card_retries import requeue_errors
+
+        clause, allowed = _allowed_clause(allowed_source_ids)
+        with self._connection(write=True) as connection:
+            return requeue_errors(connection, clause, allowed)
+
     def retry_status(self, allowed_source_ids=None):
         from .card_retries import counts
 

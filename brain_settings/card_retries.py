@@ -150,6 +150,18 @@ def has_due(connection, now, clause, allowed):
     ).fetchone() is not None
 
 
+def requeue_errors(connection, clause, allowed):
+    """Reset only unclaimed errors after an explicit whole-queue retry."""
+    result = connection.execute(
+        "UPDATE documents SET card_status='pending',card_error=NULL,card_attempts=0,"
+        "card_retry_at=NULL,card_claim_until=NULL "
+        "WHERE card_status='error' AND card_claim_token IS NULL "
+        "AND source_id NOT IN (SELECT source_id FROM deleted_sources) " + clause,
+        allowed,
+    )
+    return result.rowcount
+
+
 def counts(connection, clause, allowed):
     row = connection.execute(
         f"SELECT COALESCE(SUM(({ATTEMPTS})<3),0) AS retrying,"

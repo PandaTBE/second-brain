@@ -41,6 +41,8 @@ enum CoreChecks {
             ("Card concurrency accepts positive values, defaults to ten and stays separate from batch size", memoryConcurrency),
             ("Card retry metadata describes the bounded automatic retry budget", memoryRetries),
             ("Provider holds preserve service readiness and configured concurrency", memoryProviderBackoff),
+            ("Retry overview distinguishes automatic work from manual intervention", memoryRetryOverview),
+            ("Retry-all contract resets only the explicit error queue", memoryRetryAllContract),
             ("Portable launch prefers bundled service and retains developer fallback", backendLaunch),
         ]
         var failures: [String] = []
@@ -224,6 +226,30 @@ enum CoreChecks {
             }
         }
         try require(MemorySyncSymbol.image(for: .checking, darkAppearance: false).isTemplate, "Unknown readiness remains neutral")
+    }
+
+    private static func memoryRetryOverview() throws {
+        let enabled = try syncStatus(waiting: 1)
+        try require(enabled.automaticRetryState == .enabled, "Enabled automatic processing is explicit")
+        try require(enabled.retryCountsDescription.contains("2") && enabled.retryCountsDescription.contains("1"), "Remaining budgets and manual intervention have separate counts")
+        try require(try syncStatus(paused: true).automaticRetryState == .paused, "Global pause wins over enabled settings")
+        try require(try syncStatus(enabled: false).automaticRetryState == .disabled, "Disabled reconciliation and auto-import cannot promise retries")
+        try require(try syncStatus(schedulerRunning: false).automaticRetryState == .stopped, "Stopped scheduler cannot promise automatic work")
+        let raw = Data(#"{"records":3,"cards_pending":0,"cards_ready":0,"cards_error":3,"jobs":[],"scheduler_running":true,"scheduler":{"enabled":false,"auto_import_enabled":true,"process_cards":true,"interval_minutes":15,"batch_limit":10},"provider_backoff":{"blocked":true,"retry_at":null,"requires_user_action":true,"message":"Budget","effective_concurrency":1,"configured_concurrency":10}}"#.utf8)
+        let held = try APIClient.decoder.decode(MemoryStatus.self, from: raw)
+        try require(held.automaticRetryState == .waitingProvider, "Auto-import alone keeps opted-in card processing enabled, but provider holds block it")
+        try require(held.retryCountsDescription.contains("не передал"), "Legacy missing budget counts are not presented as zero")
+        let noHold = String(data: raw, encoding: .utf8)!.replacingOccurrences(of: #""blocked":true"#, with: #""blocked":false"#)
+        try require(try APIClient.decoder.decode(MemoryStatus.self, from: Data(noHold.utf8)).automaticRetryState == .enabled, "Auto-import alone permits automatic cards")
+    }
+
+    private static func memoryRetryAllContract() throws {
+        let request = try JSONSerialization.jsonObject(with: APIClient.encoder.encode(MemoryRetryErrorsRequest())) as! [String: Any]
+        try require(request.isEmpty, "Retry-all sends no flags that could change automation, provider holds or ready cards")
+        for (state, expected) in [("started", "запущена"), ("waiting_provider", "провайдера"), ("paused", "паузе"), ("automation_disabled", "выключены"), ("model_required", "модель"), ("waiting_worker", "текущей операции"), ("empty", "нет"), ("future_state", "Обновите")] {
+            let response = try APIClient.decoder.decode(MemoryRetryErrorsResponse.self, from: Data("{\"requeued\":7,\"processing_state\":\"\(state)\",\"job_id\":null}".utf8))
+            try require(response.notice.contains(expected), "Retry result must explain the actual processing state")
+        }
     }
 
     private static func memoryProviderBackoff() throws {

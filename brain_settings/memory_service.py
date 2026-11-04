@@ -428,6 +428,45 @@ class MemoryService:
             self._cards(job_id, batch_limit, retry_errors=False, import_stats=stats,
                         automatic_retries=True)
 
+    def retry_all_card_errors(self) -> dict:
+        with self._lock:
+            if self._stop.is_set():
+                raise AppError("memory_stopping", "Служба памяти завершает работу.", 503)
+            if self._active_job is not None:
+                raise AppError("memory_busy", "Дождитесь завершения текущей операции памяти.", 409)
+            config = self.schedule_store.load()
+            state = self._retry_processing_state(config)
+            lease = acquire_writer_lease(self.schedule_store.path.parent)
+            try:
+                requeued = self.store.requeue_card_errors(allowed_source_ids=self._allowed())
+            finally:
+                release_writer_lease(lease)
+            state = state if requeued else "empty"
+            job_id = None
+            if state == "started":
+                try:
+                    job_id = self.start_cards(
+                        limit=config.batch_limit, automatic=True,
+                    )["job_id"]
+                except AppError as error:
+                    if error.code == "provider_paused":
+                        state = "waiting_provider"
+                    else:
+                        logger.warning("Requeued cards await worker (%s)", error.code)
+                        state = "waiting_worker"
+            return {"requeued": requeued, "processing_state": state, "job_id": job_id}
+
+    def _retry_processing_state(self, config):
+        if config.paused:
+            return "paused"
+        if not config.process_cards or not (config.enabled or config.auto_import_enabled):
+            return "automation_disabled"
+        if self._provider_scope() is None:
+            return "model_required"
+        if self._provider_status(config)["blocked"]:
+            return "waiting_provider"
+        return "started"
+
     def start_cards(self, limit: int = 10, retry_errors: bool = False, *, automatic=False) -> dict:
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 50:
             raise AppError("invalid_batch", "Размер пакета должен быть от 1 до 50.")

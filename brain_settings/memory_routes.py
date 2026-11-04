@@ -23,6 +23,10 @@ class SyncRequest(BaseModel):
     paused: StrictBool
 
 
+class RetryCardErrorsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
 class ProviderResumeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -63,6 +67,10 @@ def create_memory_router(service) -> APIRouter:
     @router.post("/cards")
     def cards(request: CardsRequest):
         return {"success": True, "data": service.start_cards(request.limit, request.retry_errors)}
+
+    @router.post("/cards/retry-errors")
+    def retry_card_errors(_request: RetryCardErrorsRequest):
+        return {"success": True, "data": service.retry_all_card_errors()}
 
     @router.post("/sync")
     def sync(request: SyncRequest):

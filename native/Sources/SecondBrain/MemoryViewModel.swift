@@ -16,7 +16,6 @@ final class MemoryViewModel: ObservableObject {
     @Published var recordLoading = false
     @Published var recordError: String?
     @Published var cardBatchLimit = 10
-    @Published var retryCardErrors = false
     @Published var action = ""
     @Published var notice: String?
     @Published var noticeIsError = false
@@ -194,6 +193,26 @@ final class MemoryViewModel: ObservableObject {
             let _: MemoryJobResponse = try await client.send("/api/memory/cards", body: MemoryCardsRequest(limit: limit, retryErrors: retryErrors))
             notice = "Обработка запущена: не более \(MemoryProcessingLimit.clamped(limit)) материалов в этом пакете."; noticeIsError = false
             await refreshStatus(); ensurePolling()
+        } catch { notice = error.localizedDescription; noticeIsError = true }
+    }
+
+    func retryAllErrors() async {
+        guard let client else { return }
+        guard !busy else {
+            notice = "Дождитесь завершения текущей операции памяти и повторите действие."
+            noticeIsError = true
+            return
+        }
+        action = "retry-errors"; notice = nil
+        defer { action = "" }
+        do {
+            let response: MemoryRetryErrorsResponse = try await client.send(
+                "/api/memory/cards/retry-errors", body: MemoryRetryErrorsRequest()
+            )
+            notice = response.notice; noticeIsError = false
+            await refreshStatus(); await search()
+            if let selectedId { await selectRecord(selectedId) }
+            ensurePolling()
         } catch { notice = error.localizedDescription; noticeIsError = true }
     }
 

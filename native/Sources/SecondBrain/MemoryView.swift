@@ -5,6 +5,7 @@ struct MemoryView: View {
     @ObservedObject var store: AppStore
     @ObservedObject private var memory: MemoryViewModel
     @ViewState private var confirmCards = false
+    @ViewState private var confirmRetryErrors = false
     @ViewState private var confirmedLimit = 10
     @ViewState private var showAutomation = false
     init(store: AppStore) { self.store = store; self.memory = store.memory }
@@ -41,19 +42,19 @@ struct MemoryView: View {
                 }
                 autoImportBar
                 providerBackoffBar
+                retryErrorsBar
                 HStack(spacing: 12) {
                     Stepper("Пакет: \(memory.cardBatchLimit)", value: $memory.cardBatchLimit, in: MemoryProcessingLimit.range).fixedSize()
                     Button("Одновременно: \(memory.cardConcurrency)") { showAutomation = true }
                         .buttonStyle(.link).font(.caption)
                         .disabled(memory.status == nil)
                         .help("Укажите любое положительное целое число. По умолчанию — 10; фактическая параллельность ограничена размером партии.")
-                    Toggle("Повторить ошибки", isOn: $memory.retryCardErrors).toggleStyle(.checkbox).font(.caption)
                     Spacer()
                     Button {
                         confirmedLimit = memory.cardBatchLimit; confirmCards = true
                     } label: { Label("Создать карточки · API", systemImage: "sparkles") }
                         .help(memory.providerBlocked ? "Создание карточек ожидает снятия паузы провайдера." : "Создать карточки для выбранного пакета материалов.")
-                        .disabled(memory.providerBlocked || memory.busy || !store.hasSavedModel || (memory.status?.cardsPending ?? 0) + (memory.retryCardErrors ? memory.status?.cardsError ?? 0 : 0) == 0)
+                        .disabled(memory.providerBlocked || memory.busy || !store.hasSavedModel || (memory.status?.cardsPending ?? 0) == 0)
                 }
                 Text("Создание карточек использует выбранную модель и оплачивается по её тарифам. Лимит ограничивает материалы в одном пакете, а не сумму списания.").font(.caption).foregroundStyle(.secondary)
                 if let notice = memory.notice { Label(notice, systemImage: memory.noticeIsError ? "exclamationmark.circle" : "checkmark.circle").font(.callout).foregroundStyle(memory.noticeIsError ? Color.orange : Color.green).textSelection(.enabled) }
@@ -109,9 +110,44 @@ struct MemoryView: View {
         .sheet(isPresented: $showAutomation) { MemoryAutomationSheet(memory: memory) }
         .alert("Создать карточки через API?", isPresented: $confirmCards) {
             Button("Отмена", role: .cancel) {}
-            Button("Обработать до \(confirmedLimit)") { Task { await memory.startCards(limit: confirmedLimit, retryErrors: memory.retryCardErrors) } }
+            Button("Обработать до \(confirmedLimit)") { Task { await memory.startCards(limit: confirmedLimit, retryErrors: false) } }
         } message: { Text("До \(confirmedLimit) материалов будут отправлены модели \(store.savedSettings.modelName.isEmpty ? store.savedSettings.modelId : store.savedSettings.modelName). Это платные API-запросы. Неизменённые готовые карточки не обрабатываются повторно.") }
+        .alert("Повторить все ошибки?", isPresented: $confirmRetryErrors) {
+            Button("Отмена", role: .cancel) {}
+            Button("Вернуть ошибки в очередь") { Task { await memory.retryAllErrors() } }
+        } message: {
+            Text("В очередь будут возвращены все текущие карточки с ошибками (сейчас: \(memory.status?.cardsError ?? 0)). Для каждой будет доступна новая попытка и до двух автоматических повторов. При включённых автокарточках запросы к модели оплачиваются по её тарифам. Настройки автоматизации и пауза провайдера сохранятся.")
+        }
         .task { await memory.refreshStatus(); await memory.search() }
+    }
+
+    @ViewBuilder
+    private var retryErrorsBar: some View {
+        if let status = memory.status, status.cardsError > 0 {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack {
+                    Label(store.hasSavedModel ? status.automaticRetryState.title : "Автоповторы ожидают модель", systemImage: "arrow.clockwise.circle")
+                        .font(.callout.weight(.medium))
+                    Spacer()
+                    Button("Повторить все ошибки · \(status.cardsError)") { confirmRetryErrors = true }
+                        .disabled(memory.busy)
+                        .help(memory.busy ? "Дождитесь завершения текущей операции памяти." : "Вернуть все карточки с ошибками в очередь с новым лимитом попыток.")
+                }
+                Text(status.retryCountsDescription).font(.caption)
+                Text(store.hasSavedModel ? status.automaticRetryState.explanation : "Выберите и сохраните модель в разделе «Модель и API».")
+                    .font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    Text("После 3 неудачных попыток карточки ждут ручного повтора.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if status.automaticRetryState == .disabled {
+                        Button("Настроить автоматизацию") { showAutomation = true }
+                            .buttonStyle(.link).font(.caption)
+                    }
+                }
+            }
+            .padding(10)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        }
     }
 
     @ViewBuilder
