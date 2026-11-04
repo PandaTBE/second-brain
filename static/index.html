@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f6f7f5">
+  <title>Модель и API — Second Brain</title>
+  <link rel="icon" type="image/svg+xml" href="/static/mark.svg">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script type="module" src="/static/app.mjs"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Перейти к настройкам</a>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Навигация">
+      <a class="brand" href="#main" aria-label="Second Brain — настройки">
+        <img src="/static/mark.svg" width="38" height="38" alt="">
+        <span>Second Brain<small>Личная память для ИИ</small></span>
+      </a>
+      <div class="sidebar-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
+      <nav class="navigation">
+        <a class="nav-item active" href="#main" aria-current="page"><span class="nav-icon">⌘</span>Модель и API</a>
+        <a class="nav-item" href="#how-it-works"><span class="nav-icon">↗</span>Как это работает</a>
+        <a class="nav-item" href="#security"><span class="nav-icon">◇</span>Безопасность</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="local-badge"><span class="status-dot"></span>Локальное приложение</div>
+        <p>Ваши настройки — на этом Mac.<br>Модель выбираете вы.</p>
+        <span class="version">SECOND BRAIN · 0.1</span>
+      </div>
+    </aside>
+
+    <main id="main" class="main-content">
+      <div class="breadcrumb">Настройки <span>/</span> Подключение модели</div>
+      <header class="page-header">
+        <div><div class="eyebrow">ВАШ ИИ, ВАШ ВЫБОР</div><h1>Модель и API</h1><p>Подключите модель, которая будет собирать знания в карточки.</p></div>
+        <span id="setup-badge" class="setup-badge"><span></span>Первый запуск</span>
+      </header>
+
+      <div id="bootstrap-error" class="notice error" role="alert" hidden><span id="bootstrap-error-text"></span><button id="retry-bootstrap" type="button" class="text-button">Попробовать снова</button></div>
+      <div id="storage-warning" class="notice warning" role="status" hidden>Связка ключей сейчас недоступна. Проверить API можно, а для сохранения токена потребуется доступ к Связке ключей macOS.</div>
+
+      <div class="workspace-grid">
+        <form id="settings-form" class="settings-stack" novalidate>
+          <section class="panel" aria-labelledby="provider-heading">
+            <div class="section-heading"><span class="step-number">01</span><div><h2 id="provider-heading">Выберите провайдера</h2><p>Один ключ — доступ к выбранному API.</p></div></div>
+            <div id="provider-list" class="provider-grid" role="group" aria-label="Провайдер модели"><div class="loading-placeholder">Загружаем настройки…</div></div>
+            <div id="preset-endpoint" class="endpoint-caption"><span class="tiny-lock" aria-hidden="true">↳</span><code id="preset-endpoint-text"></code></div>
+            <div id="custom-endpoint" class="field-block" hidden><label for="base-url">Адрес API</label><input id="base-url" type="url" spellcheck="false" autocomplete="off" placeholder="https://api.example.com/v1"><p class="field-hint">HTTPS-адрес совместимого с OpenAI API. Без /chat/completions.</p></div>
+          </section>
+
+          <section class="panel" aria-labelledby="token-heading">
+            <div class="section-heading"><span class="step-number">02</span><div><h2 id="token-heading">Добавьте API-токен</h2><p>Ключ остаётся в Связке ключей macOS.</p></div></div>
+            <div class="label-row"><label for="api-token">API-токен</label><a id="get-key" class="inline-link" href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">Получить ключ <span aria-hidden="true">↗</span></a></div>
+            <div class="token-control"><span class="key-glyph" aria-hidden="true">⚿</span><input id="api-token" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="Вставьте ваш API-токен" aria-describedby="token-hint"><button id="toggle-token" class="icon-button" type="button" aria-label="Показать введённый токен" aria-pressed="false"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="1.6"/></svg></button></div>
+            <div class="token-meta"><p id="token-hint" class="field-hint">Токен не сохраняется в браузере и не появляется в настройках.</p><button id="delete-token" type="button" class="text-button danger" hidden>Удалить сохранённый ключ</button></div>
+            <div id="delete-confirm" class="inline-confirm" hidden><p>Удалить сохранённый токен этого API?</p><div><button id="cancel-delete" type="button" class="button small secondary">Отмена</button><button id="confirm-delete" type="button" class="button small danger-button">Удалить токен</button></div></div>
+          </section>
+
+          <section class="panel model-panel" aria-labelledby="model-heading">
+            <div class="section-heading"><span class="step-number">03</span><div><h2 id="model-heading">Выберите модель</h2><p>Начните с недорогой: для карточек не нужна самая большая.</p></div></div>
+            <div id="selected-model" class="selected-model"><span class="model-symbol" aria-hidden="true">✦</span><div><strong id="selected-model-name">Модель пока не выбрана</strong><code id="selected-model-id">Выберите из каталога или укажите ID</code></div><span id="selected-model-check" class="selected-check" hidden aria-hidden="true">✓</span></div>
+            <div class="catalog-toolbar"><label class="search-control"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><input id="model-search" type="search" autocomplete="off" placeholder="Найти модель…" aria-label="Поиск модели по названию или ID"></label><select id="model-sort" aria-label="Сортировка моделей"><option value="price">Сначала дешевле</option><option value="name">По названию</option></select></div>
+            <div class="catalog-caption"><span id="catalog-count">Каталог моделей</span><button id="refresh-models" type="button" class="text-button"><span id="refresh-icon" aria-hidden="true">↻</span> Обновить</button></div>
+            <div class="catalog-columns" aria-hidden="true"><span>МОДЕЛЬ</span><span>ВХОД / ВЫХОД</span></div>
+            <div id="model-list" class="model-list" role="group" aria-label="Каталог моделей" aria-busy="false"><div class="catalog-empty"><span class="empty-symbol" aria-hidden="true">✦</span><strong>Каталог ещё не загружен</strong><p>Модели появятся после подключения к API.</p></div></div>
+            <button id="show-more-models" type="button" class="show-more" hidden>Показать ещё</button>
+            <div class="pricing-note"><span>Цены в USD за 1 млн токенов.</span><span id="catalog-updated">Из каталога провайдера</span></div>
+            <p class="sort-note">Сортируем по цене входа, затем выхода. Неизвестная цена — в конце.</p>
+            <details id="manual-model" class="manual-model"><summary>Указать ID модели вручную</summary><div class="field-block"><label for="model-id">ID модели</label><input id="model-id" type="text" autocomplete="off" spellcheck="false" placeholder="Например, provider/model-name" maxlength="200"><p class="field-hint">Подойдёт, если провайдер не отдаёт каталог. Используйте точный ID из его документации.</p></div></details>
+          </section>
+
+          <div id="action-message" class="notice" role="status" aria-live="polite" hidden></div>
+          <div class="action-bar"><div class="action-explanation"><span class="small-shield" aria-hidden="true">◇</span><span>Проверка API не запускает генерацию.</span></div><div class="action-buttons"><button id="test-connection" type="button" class="button secondary" disabled>Проверить подключение</button><button id="save-settings" type="submit" class="button primary" disabled><span>Сохранить настройки</span><span aria-hidden="true">↗</span></button></div></div>
+        </form>
+
+        <aside class="context-column" aria-label="Состояние подключения">
+          <section class="summary-panel" aria-labelledby="summary-heading"><div class="summary-topline"><span class="summary-mark" aria-hidden="true">✦</span><span class="subtle-tag">ПОДКЛЮЧЕНИЕ</span></div><h2 id="summary-heading">Всё под вашим<br>контролем.</h2><p>Выберите API и модель.<br>Поменять их можно в любой момент.</p><div class="summary-divider"></div><dl class="summary-list"><div><dt>Провайдер</dt><dd id="summary-provider">—</dd></div><div><dt>API-токен</dt><dd id="summary-token">Не добавлен</dd></div><div><dt>Модель</dt><dd id="summary-model">Не выбрана</dd></div><div><dt>Проверка API</dt><dd id="summary-connection">Не проверено</dd></div></dl><div id="summary-state" class="summary-state"><span class="status-dot neutral"></span><span>Завершите три шага слева</span></div></section>
+          <section id="how-it-works" class="info-card"><div class="info-heading"><span aria-hidden="true">↗</span><h3>Зачем здесь модель?</h3></div><p>Она превращает материалы в короткие карточки: выделяет суть, ключевые слова и решения.</p><div class="mini-flow"><span>Материал</span><span aria-hidden="true">→</span><span>Модель</span><span aria-hidden="true">→</span><span>Карточка</span></div><p class="muted">Поиск по памяти сможет работать отдельно от модели.</p></section>
+          <section id="security" class="info-card security-card"><div class="info-heading"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6l8-3Z" stroke="currentColor" stroke-width="1.7"/><path d="m8.5 12 2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><h3>Ключ — только у вас</h3></div><p>Токен хранится в системной Связке ключей. При смене провайдера он не переносится в другой API.</p><span class="security-footnote">Материалы для обработки будут передаваться выбранному провайдеру.</span></section>
+        </aside>
+      </div>
+      <footer class="page-footer"><span>Second Brain</span><span>Настройки подключения · Локально на вашем Mac</span></footer>
+    </main>
+  </div>
+</body>
+</html>

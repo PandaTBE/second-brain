@@ -1,0 +1,28 @@
+name: Feature request / Предложение
+description: Describe a use case, the desired behavior, and relevant privacy tradeoffs.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the workflow without including private source content or credentials.
+        Опишите сценарий без личных данных и ключей доступа.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Задача
+      description: What are you trying to do, and what makes the current workflow difficult?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior / Предлагаемое поведение
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Alternatives and privacy / Альтернативы и приватность
+      description: Mention any extra access, external services, model costs, or data storage needed.

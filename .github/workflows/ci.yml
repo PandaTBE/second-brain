@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Python ${{ matrix.python }} / Linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install uv and select Python
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.11.21"
+          python-version: ${{ matrix.python }}
+          enable-cache: false
+      - name: Install launcher test prerequisite
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes zsh
+      - name: Install locked development dependencies
+        run: uv sync --frozen --group dev
+      - name: Check proposed public repository contents
+        run: uv run --frozen python scripts/check_public_release.py
+      - name: Check formatting and imports
+        run: uv run --frozen ruff check brain_settings tests scripts launch.py
+      - name: Run synthetic backend and MCP tests
+        run: uv run --frozen pytest --cov=brain_settings --cov-report=term-missing
+      - name: Verify runtime dependency export
+        run: |
+          uv export --frozen --no-dev --no-hashes --no-emit-project --format requirements-txt --output-file requirements.txt
+          git diff --exit-code -- requirements.txt
+
+  javascript:
+    name: Static interface checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Test static model and memory graph behavior
+        run: node --test tests/test-model-utils.mjs tests/test-memory-atlas.mjs
+
+  native:
+    name: Native macOS checks and build
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.11.21"
+          python-version: "3.12"
+          enable-cache: false
+      - name: Install locked dependencies
+        run: uv sync --frozen --group dev
+      - name: Show selected Swift toolchain
+        run: swift --version
+      - name: Run native executable checks
+        run: swift run --package-path native SecondBrainCoreChecks
+      - name: Build and verify local app bundle
+        run: ./scripts/build-app.sh
+
+# Tests use temporary databases and fake credentials/transports. Do not add real
+# provider credentials, source archives, databases, or upload app/data artifacts here.

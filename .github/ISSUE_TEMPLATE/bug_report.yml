@@ -1,0 +1,52 @@
+name: Bug report / Ошибка
+description: Report a reproducible problem using synthetic, sanitized data.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never paste tokens, app passwords, personal session logs, email bodies, or a memory database.
+        Use a minimal synthetic example. For vulnerabilities, follow SECURITY.md instead of this form.
+        Не публикуйте ключи, пароли, личные сессии, письма или базу памяти.
+  - type: input
+    id: version
+    attributes:
+      label: Version / Версия
+      placeholder: "0.1.0, or a commit ID"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment / Окружение
+      description: macOS version, Apple Silicon or Intel, Python and Swift versions; affected source/provider.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / Как повторить
+      description: Include the smallest reproducible steps and synthetic input if needed.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior / Ожидаемое поведение
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior / Что происходит
+      description: Include a sanitized error message. Redact screenshots before attaching them.
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check / Проверка данных
+      options:
+        - label: I removed credentials and personal data from this report and its attachments.
+          required: true

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Граф и история памяти — Second Brain</title>
+  <link rel="icon" type="image/svg+xml" href="/static/mark.svg">
+  <link rel="stylesheet" href="/static/memory-atlas.css">
+  <script type="module" src="/static/memory-atlas.mjs"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Перейти к памяти</a>
+  <div class="app-shell">
+    <header class="page-header">
+      <div class="brand"><img src="/static/mark.svg" width="32" height="32" alt=""><span>Second Brain <small>АТЛАС ПАМЯТИ</small></span></div>
+      <div class="connection"><span class="connection-dot"></span>На этом Mac <span id="updated-at">Подключаемся…</span></div>
+    </header>
+    <section class="intro"><div><p class="eyebrow">ЗНАНИЯ, КОТОРЫЕ ОСТАЮТСЯ С ВАМИ</p><h1>Граф и история памяти</h1><p class="subtitle">Посмотрите, откуда пришли материалы и какие темы их объединяют.</p></div><button id="refresh" class="button secondary" type="button">↻ Обновить</button></section>
+    <div id="notice" class="notice" role="status" hidden><span id="notice-text"></span><button id="retry-atlas" type="button" class="text-button">Повторить</button></div>
+    <section class="stats" aria-label="Фильтры памяти">
+      <button class="stat selected" data-status="all" type="button" aria-pressed="true"><span>Материалы</span><strong id="count-all">—</strong><small>в локальной памяти</small></button>
+      <button class="stat" data-status="ready" type="button" aria-pressed="false"><span><i class="dot ready"></i>Карточки</span><strong id="count-ready">—</strong><small>знания собраны</small></button>
+      <button class="stat" data-status="pending" type="button" aria-pressed="false"><span><i class="dot pending"></i>Ожидают</span><strong id="count-pending">—</strong><small>текст уже доступен</small></button>
+      <button class="stat" data-status="error" type="button" aria-pressed="false"><span><i class="dot error"></i>С ошибкой</span><strong id="count-error">—</strong><small>исходник сохранён</small></button>
+    </section>
+    <main id="workspace" class="workspace">
+      <section class="main-panel" aria-label="Обзор памяти">
+        <div class="toolbar"><div class="tabs" role="tablist" aria-label="Представление памяти"><button id="tab-graph" role="tab" aria-selected="true" aria-controls="graph-panel" type="button">Граф</button><button id="tab-history" role="tab" aria-selected="false" aria-controls="history-panel" type="button" tabindex="-1">История</button></div><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Найти материал или тему…" maxlength="512" aria-label="Поиск по памяти"></label></div>
+        <section id="graph-panel" role="tabpanel" aria-labelledby="tab-graph">
+          <div class="graph-topline"><label class="source-label">Источники на графе <select id="source-filter" aria-label="Источник на графе"><option value="all">Все источники</option></select></label><span id="graph-count" class="muted">Загружаем материалы…</span></div>
+          <div id="graph-stage" class="graph-stage"><svg id="memory-graph" viewBox="0 0 1000 680" role="group" aria-label="Граф материалов, источников и общих ключевых слов"><g id="graph-camera"><g id="graph-links"></g><g id="graph-nodes"></g></g></svg><div id="graph-empty" class="empty-state" hidden><strong>Здесь пока нет материалов</strong><p>Добавьте источник в приложении или измените фильтры.</p></div><div class="zoom-controls" aria-label="Масштаб графа"><button id="zoom-out" type="button" aria-label="Уменьшить граф">−</button><span id="zoom-value">100%</span><button id="zoom-in" type="button" aria-label="Увеличить граф">+</button><button id="zoom-reset" type="button" aria-label="Сбросить масштаб и положение">↺</button></div></div>
+          <div class="graph-footer"><div class="legend"><span><i class="dot source"></i>Источник</span><span><i class="dot pending"></i>Материал</span><span><i class="dot keyword"></i>Общая тема</span></div><span class="muted">Колёсико — масштаб · Перетаскивание — перемещение</span></div>
+          <p class="explanation">Линии показывают источник материала и общие ключевые слова готовых карточек. Это связи по метаданным, а не подтверждение фактов. На графе — до 60 самых частых общих тем.</p>
+          <p id="truncation" class="notice compact" hidden></p>
+        </section>
+        <section id="history-panel" role="tabpanel" aria-labelledby="tab-history" hidden>
+          <div class="history-heading"><div><h2>Лента материалов</h2><p>По последнему изменению. Даты и ревизия относятся к текущей записи; прошлые версии здесь не хранятся.</p></div><span id="history-count" class="muted">0 загружено</span></div>
+          <div id="history-scroll" class="history-scroll"><div id="history-list" class="history-list"></div><div id="history-empty" class="empty-state history-empty" hidden><strong>Материалы не найдены</strong><p>Попробуйте другой запрос или фильтр.</p></div><div id="history-error" class="notice" hidden><span id="history-error-text"></span><div class="error-actions"><button id="retry-history" type="button" class="text-button">Повторить подгрузку</button><button id="reset-history" type="button" class="text-button">Обновить список</button></div></div><div id="history-sentinel" class="history-sentinel"><span id="history-progress" role="status"></span><button id="load-history" type="button" class="text-button">Загрузить ещё</button></div></div>
+        </section>
+      </section>
+      <aside id="detail-panel" class="detail-panel" aria-label="Выбранный материал" aria-live="polite"><div class="detail-placeholder"><span class="placeholder-symbol" aria-hidden="true">◎</span><h2>Каждая точка — часть памяти</h2><p>Выберите материал на графе или в истории. Нажмите на источник или тему, чтобы увидеть связанные записи.</p></div></aside>
+    </main>
+    <footer class="page-footer"><span>Живая локальная страница · Second Brain должен оставаться запущенным.</span><span>Просмотр графа и истории не вызывает модель.</span></footer>
+  </div>
+</body>
+</html>
