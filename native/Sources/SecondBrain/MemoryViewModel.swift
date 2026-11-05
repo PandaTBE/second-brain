@@ -54,7 +54,7 @@ final class MemoryViewModel: ObservableObject {
     }
     var emptyDescription: String {
         if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "Попробуйте другие слова или выберите другой фильтр." }
-        return filter == .all ? "Добавьте источник. Codex и Claude будут импортироваться автоматически." : "Здесь появятся материалы с выбранным статусом."
+        return filter == .all ? "Добавьте источник. Codex, Claude и Qwen Code будут импортироваться автоматически." : "Здесь появятся материалы с выбранным статусом."
     }
 
     func configure(_ client: APIClient) async {
@@ -271,7 +271,7 @@ final class MemoryViewModel: ObservableObject {
         do {
             let _: MemoryScheduleResponse = try await client.send("/api/memory/schedule", body: request)
             if !scheduleEdited { scheduleDraft = request }
-            notice = enabled ? "Автоимпорт Codex и Claude включён." : "Автоимпорт приостановлен."; noticeIsError = false
+            notice = enabled ? "Автоимпорт Codex, Claude и Qwen Code включён." : "Автоимпорт приостановлен."; noticeIsError = false
             await refreshStatus()
         } catch { notice = error.localizedDescription; noticeIsError = true }
     }

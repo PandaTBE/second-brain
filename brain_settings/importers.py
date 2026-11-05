@@ -29,7 +29,7 @@ def import_source(source: dict, store, *, eligible_paths: set[str] | None = None
         "deferred_paths": [],
         "has_more": False,
     }
-    if kind not in ("codex", "claude", "folder"):
+    if kind not in ("codex", "claude", "qwen", "folder"):
         raise AppError("unsupported_import", "Для этого источника локальный импорт недоступен.")
     if source_id in store.deleted_source_ids():
         raise AppError("source_deleted", "Источник удалён; чтение файлов остановлено.", 404)
@@ -91,7 +91,7 @@ def import_source(source: dict, store, *, eligible_paths: set[str] | None = None
                 complete, skipped = event.complete, event.skipped
                 if event.turns is not None:
                     turns = list(event.turns)
-                elif kind in ("codex", "claude"):
+                elif kind in ("codex", "claude", "qwen"):
                     turns, complete, skipped = parse_session(event.raw.decode("utf-8-sig"), kind)
                 else:
                     turns = parse_note(event.raw.decode("utf-8-sig"))

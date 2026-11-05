@@ -17,15 +17,17 @@ shared local memory server for AI assistants.
 ### Added
 
 - Native SwiftUI settings, model selection and source connections, a Dock icon,
-  and a menu-bar status indicator. Closing the window keeps automation running;
+  and a menu-bar status indicator. The model catalogue scrolls independently
+  inside the settings page. Closing the window keeps automation running;
   quitting stops the application-owned helper.
 - Shared SQLite memory with FTS5/BM25 search, source citations, deterministic
   chunk identities, content revisions and import checkpoints.
 - Read-only MCP tools: `search_memory`, `get_record`, `get_context_brief` and
   `get_sync_status`, usable by Codex, Claude Code and compatible clients.
-- Codex and Claude Code JSONL session import, plus Markdown, TXT and JSONL note
+- Codex, Claude Code and Qwen Code JSONL session import, plus Markdown, TXT and JSONL note
   folders. Session watching uses completed-turn markers or a 90-second quiet
-  period, with a 30-second polling interval.
+  period, with a 30-second polling interval. Qwen Code uses the quiet period
+  and reads only chat logs, excluding tool, system and thinking payloads.
 - Notion integration tokens and explicit selection of up to 100 pages. Selected
   pages are imported as source-backed text; child pages are selected separately.
 - GitHub repository selection, up to 20 repositories per source, with optional
@@ -87,7 +89,7 @@ shared local memory server for AI assistants.
 локальная память для ИИ-ассистентов.
 
 - SQLite/FTS5/BM25, ссылки на источники, ревизии и чтение через MCP.
-- Импорт Codex, Claude Code, заметок, выбранных страниц Notion, материалов GitHub
+- Импорт Codex, Claude Code, Qwen Code, заметок, выбранных страниц Notion, материалов GitHub
   и входящих Gmail / Яндекс Почты.
 - Облачная Qwen API и локальная Qwen через отдельно установленную Ollama: без
   токена модели для локального режима, без перехода в облако и с точной проверкой цитат.

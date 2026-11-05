@@ -37,7 +37,10 @@ struct AddSourceSheet: View {
                         }
                     }
                     if let suggestion { Text("Обычно: \(suggestion). Выберите её явно через диалог.").font(.caption).foregroundStyle(.secondary) }
-                    Text(kind == "folder" ? "Проверка найдёт файлы Markdown, TXT и JSONL." : "Проверка найдёт файлы сессий JSONL.").font(.caption).foregroundStyle(.secondary)
+                    Text(kind == "folder" ? "Проверка найдёт файлы Markdown, TXT и JSONL." : kind == "qwen" ? "История Qwen Code: файлы JSONL в chats и chats/archive внутри папок проектов." : "Проверка найдёт файлы сессий JSONL.").font(.caption).foregroundStyle(.secondary)
+                    if kind == "qwen" {
+                        Text("Если вы настроили QWEN_HOME или QWEN_RUNTIME_DIR, выберите фактическую папку projects. Подключение использует историю сессий; API-токен Qwen не требуется.").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
                 Label("Сохранение подключения не запускает чтение содержимого. Проверка доступа выполняется отдельной кнопкой.", systemImage: "hand.raised").font(.caption).foregroundStyle(.secondary)
                 if let error { Text(error).foregroundStyle(.orange).font(.callout) }
@@ -49,12 +52,12 @@ struct AddSourceSheet: View {
                 Button("Добавить источник") { Task { await save() } }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(saving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (mail ? host.isEmpty || username.isEmpty || password.isEmpty : path.isEmpty))
             }.padding(20)
         }
-        .frame(width: 570, height: mail ? 525 : 465)
+        .frame(width: 570, height: mail ? 525 : kind == "qwen" ? 530 : 465)
         .onAppear { name = SourceFormatting.label(kind) }
     }
 
     private var suggestion: String? {
-        switch kind { case "codex": "~/.codex/sessions"; case "claude": "~/.claude/projects"; default: nil }
+        switch kind { case "codex": "~/.codex/sessions"; case "claude": "~/.claude/projects"; case "qwen": "~/.qwen/projects"; default: nil }
     }
     private func chooseFolder() {
         let panel = NSOpenPanel()

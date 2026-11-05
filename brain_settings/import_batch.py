@@ -11,6 +11,7 @@ from .dialogue_parsers import Turn
 from .errors import AppError
 from .import_progress import file_identity
 from .local_scan import DIRECTORY_FLAGS, SKIP_DIRECTORIES
+from .qwen_sessions import is_qwen_session
 from .session_stream import read_session
 
 MAX_RAW_SESSION_BYTES = 64 * 1024 * 1024
@@ -43,7 +44,7 @@ def _signature(metadata):
 
 
 def _allowed(relative: Path, kind: str) -> bool:
-    extensions = {".jsonl"} if kind in ("codex", "claude") else {".md", ".txt", ".jsonl"}
+    extensions = {".jsonl"} if kind in ("codex", "claude", "qwen") else {".md", ".txt", ".jsonl"}
     return (
         relative.suffix.lower() in extensions
         and not any(part.startswith(".") or part in SKIP_DIRECTORIES for part in relative.parts)
@@ -75,7 +76,9 @@ def read_file_events(root: Path, kind: str, eligible_paths=None, known_files=Non
                 cached_state=cached.get("state", "done"),
             )
             return
-        maximum = MAX_RAW_SESSION_BYTES if kind in ("codex", "claude") else limits.MAX_FILE_BYTES
+        maximum = (
+            MAX_RAW_SESSION_BYTES if kind in ("codex", "claude", "qwen") else limits.MAX_FILE_BYTES
+        )
         if metadata.st_size > maximum:
             yield ImportRead(
                 relative,
@@ -106,7 +109,8 @@ def read_file_events(root: Path, kind: str, eligible_paths=None, known_files=Non
                             relative, None, before.st_mtime, _signature(before), state="deferred"
                         )
                         return
-                    if kind in ("codex", "claude") and before.st_size > limits.MAX_FILE_BYTES:
+                    if (kind in ("codex", "claude", "qwen")
+                            and before.st_size > limits.MAX_FILE_BYTES):
                         session = read_session(stream, kind, before.st_size)
                         event = ImportRead(
                             relative,
@@ -177,7 +181,8 @@ def read_file_events(root: Path, kind: str, eligible_paths=None, known_files=Non
                     yield from walk(child, child_relative, depth + 1)
                 finally:
                     os.close(child)
-            elif stat.S_ISREG(metadata.st_mode) and _allowed(child_relative, kind):
+            elif (stat.S_ISREG(metadata.st_mode) and _allowed(child_relative, kind)
+                  and (kind != "qwen" or is_qwen_session(root, child_relative))):
                 yield from read_file(directory, child_relative, metadata)
 
     def eligible(directory):
@@ -189,7 +194,8 @@ def read_file_events(root: Path, kind: str, eligible_paths=None, known_files=Non
             if not absolute.is_relative_to(root):
                 continue
             relative = absolute.relative_to(root)
-            if len(relative.parts) > 33 or not _allowed(relative, kind):
+            if (len(relative.parts) > 33 or not _allowed(relative, kind)
+                    or (kind == "qwen" and not is_qwen_session(root, relative))):
                 continue
             parent = os.dup(directory)
             try:

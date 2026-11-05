@@ -10,7 +10,7 @@ struct MemoryView: View {
     @ViewState private var showAutomation = false
     init(store: AppStore) { self.store = store; self.memory = store.memory }
 
-    private var localSources: [MemorySource] { store.sources.filter { ["codex", "claude", "folder"].contains($0.kind) && $0.enabled } }
+    private var localSources: [MemorySource] { store.sources.filter { ["codex", "claude", "qwen", "folder"].contains($0.kind) && $0.enabled } }
     private var selection: Binding<String?> { Binding(get: { memory.selectedId }, set: { id in Task { await memory.selectRecord(id) } }) }
 
     var body: some View {

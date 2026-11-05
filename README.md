@@ -43,7 +43,7 @@ lexical search, not semantic embeddings.
 
 | Source | Imported content | Scope |
 | --- | --- | --- |
-| Codex / Claude Code | JSONL session text | Selected folders; completed-turn or quiet-period detection |
+| Codex / Claude Code / Qwen Code | JSONL session text | Selected folders; Qwen imports after a quiet period |
 | Notes | Markdown, TXT, JSONL | Selected folder; symlinks skipped |
 | Notion | Selected page text | Up to 100 pages; child pages selected separately |
 | GitHub | Markdown, issue/PR titles and bodies, state and labels | Up to 20 repositories; no code, comments or diffs |
@@ -233,7 +233,7 @@ Community expectations: [Code of conduct](CODE_OF_CONDUCT.md).
 
 | Источник | Что попадает в память | Область |
 | --- | --- | --- |
-| Codex / Claude Code | Текст сессий JSONL | Выбранные папки; завершение хода или пауза записи |
+| Codex / Claude Code / Qwen Code | Текст сессий JSONL | Выбранные папки; Qwen импортируется после паузы записи |
 | Заметки | Markdown, TXT, JSONL | Выбранная папка; символические ссылки пропускаются |
 | Notion | Текст выбранных страниц | До 100 страниц; вложенные выбираются отдельно |
 | GitHub | Markdown, заголовки и описания issues/PR, состояния и метки | До 20 репозиториев; без кода, комментариев и diff |

@@ -39,7 +39,7 @@ struct MemoryAutomationSheet: View {
                     }
                 }
                 Section("Локальный импорт") {
-                    Toggle("Автоимпорт сессий Codex и Claude", isOn: flag(\.autoImportEnabled))
+                    Toggle("Автоимпорт сессий Codex, Claude и Qwen Code", isOn: flag(\.autoImportEnabled))
                     Text("Проверка изменений каждые \(memory.status?.scheduler.pollSeconds ?? 30) секунд. Импорт после события завершения хода или паузы в записи около \(memory.status?.scheduler.quietSeconds ?? 90) секунд. Последующие изменения будут синхронизированы заново.").font(.caption).foregroundStyle(.secondary)
                     Toggle("Полная сверка локальных источников каждые 15 минут", isOn: flag(\.enabled))
                     Text("Полная сверка включает обычные папки. Ручной импорт не запускает модель, даже если автоматические карточки включены.").font(.caption).foregroundStyle(.secondary)

@@ -23,7 +23,7 @@ from .github_models import normalize_repository
 from .notion_models import normalize_page_id, validate_notion_token
 
 logger = logging.getLogger(__name__)
-SourceKind = Literal["codex", "claude", "folder", "imap", "notion", "github"]
+SourceKind = Literal["codex", "claude", "qwen", "folder", "imap", "notion", "github"]
 GitHubContent = Literal["docs", "issues", "pull_requests"]
 
 

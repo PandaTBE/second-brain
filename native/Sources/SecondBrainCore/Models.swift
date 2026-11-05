@@ -101,7 +101,7 @@ public struct MemorySource: Codable, Identifiable, Hashable {
         kind == "imap" ? (MailProvider.detect(raw: mailProvider, host: host)?.title ?? "Другая почта") : SourceFormatting.label(kind)
     }
     public var canImportMemory: Bool {
-        ["codex", "claude", "folder", "notion", "github"].contains(kind) || (kind == "imap" && mailImportEnabled == true)
+        ["codex", "claude", "qwen", "folder", "notion", "github"].contains(kind) || (kind == "imap" && mailImportEnabled == true)
     }
     public var location: String {
         if kind == "notion" { return "Выбрано страниц: \(notionPageIds?.count ?? 0)" }
@@ -155,9 +155,9 @@ public enum SourceFormatting {
         return "\(count) \(kind == "imap" ? "писем" : kind == "notion" ? "страниц" : kind == "github" ? "репозиториев" : "файлов")"
     }
     public static func label(_ kind: String) -> String {
-        ["codex": "Codex", "claude": "Claude Code", "folder": "Папка", "imap": "Другая почта", "notion": "Notion", "github": "GitHub"][kind] ?? kind
+        ["codex": "Codex", "claude": "Claude Code", "qwen": "Qwen Code", "folder": "Папка", "imap": "Другая почта", "notion": "Notion", "github": "GitHub"][kind] ?? kind
     }
     public static func symbol(_ kind: String) -> String {
-        ["codex": "terminal", "claude": "sparkle", "folder": "folder", "imap": "envelope", "notion": "doc.text", "github": "chevron.left.forwardslash.chevron.right"][kind] ?? "doc"
+        ["codex": "terminal", "claude": "sparkle", "qwen": "terminal", "folder": "folder", "imap": "envelope", "notion": "doc.text", "github": "chevron.left.forwardslash.chevron.right"][kind] ?? "doc"
     }
 }

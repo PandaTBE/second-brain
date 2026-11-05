@@ -456,6 +456,10 @@ enum CoreChecks {
         try require(SourceFormatting.count(kind: "imap", count: 0) == "0 писем", "Mail count")
         try require(SourceFormatting.count(kind: "folder", count: nil) == "Не проверено", "Unchecked count")
         try require(SourceFormatting.label("claude") == "Claude Code", "Source display label")
+        let qwen = try APIClient.decoder.decode(MemorySource.self, from: Data(#"{"id":"qwen-session-source","name":"Local sessions","kind":"qwen","path":"/synthetic/qwen","enabled":true,"credential_saved":false,"status":"not_checked"}"#.utf8))
+        try require(qwen.displayKind == "Qwen Code" && qwen.canImportMemory, "Qwen Code sessions are a named importable source")
+        try require(SourceFormatting.symbol("qwen") == "terminal", "Qwen Code uses the session source icon")
+        try require(SourceFormatting.count(kind: "qwen", count: 3) == "3 файлов", "Qwen session counts describe source files")
     }
 
     private static func memoryRequests() throws {

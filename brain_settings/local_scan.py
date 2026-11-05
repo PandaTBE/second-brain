@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 from .errors import AppError
+from .qwen_sessions import is_qwen_session
 
 MAX_ENTRIES = 10_000
 MAX_DEPTH = 32
@@ -41,12 +42,12 @@ def _open_directory(path: str) -> int:
 
 def scan_local(path: str, kind: str) -> int:
     """Count eligible readable files without opening content or following symlinks."""
-    extensions = frozenset({".jsonl"}) if kind in ("codex", "claude") else frozenset(
+    extensions = frozenset({".jsonl"}) if kind in ("codex", "claude", "qwen") else frozenset(
         {".md", ".txt", ".jsonl"})
     visited = 0
     deadline = time.monotonic() + 8
 
-    def walk(directory: int, depth: int) -> int:
+    def walk(directory: int, depth: int, relative: Path = Path()) -> int:
         nonlocal visited
         count = 0
         if depth > MAX_DEPTH:
@@ -63,11 +64,12 @@ def scan_local(path: str, kind: str) -> int:
                 if stat.S_ISDIR(metadata.st_mode) and entry.name not in SKIP_DIRECTORIES:
                     child = os.open(entry.name, DIRECTORY_FLAGS, dir_fd=directory)
                     try:
-                        count += walk(child, depth + 1)
+                        count += walk(child, depth + 1, relative / entry.name)
                     finally:
                         os.close(child)
                 elif (stat.S_ISREG(metadata.st_mode)
-                      and Path(entry.name).suffix.lower() in extensions):
+                      and Path(entry.name).suffix.lower() in extensions
+                      and (kind != "qwen" or is_qwen_session(Path(path), relative / entry.name))):
                     if not os.access(entry.name, os.R_OK, dir_fd=directory,
                                      follow_symlinks=False):
                         raise PermissionError

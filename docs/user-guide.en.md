@@ -4,7 +4,7 @@
 
 ## 1. What it does and when to use it
 
-Second Brain is a native macOS application that brings materials you select into a shared local memory. Sources include Codex and Claude Code sessions, notes, Notion pages, GitHub materials, and Gmail/Yandex inboxes. It stores text and cards in SQLite, searches with FTS5/BM25, and exposes that memory to AI clients through MCP.
+Second Brain is a native macOS application that brings materials you select into a shared local memory. Sources include Codex, Claude Code and Qwen Code sessions, notes, Notion pages, GitHub materials, and Gmail/Yandex inboxes. It stores text and cards in SQLite, searches with FTS5/BM25, and exposes that memory to AI clients through MCP.
 
 Useful workflows include:
 
@@ -139,6 +139,12 @@ Select a session directory using the standard macOS folder picker. Common locati
 The watcher checks for changes roughly every 30 seconds. A recognized completed-turn event can make a file eligible sooner; otherwise it waits about 90 seconds without writes. This is an end-of-turn heuristic, not proof that the entire conversation is finished. Later messages update the archive. An incomplete trailing line is deferred.
 
 The aggregate 128 MiB cap has been removed for session archives. Limits still apply to individual raw JSONL files (64 MiB), individual lines (1 MiB), extracted text, parsing time, and directory traversal. Large logs are streamed and unchanged files use checkpoints. Warnings report limited or unsuccessful passes; removal of the aggregate cap does not mean every possible file can be imported without bounds.
+
+### Qwen Code
+
+Choose **Добавить источник → Qwen Code** and select `~/.qwen/projects`, or the actual `projects` directory when using `QWEN_HOME` / `QWEN_RUNTIME_DIR`. Only session JSONL files in `chats/` and `chats/archive/` are read; a selected `chats` directory also works. This is a local history source, separate from the Qwen API or Ollama model connection; no Qwen token is needed for import.
+
+The importer keeps user and assistant text, skips system events, tool payloads, and thinking parts, and uses the same redaction, SQLite index, and card queue as other sources. Automatic import waits about 90 seconds without writes, checked roughly every 30 seconds. The source must be added, auto-import enabled, and synchronization running. Incomplete lines wait for a later pass. The reader follows the [official Qwen Code recording format](https://github.com/QwenLM/qwen-code/blob/main/packages/core/src/services/chatRecordingService.ts); future format changes may need an update.
 
 ### Notes directory
 

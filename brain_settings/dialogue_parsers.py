@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from .memory_text import redact_text
+from .qwen_sessions import qwen_dialogue
 
 
 @dataclass(frozen=True)
@@ -74,6 +75,8 @@ def parse_session(raw: str, kind: str) -> tuple[list[Turn], bool, int]:
                 "assistant",
             ):
                 role, text = message.get("role", row["type"]), _content(message.get("content"))
+        elif kind == "qwen":
+            role, text = qwen_dialogue(row)
         text = _clean_context(text)
         if not role or not text:
             skipped += 1

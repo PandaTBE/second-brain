@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, Valida
 
 from .errors import AppError
 from .local_scan import _open_directory
+from .qwen_sessions import is_qwen_session
 
 logger = logging.getLogger(__name__)
 EXCLUDED = frozenset({"node_modules", "vendor", "venv", "__pycache__"})
@@ -147,6 +148,8 @@ def _metadata_entries(root_fd: int, max_entries: int):
 
 def _completed_turn(descriptor: int, size: int, kind: str) -> bool:
     """Recognize a completed turn, not proof that the whole session is closed."""
+    if kind == "qwen":
+        return False  # No transcript marker is assumed to mean the session is idle.
     try:
         os.lseek(descriptor, max(0, size - 65_536), os.SEEK_SET)
         tail = os.read(descriptor, 65_536)
@@ -185,7 +188,7 @@ class SessionWatcher:
     def collect(self, source: dict, now: float | None = None) -> WatchBatch:
         source_id = source["id"]
         empty = WatchBatch(source_id, frozenset())
-        if source.get("kind") not in ("codex", "claude") or not source.get("enabled", True):
+        if source.get("kind") not in ("codex", "claude", "qwen") or not source.get("enabled", True):
             return empty
         raw_path = source.get("path")
         if not raw_path or not Path(raw_path).is_absolute():
@@ -201,6 +204,8 @@ class SessionWatcher:
                 self.max_entries,
             ):
                 try:
+                    if source["kind"] == "qwen" and not is_qwen_session(root, relative):
+                        continue
                     path = str(root / relative)
                     signature = (metadata.st_ino, metadata.st_mtime_ns, metadata.st_size)
                     with self._lock:

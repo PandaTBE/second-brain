@@ -20,6 +20,7 @@ struct SourcesView: View {
                 Menu {
                     Button("Codex", systemImage: "terminal") { addKind = "codex" }
                     Button("Claude Code", systemImage: "sparkle") { addKind = "claude" }
+                    Button("Qwen Code", systemImage: "terminal") { addKind = "qwen" }
                     Button("Папка с заметками", systemImage: "folder") { addKind = "folder" }
                     Button("Notion", systemImage: "doc.text") { addKind = "notion" }
                     Button("GitHub", systemImage: "chevron.left.forwardslash.chevron.right") { addKind = "github" }
@@ -32,7 +33,7 @@ struct SourcesView: View {
             if store.sources.isEmpty {
                 ContentUnavailableView {
                     Label("Источники пока не добавлены", systemImage: "tray")
-                } description: { Text("Выберите папку Codex или Claude Code, подключите Notion или GitHub, добавьте заметки, Gmail или Яндекс Почту.") } actions: {
+                } description: { Text("Выберите папку Codex, Claude Code или Qwen Code, подключите Notion или GitHub, добавьте заметки, Gmail или Яндекс Почту.") } actions: {
                     Button("Добавить папку Codex") { addKind = "codex" }.buttonStyle(.borderedProminent)
                     Button("Подключить Gmail") { addKind = "gmail" }
                     Button("Подключить Яндекс Почту") { addKind = "yandex" }
@@ -84,7 +85,7 @@ struct SourcesView: View {
             }
             if let notice = store.notice { Text(notice).font(.callout).foregroundStyle(store.noticeIsError ? Color.orange : Color.green).padding(.horizontal, 24).padding(.bottom, 12) }
             VStack(alignment: .leading, spacing: 8) {
-                Label(memory.status?.scheduler.autoImportEnabled == false ? "Автоимпорт сессий приостановлен" : "Codex и Claude автоматически попадают в память", systemImage: "arrow.triangle.2.circlepath").font(.callout.weight(.medium))
+                Label(memory.status?.scheduler.autoImportEnabled == false ? "Автоимпорт сессий приостановлен" : "Codex, Claude и Qwen Code автоматически попадают в память", systemImage: "arrow.triangle.2.circlepath").font(.callout.weight(.medium))
                 Text("Сессии импортируются после завершения хода или паузы в записи. Выбранные страницы Notion, материалы GitHub и входящие Gmail/Яндекс Почты с включённым импортом обновляются по расписанию памяти; их также можно импортировать кнопкой. Проверка почты считает входящие без чтения тел. Письма не помечаются прочитанными и не удаляются.").font(.caption).foregroundStyle(.secondary)
             }.frame(maxWidth: .infinity, alignment: .leading).padding(20).background(.bar)
         }

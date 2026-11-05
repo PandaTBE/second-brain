@@ -96,7 +96,7 @@ class MemoryService:
             return [
                 source.model_dump()
                 for source in self.source_service.store.load()
-                if source.kind in ("codex", "claude", "folder", "notion", "github", "imap")
+                if source.kind in ("codex", "claude", "qwen", "folder", "notion", "github", "imap")
                 and source.enabled
                 and source.id not in deleted
             ]
