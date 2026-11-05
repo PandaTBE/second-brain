@@ -19,6 +19,19 @@ SQLite stores the memory; FTS5/BM25 performs local search. A model can optionall
 create compact cards with evidence from the original material. The main interface
 uses SwiftUI; the optional graph and history open as a local HTML page.
 
+### Screenshots
+
+The screenshots use synthetic materials and demo sources, with no personal
+cards or credentials. The native interface is currently in Russian.
+
+**Native macOS app — memory, cards and source evidence**
+
+![Second Brain native macOS memory screen with demo materials and a selected card](docs/images/app-memory.jpg)
+
+**Local memory graph — materials, sources and shared topics**
+
+![Second Brain local memory graph showing demo materials connected to sources and shared topics](docs/images/memory-graph.png)
+
 ### Why use it?
 
 - **Carry context between projects and assistants.** Connect clients to one MCP
@@ -209,6 +222,19 @@ Community expectations: [Code of conduct](CODE_OF_CONDUCT.md).
 Материалы хранятся в SQLite, поиск работает через FTS5/BM25. При желании выбранная
 модель создаёт краткие карточки с подтверждающими фрагментами. Граф и история
 открываются отдельной локальной HTML-страницей.
+
+### Скриншоты
+
+На скриншотах — вымышленные материалы и демонстрационные источники, без личных
+карточек и учётных данных.
+
+**Нативное приложение macOS — память, карточки и подтверждающие фрагменты**
+
+![Экран памяти Second Brain на macOS с демонстрационными материалами и выбранной карточкой](docs/images/app-memory.jpg)
+
+**Локальный граф памяти — материалы, источники и общие темы**
+
+![Локальный граф Second Brain со связями демонстрационных материалов, источников и общих тем](docs/images/memory-graph.png)
 
 ### Для чего это нужно и в чём преимущество
 
