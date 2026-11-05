@@ -25,6 +25,7 @@ enum CoreChecks {
             ("Price distinguishes unknown, free, invalid values and currency", price),
             ("Sorting uses both prices, preserves input and puts unknown last", sorting),
             ("Settings encode the API contract without persisting secrets", settings),
+            ("Corporate API access is explicit, endpoint-scoped and backward compatible", corporateNetworkPermission),
             ("Local Qwen connections require no credentials and preserve cloud requirements", localModelConnection),
             ("Local model execution is distinct from temporary provider throttling", localModelExecution),
             ("Catalog pagination warnings remain optional and explicit", catalogPagination),
@@ -407,6 +408,54 @@ enum CoreChecks {
         try require(local.concurrencyLabel != nil, "Local effective concurrency stays visible")
         let cloud = try APIClient.decoder.decode(MemoryProviderBackoff.self, from: Data(#"{"blocked":false,"retry_at":null,"requires_user_action":false,"message":null,"effective_concurrency":4,"configured_concurrency":10}"#.utf8))
         try require(!cloud.isLocalExecution && cloud.executionTitle == "Скорость карточек временно снижена", "Older cloud helpers preserve throttling wording")
+    }
+
+    private static func corporateNetworkPermission() throws {
+        let legacy = try APIClient.decoder.decode(ModelSettings.self, from: Data(#"{"provider":"custom","base_url":"https://models.example.com/api/v2","model_id":"small","model_name":"Small"}"#.utf8))
+        let legacyBody = try JSONSerialization.jsonObject(with: APIClient.encoder.encode(SaveRequest(legacy, token: nil))) as! [String: Any]
+        try require(legacyBody["allow_private_network"] as? Bool == false, "Older settings never opt into an internal network")
+        let allowed = try APIClient.decoder.decode(ModelSettings.self, from: Data(#"{"provider":"custom","base_url":"https://models.internal/api/v2","model_id":"small","model_name":"Small","allow_private_network":true}"#.utf8))
+        try require(!legacy.allowPrivateNetwork && allowed.privateNetworkAccessAllowed, "Only explicit custom settings grant internal access")
+        try require(allowed.customEndpointValidationMessage == nil && legacy.customEndpointValidationMessage == nil, "A versioned HTTPS base URL is accepted")
+        let denied = allowed.settingPrivateNetworkAccess(false)
+        try require(denied.customEndpointValidationMessage != nil, "Internal hostname requires the checkbox")
+        try require(allowed.connectionScopeKey != denied.connectionScopeKey, "Policy changes invalidate stale network results")
+        try require(!allowed.matchesSavedConnection(denied, tokenSaved: true, tokenDraft: ""), "Changing policy is an unsaved connection change")
+        try require(allowed.replacingBaseURL(" https://models.internal/api/v2 ").privateNetworkAccessAllowed, "Whitespace-only URL edits retain the same endpoint permission")
+        let moved = allowed.replacingBaseURL("https://other.internal/api/v2")
+        try require(!moved.allowPrivateNetwork && allowed.allowPrivateNetwork, "Moving to a different host clears permission without mutating the original")
+        try require(!allowed.replacingBaseURL("https://models.internal/api/v3").allowPrivateNetwork, "A different base path requires renewed permission")
+        try requireThrows({
+            _ = try APIClient.decoder.decode(ModelSettings.self, from: Data(#"{"provider":"custom","base_url":"https://models.internal/api/v2","model_id":"small","model_name":"Small","allow_private_network":"true"}"#.utf8))
+        }, "A string cannot silently grant internal access")
+        for provider in ["openrouter", "qwen", "ollama"] {
+            var named = ModelSettings(provider: provider, allowPrivateNetwork: true)
+            try require(!named.allowPrivateNetwork, "Changing to a named provider starts with internal access disabled")
+            named.allowPrivateNetwork = true
+            let body = try JSONSerialization.jsonObject(with: APIClient.encoder.encode(SaveRequest(named, token: nil))) as! [String: Any]
+            try require(body["allow_private_network"] as? Bool == false, "Named provider requests cannot carry custom API permission")
+        }
+        for suffix in [".internal", ".local", ".lan"] {
+            let custom = ModelSettings(provider: "custom", baseUrl: "https://models" + suffix + "/api/v2")
+            try require(custom.customEndpointValidationMessage != nil && custom.settingPrivateNetworkAccess(true).customEndpointValidationMessage == nil, "Trusted internal hostname validation follows the explicit policy")
+        }
+        let numberedDomain = ModelSettings(provider: "custom", baseUrl: "https://127.example.com/api/v2")
+        try require(numberedDomain.customEndpointValidationMessage == nil, "A DNS label beginning with 127 is not an IPv4 loopback address")
+        let numberedInternal = ModelSettings(provider: "custom", baseUrl: "https://127.models.internal/api/v2", allowPrivateNetwork: true)
+        try require(numberedInternal.customEndpointValidationMessage == nil, "A numbered internal hostname remains usable with explicit permission")
+        for address in ["http://models.internal/api/v2", "https://localhost/api/v2", "https://service.localhost/api/v2", "https://127.0.0.1/api/v2", "https://[::1]/api/v2", "https://models.internal:8443/api/v2", "https://user@models.internal/api/v2", "https://models.internal/api/v2?extra=yes", "https://models.internal/api/v2#part"] {
+            let invalid = ModelSettings(provider: "custom", baseUrl: address, allowPrivateNetwork: true)
+            try require(invalid.customEndpointValidationMessage != nil, "Corporate access retains HTTPS, default port and loopback restrictions")
+        }
+        for data in [try APIClient.encoder.encode(ScopeRequest(allowed)),
+                     try APIClient.encoder.encode(ModelRequest(allowed, token: nil)),
+                     try APIClient.encoder.encode(ConnectionRequest(allowed, token: nil)),
+                     try APIClient.encoder.encode(SaveRequest(allowed, token: nil))] {
+            let body = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+            try require(body["allow_private_network"] as? Bool == true, "Every custom API operation carries the explicit network policy")
+            try require(body["base_url"] as? String == "https://models.internal/api/v2", "The versioned base URL is preserved without appending the completion path")
+            try require(body["token"] == nil, "A network permission never supplies a credential")
+        }
     }
 
     private static func settings() throws {

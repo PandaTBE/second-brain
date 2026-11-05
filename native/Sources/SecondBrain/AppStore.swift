@@ -47,7 +47,7 @@ final class AppStore: ObservableObject {
     private var credentialTask: Task<Void, Never>?
 
     var selectedProvider: ProviderInfo? { providers.first { $0.id == draft.provider } }
-    var scopeKey: String { "\(draft.provider)|\(draft.baseUrl.trimmingCharacters(in: .whitespacesAndNewlines))" }
+    var scopeKey: String { draft.connectionScopeKey }
     var requiresToken: Bool { selectedProvider?.needsToken ?? draft.requiresCredential }
     var hasToken: Bool { !requiresToken || draft.canUseCredential(tokenSaved: tokenSaved, tokenDraft: tokenDraft) }
     var hasSavedModel: Bool { !savedSettings.modelId.isEmpty }
@@ -91,14 +91,25 @@ final class AppStore: ObservableObject {
     }
 
     func changeBaseURL(_ value: String) {
-        draft.baseUrl = value; tokenDraft = ""; tokenSaved = false
-        scopeRevision += 1; catalogRevision += 1; catalogLoading = false; models = []; catalogWarning = nil; catalogUpdated = nil; changed()
+        guard value != draft.baseUrl else { return }
+        draft = draft.replacingBaseURL(value); tokenDraft = ""; tokenSaved = false; storageWarning = nil
+        scopeRevision += 1; catalogRevision += 1; catalogLoading = false; models = []; catalogError = nil; catalogWarning = nil; catalogUpdated = nil; changed()
         credentialTask?.cancel()
         credentialTask = Task {
             do { try await Task.sleep(nanoseconds: 450_000_000) } catch { return }
             guard URL(string: value)?.scheme == "https", URL(string: value)?.host != nil else { return }
             await refreshCredential()
         }
+    }
+
+    func changePrivateNetworkAccess(_ allowed: Bool) {
+        let updated = draft.settingPrivateNetworkAccess(allowed)
+        guard updated != draft else { return }
+        credentialTask?.cancel()
+        draft = updated; tokenSaved = false; storageWarning = nil
+        scopeRevision += 1; catalogRevision += 1; catalogLoading = false
+        models = []; catalogError = nil; catalogWarning = nil; catalogUpdated = nil; changed()
+        credentialTask = Task { await refreshCredential() }
     }
 
     func changeToken(_ value: String) {
@@ -143,6 +154,7 @@ final class AppStore: ObservableObject {
 
     private func validate() -> Bool {
         if draft.baseUrl.isEmpty { showError("Укажите адрес API."); return false }
+        if let issue = draft.customEndpointValidationMessage { showError(issue); return false }
         if !hasToken { showError("Вставьте API-токен выбранного провайдера."); return false }
         if draft.modelId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { showError("Выберите модель или укажите точный ID вручную."); return false }
         return true

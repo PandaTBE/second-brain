@@ -84,7 +84,8 @@ class SettingsStore:
             if self.path.stat().st_size > 16_384:
                 raise ValueError
             settings = Settings.model_validate(json.loads(self.path.read_text("utf-8")))
-            normalized = normalize_endpoint(settings.provider, settings.base_url)
+            normalized = normalize_endpoint(settings.provider, settings.base_url,
+                                            allow_private_network=settings.allow_private_network)
             return settings.model_copy(update={"base_url": normalized})
         except (OSError, ValueError, ValidationError, AppError) as exc:
             raise AppError("settings_unreadable", "Не удалось прочитать настройки. "
@@ -98,7 +99,10 @@ class SettingsStore:
             descriptor, filename = tempfile.mkstemp(prefix=".settings-", dir=self.directory)
             temporary = Path(filename)
             with os.fdopen(descriptor, "w", encoding="utf-8") as output:
-                json.dump(settings.model_dump(), output, ensure_ascii=False, indent=2)
+                excluded = ({"allow_private_network"}
+                            if not settings.allow_private_network else set())
+                json.dump(settings.model_dump(exclude=excluded), output,
+                          ensure_ascii=False, indent=2)
                 output.write("\n")
                 output.flush()
                 os.fsync(output.fileno())

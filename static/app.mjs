@@ -1,11 +1,12 @@
 import { apiRequest } from './api.mjs';
 import { createCatalog } from './catalog.mjs';
+import { endpointScope, changeEndpoint, changePrivateNetwork, sameEndpoint } from './endpoint-policy.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const tokenInput = $('#api-token');
 const symbols = { openrouter: '↗', simpleclaw: 'S', deepseek: '≈', openai: '✳', custom: '⌘' };
 let state = {
-  csrf: '', providers: [], draft: { provider: 'openrouter', base_url: '', model_id: '', model_name: '' },
+  csrf: '', providers: [], draft: { provider: 'openrouter', base_url: '', model_id: '', model_name: '', allow_private_network: false },
   tokenSaved: false, storageAvailable: true, ready: false, busy: '', scopeVersion: 0,
   draftVersion: 0, catalogRequest: 0, credentialRequest: 0, connection: null, savedSettings: null,
   mutationScope: null,
@@ -13,7 +14,7 @@ let state = {
 const catalog = createCatalog({ onSelect: selectModel, onRefresh: loadModels });
 
 function provider() { return state.providers.find((item) => item.id === state.draft.provider); }
-function scope() { return { provider: state.draft.provider, base_url: state.draft.base_url.trim().replace(/\/+$/, '') }; }
+function scope() { return endpointScope(state.draft); }
 function payload() { return { ...scope(), token: tokenInput.value || null }; }
 function tokenExists() { return Boolean(tokenInput.value || state.tokenSaved); }
 
@@ -70,7 +71,7 @@ function updateSummary() {
   tokenInput.placeholder = state.tokenSaved ? 'Токен сохранён в Связке ключей' : 'Вставьте ваш API-токен';
   const saved = state.savedSettings;
   const complete = state.tokenSaved && !tokenInput.value && saved
-    && saved.provider === state.draft.provider && saved.base_url.replace(/\/+$/, '') === scope().base_url
+    && sameEndpoint(saved, state.draft)
     && saved.model_id === state.draft.model_id && Boolean(state.draft.model_id);
   $('#setup-badge').classList.toggle('complete', complete);
   $('#setup-badge').lastChild.textContent = complete ? ' Настройки сохранены' : saved?.model_id ? ' Есть изменения' : ' Первый запуск';
@@ -112,6 +113,8 @@ function updateProviderFields() {
   });
   const custom = state.draft.provider === 'custom';
   $('#custom-endpoint').hidden = !custom;
+  $('#custom-private-network').hidden = !custom;
+  $('#allow-private-network').checked = scope().allow_private_network;
   $('#preset-endpoint').hidden = custom;
   $('#base-url').value = state.draft.base_url;
   $('#preset-endpoint-text').textContent = state.draft.base_url;
@@ -144,7 +147,7 @@ async function chooseProvider(id) {
   if (id === state.draft.provider) return;
   const item = state.providers.find((entry) => entry.id === id);
   if (!item) return;
-  state = { ...state, draft: { provider: id, base_url: item.base_url || '', model_id: '', model_name: '' }, tokenSaved: false, scopeVersion: state.scopeVersion + 1, catalogRequest: state.catalogRequest + 1 };
+  state = { ...state, draft: { ...changeEndpoint(state.draft, id, item.base_url || ''), model_id: '', model_name: '' }, tokenSaved: false, scopeVersion: state.scopeVersion + 1, catalogRequest: state.catalogRequest + 1 };
   resetTokenField();
   changed();
   catalog.clear();
@@ -261,10 +264,16 @@ async function bootstrap() {
 
 $('#provider-list').addEventListener('click', (event) => { const button = event.target.closest('[data-provider]'); if (button) chooseProvider(button.dataset.provider); });
 $('#base-url').addEventListener('input', () => {
-  state = { ...state, draft: { ...state.draft, base_url: $('#base-url').value }, tokenSaved: false, scopeVersion: state.scopeVersion + 1, catalogRequest: state.catalogRequest + 1 };
+  state = { ...state, draft: changeEndpoint(state.draft, state.draft.provider, $('#base-url').value), tokenSaved: false, scopeVersion: state.scopeVersion + 1, catalogRequest: state.catalogRequest + 1 };
+  $('#allow-private-network').checked = scope().allow_private_network;
   resetTokenField(); changed(); catalog.clear(); catalog.loading(false);
 });
 $('#base-url').addEventListener('blur', checkCredential);
+$('#allow-private-network').addEventListener('change', () => {
+  state = { ...state, draft: changePrivateNetwork(state.draft, $('#allow-private-network').checked), scopeVersion: state.scopeVersion + 1, catalogRequest: state.catalogRequest + 1 };
+  changed(); catalog.clear(); catalog.loading(false);
+  checkCredential();
+});
 tokenInput.addEventListener('input', () => {
   if (!['openrouter', 'simpleclaw'].includes(state.draft.provider)) {
     state = { ...state, catalogRequest: state.catalogRequest + 1 };

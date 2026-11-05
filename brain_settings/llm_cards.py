@@ -114,14 +114,20 @@ class LLMCardGenerator:
         settings = self.settings_service.store.load()
         if not settings.model_id:
             raise AppError("model_required", "Сначала выберите и сохраните модель для карточек.")
-        base_url = normalize_endpoint(settings.provider, settings.base_url)
+        base_url = normalize_endpoint(settings.provider, settings.base_url,
+                                      allow_private_network=settings.allow_private_network)
         return settings, base_url
+
+    @staticmethod
+    def _signature(settings, base_url):
+        signature = (settings.provider, base_url, settings.model_id, PROMPT_VERSION)
+        return (*signature, "private-network") if settings.allow_private_network else signature
 
     def is_current(self, result: dict) -> bool:
         try:
             settings, base_url = self._configuration()
-            return tuple(result.get("configuration_signature", ())) == (
-                settings.provider, base_url, settings.model_id, PROMPT_VERSION)
+            return tuple(result.get("configuration_signature", ())) == self._signature(
+                settings, base_url)
         except AppError:
             return False
 
@@ -130,8 +136,10 @@ class LLMCardGenerator:
             settings, base_url = self._configuration()
         except AppError:
             return None
-        signature = json.dumps([settings.provider, base_url, settings.model_id],
-                               ensure_ascii=False, separators=(",", ":"))
+        values = [settings.provider, base_url, settings.model_id]
+        if settings.allow_private_network:
+            values = [*values, "private-network"]
+        signature = json.dumps(values, ensure_ascii=False, separators=(",", ":"))
         return hashlib.sha256(signature.encode("utf-8")).hexdigest()
 
     def concurrency_limit(self) -> int | None:
@@ -217,8 +225,9 @@ class LLMCardGenerator:
                 response = self._local_client().generate(payload, timeout=180,
                                                          before_request=before_request)
             else:
+                policy = {"allow_private_network": True} if settings.allow_private_network else {}
                 response = self.transport.post_json(base_url, "/chat/completions", payload,
-                                                    token=token, timeout=45)
+                                                    token=token, timeout=45, **policy)
             usage = _usage(response)
             content = _response_content(response)
             try:
@@ -228,8 +237,7 @@ class LLMCardGenerator:
                                "Исходный текст сохранён; обработку можно повторить.", 502) from None
             card = validate_card(value, text)
             return {"card": card, "model": settings.model_id, "prompt_version": PROMPT_VERSION,
-                    "usage": usage, "configuration_signature": (
-                        settings.provider, base_url, settings.model_id, PROMPT_VERSION)}
+                    "usage": usage, "configuration_signature": self._signature(settings, base_url)}
         except AppError as error:
             raise CardGenerationError(error.code, error.message, error.status_code,
                                       usage, **_error_metadata(error)) from None

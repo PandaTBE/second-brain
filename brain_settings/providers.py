@@ -7,9 +7,18 @@ from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit, urlunsplit
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    StrictBool,
+    field_validator,
+    model_validator,
+)
 
 from .errors import AppError
+from .network_policy import address_allowed, hostname_allowed
 
 
 @dataclass(frozen=True)
@@ -72,7 +81,9 @@ def provider_metadata() -> list[dict]:
     return [asdict(provider) for provider in PROVIDERS]
 
 
-def normalize_endpoint(provider: str, base_url: str) -> str:
+def normalize_endpoint(provider: str, base_url: str, *, allow_private_network: bool = False) -> str:
+    if type(allow_private_network) is not bool or (allow_private_network and provider != "custom"):
+        raise AppError("invalid_network_policy", "Внутренняя сеть доступна только для своего API.")
     known = next((item for item in PROVIDERS if item.id == provider), None)
     if known is None:
         raise AppError("invalid_provider", "Выберите провайдера из списка.")
@@ -97,9 +108,7 @@ def normalize_endpoint(provider: str, base_url: str) -> str:
             raise ValueError
         if not re.fullmatch(r"[a-z0-9.-]+", hostname) or ".." in hostname:
             raise ValueError
-        if hostname == "localhost" or hostname.endswith(
-            (".localhost", ".local", ".internal", ".lan")
-        ):
+        if not hostname_allowed(hostname, allow_private_network=allow_private_network):
             raise ValueError
         if not re.fullmatch(r"[a-zA-Z0-9_./~-]*", url.path):
             raise ValueError
@@ -109,13 +118,16 @@ def normalize_endpoint(provider: str, base_url: str) -> str:
             address = ipaddress.ip_address(hostname)
         except ValueError:
             address = None
-        if address is not None and not address.is_global:
+        if address is not None and not address_allowed(
+            address, allow_private_network=allow_private_network
+        ):
             raise ValueError
         normalized = urlunsplit(("https", hostname, url.path.rstrip("/"), "", ""))
     except (ValueError, UnicodeError) as exc:
         raise AppError(
             "invalid_endpoint",
-            "Укажите публичный HTTPS-адрес API без логина, параметров и нестандартного порта.",
+            "Укажите HTTPS-адрес API без логина, параметров и нестандартного порта. "
+            "Для корпоративного сервера разрешите внутреннюю сеть в настройках своего API.",
         ) from exc
     if provider != "custom" and normalized != known.base_url:
         raise AppError(
@@ -130,6 +142,13 @@ class EndpointRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     provider: str = Field(max_length=32)
     base_url: str = Field(max_length=2048)
+    allow_private_network: StrictBool = False
+
+    @model_validator(mode="after")
+    def private_network_requires_custom(self):
+        if self.allow_private_network and self.provider != "custom":
+            raise ValueError("Внутренняя сеть доступна только для своего API.")
+        return self
 
 
 class SelectionRequest(EndpointRequest):
@@ -162,8 +181,15 @@ class Settings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     provider: str = "openrouter"
     base_url: str = "https://openrouter.ai/api/v1"
+    allow_private_network: StrictBool = False
     model_id: str = ""
     model_name: str = ""
+
+    @model_validator(mode="after")
+    def private_network_requires_custom(self):
+        if self.allow_private_network and self.provider != "custom":
+            raise ValueError("Внутренняя сеть доступна только для своего API.")
+        return self
 
 
 def _price(value: object, multiplier: int = 1_000_000) -> float | None:

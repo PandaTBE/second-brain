@@ -7,7 +7,13 @@ listed in the release notes; preparing local artifacts does not publish a releas
 
 ## [Unreleased]
 
-No unreleased changes recorded.
+### Added
+
+- Explicit, disabled-by-default internal-network access for a custom HTTPS model
+  API. The permission is saved for that API, resets when its address or provider
+  changes, and applies to catalog checks and card generation. TLS verification,
+  DNS pinning and metadata/loopback restrictions remain enforced. This is an
+  unreleased source-build change; published `v0.1.0` assets are unchanged.
 
 ## [0.1.0] — 2026-11-04
 

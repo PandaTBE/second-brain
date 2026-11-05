@@ -2,7 +2,7 @@
 
 [Русский](security.ru.md) · [User guide](user-guide.en.md) · [Reporting vulnerabilities](../SECURITY.md)
 
-This document describes the protections and limits of **Second Brain 0.1.0**. It is a description of the implementation, not an independent security audit or a promise of complete confidentiality.
+**Updated 2026-11-05.** This document describes the protections and limits of **Second Brain 0.1.0**, with unreleased source-build changes explicitly marked. It describes the implementation, not an independent security audit or a promise of complete confidentiality.
 
 ## The security model
 
@@ -48,9 +48,10 @@ The native client validates that it is talking to the helper instance it started
 
 ## Outbound connections and source access
 
-- HTTPS connections verify TLS certificates. Public destination addresses are validated and pinned for the connection while TLS still verifies the original hostname. Redirects are not followed.
+- HTTPS connections verify TLS certificates. Destination addresses are checked against the applicable network policy and pinned for the connection while TLS still verifies the original hostname. Redirects are not followed.
 - GitHub and Notion clients use fixed API hosts and read operations. Source selection is explicit: new repositories, child pages, or an entire workspace are not silently added to the selected scope.
-- A custom model endpoint must be public HTTPS on port 443. Arbitrary local/private addresses, plain HTTP, and custom ports remain rejected.
+- Custom model APIs use public HTTPS on port 443 by default. The published `v0.1.0` ZIP rejects private destinations.
+- **Unreleased source builds:** only a custom model API can explicitly enable `allow_private_network`. The native option is off by default, belongs to the configured API, and resets when its address or provider changes. It permits RFC1918 IPv4, IPv6 ULA and CGNAT; known cloud metadata destinations remain denied, including `100.100.100.200`, `fd00:ec2::254` and `fd20:ce::254`. Loopback, link-local, unspecified, multicast and other reserved addresses remain blocked. Every DNS answer must satisfy the policy before credentials can be sent. HTTPS/443, hostname/certificate verification, address pinning, response limits and no redirects remain enforced. The policy does not broaden Notion, GitHub, mail or named cloud-provider access, and does not bypass a corporate CA trust error.
 - The named Ollama connection is a narrow exception: its client connects only to `127.0.0.1:11434`, with fixed native model-list/chat routes, no API credentials, no DNS or proxy selection, and no redirects. Installed models are checked for remote/cloud metadata; chat requests enforce local mode and do not fall back to a cloud provider. Use an up-to-date, trusted Ollama installation. These checks do not defend against malicious software replacing the local server.
 - Gmail and Yandex Mail use TLS and read-only inbox selection plus `BODY.PEEK` reads. Import does not mark messages read, move them, or delete them. Existing mail connections do not silently opt into body import.
 - Small mail messages are received as bounded complete RFC822 messages. Attachment bytes can therefore exist transiently in process memory, but attachments are excluded from stored text and cards. Whole messages above 1 MiB, including large attachments, are skipped with an explicit warning. Remote images and linked files are not fetched by the mail renderer.

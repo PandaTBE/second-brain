@@ -48,6 +48,7 @@
             <div id="provider-list" class="provider-grid" role="group" aria-label="Провайдер модели"><div class="loading-placeholder">Загружаем настройки…</div></div>
             <div id="preset-endpoint" class="endpoint-caption"><span class="tiny-lock" aria-hidden="true">↳</span><code id="preset-endpoint-text"></code></div>
             <div id="custom-endpoint" class="field-block" hidden><label for="base-url">Адрес API</label><input id="base-url" type="url" spellcheck="false" autocomplete="off" placeholder="https://api.example.com/v1"><p class="field-hint">HTTPS-адрес совместимого с OpenAI API. Без /chat/completions.</p></div>
+            <div id="custom-private-network" hidden><label for="allow-private-network"><input id="allow-private-network" type="checkbox" aria-describedby="private-network-hint"> Разрешить внутреннюю сеть для этого API</label><p id="private-network-hint" class="field-hint">Для доверенного корпоративного API, доступного в вашей сети или через VPN. Требуется HTTPS на порту 443 с действительным сертификатом; localhost и служебные адреса запрещены. При смене адреса разрешение сбрасывается.</p></div>
           </section>
 
           <section class="panel" aria-labelledby="token-heading">

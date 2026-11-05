@@ -12,13 +12,19 @@ from urllib.parse import urlsplit
 import certifi
 
 from .errors import AppError
+from .network_policy import address_allowed, hostname_allowed
 from .provider_errors import MAX_ERROR_BYTES, rate_limit_error
 
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 DNS_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="brain-dns")
 
 
-def validate_public_host(hostname: str) -> list[str]:
+def validate_public_host(hostname: str, *, allow_private_network: bool = False) -> list[str]:
+    if type(allow_private_network) is not bool:
+        raise AppError("invalid_network_policy", "Укажите явное разрешение внутренней сети.")
+    if not hostname_allowed(hostname, allow_private_network=allow_private_network):
+        raise AppError("unsafe_endpoint", "Подключение к внутренним именам требует разрешения "
+                       "для своего API. Локальные службы недоступны.")
     try:
         literal = ipaddress.ip_address(hostname)
     except ValueError:
@@ -41,9 +47,13 @@ def validate_public_host(hostname: str) -> list[str]:
             parsed = ipaddress.ip_address(address)
         except ValueError as exc:
             raise AppError("unsafe_endpoint", "Провайдер вернул недопустимый адрес.") from exc
-        if not parsed.is_global or parsed.is_multicast:
-            raise AppError("unsafe_endpoint", "Подключение к внутренним и локальным "
-                           "адресам запрещено.")
+        if not address_allowed(parsed, allow_private_network=allow_private_network):
+            message = ("Этот адрес недоступен: локальные, служебные и metadata-адреса запрещены."
+                       if allow_private_network else
+                       "Подключение к внутренним и локальным адресам запрещено. "
+                       "Для корпоративного сервера разрешите внутреннюю сеть "
+                       "в настройках своего API.")
+            raise AppError("unsafe_endpoint", message)
     return addresses
 
 
@@ -88,14 +98,18 @@ def _check_status(status: int) -> None:
 
 class ProviderTransport:
     def post_json(self, base_url: str, path: str, payload: dict,
-                  token: str | None = None, timeout: float = 45) -> dict:
+                  token: str | None = None, timeout: float = 45,
+                  *, allow_private_network: bool = False) -> dict:
         """Send one POST; queue-level retry policy controls additional paid requests."""
         url = urlsplit(base_url)
         if (url.scheme != "https" or url.username or url.password or url.query or url.fragment
                 or url.port not in (None, 443) or path != "/chat/completions"):
             raise AppError("invalid_endpoint", "Укажите конечный публичный HTTPS-адрес API.")
         hostname = url.hostname or ""
-        addresses = validate_public_host(hostname)
+        if type(allow_private_network) is not bool:
+            raise AppError("invalid_network_policy", "Укажите явное разрешение внутренней сети.")
+        addresses = (validate_public_host(hostname, allow_private_network=True)
+                     if allow_private_network else validate_public_host(hostname))
         context = ssl.create_default_context(cafile=certifi.where())
         context.set_alpn_protocols(["http/1.1"])
         connection = PinnedHTTPSConnection(hostname, addresses, context, timeout=min(timeout, 60))
@@ -135,10 +149,17 @@ class ProviderTransport:
         finally:
             connection.close()
 
-    def request(self, base_url: str, path: str, token: str | None = None) -> dict:
+    def request(self, base_url: str, path: str, token: str | None = None,
+                *, allow_private_network: bool = False) -> dict:
         url = urlsplit(base_url)
+        if (url.scheme != "https" or url.username or url.password or url.query or url.fragment
+                or url.port not in (None, 443)):
+            raise AppError("invalid_endpoint", "Укажите HTTPS-адрес API на стандартном порту.")
         hostname = url.hostname or ""
-        addresses = validate_public_host(hostname)
+        if type(allow_private_network) is not bool:
+            raise AppError("invalid_network_policy", "Укажите явное разрешение внутренней сети.")
+        addresses = (validate_public_host(hostname, allow_private_network=True)
+                     if allow_private_network else validate_public_host(hostname))
         context = ssl.create_default_context(cafile=certifi.where())
         context.set_alpn_protocols(["http/1.1"])
         connection = PinnedHTTPSConnection(hostname, addresses, context, timeout=12.0)

@@ -35,6 +35,9 @@ struct ModelSettingsView: View {
                         if store.draft.provider == "custom" {
                             TextField("Адрес API", text: Binding(get: { store.draft.baseUrl }, set: { store.changeBaseURL($0); revealToken = false }), prompt: Text("https://api.example.com/v1"))
                                 .textFieldStyle(.roundedBorder)
+                            Toggle("Разрешить внутреннюю сеть для этого API", isOn: Binding(get: { store.draft.privateNetworkAccessAllowed }, set: { store.changePrivateNetworkAccess($0) }))
+                                .toggleStyle(.checkbox)
+                            Text("Для доверенного корпоративного API, в том числе через VPN. Разрешение относится к этому адресу и сбрасывается при его изменении. HTTPS, порт 443 и проверка сертификата обязательны; localhost недоступен.").font(.caption).foregroundStyle(.secondary)
                             TextField("Точный ID модели", text: Binding(get: { store.draft.modelId }, set: { store.enterModelID($0) }), prompt: Text("ID из документации вашего API"))
                                 .textFieldStyle(.roundedBorder)
                             Text("Совместимый с OpenAI HTTPS API. Укажите базовый адрес, без /chat/completions. Каталог необязателен: можно сохранить адрес, токен и ID из документации вашего API.").font(.caption).foregroundStyle(.secondary)

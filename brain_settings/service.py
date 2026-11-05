@@ -56,7 +56,8 @@ class SettingsService:
         }
 
     def _endpoint(self, request: EndpointRequest) -> tuple[str, str]:
-        base_url = normalize_endpoint(request.provider, request.base_url)
+        base_url = normalize_endpoint(request.provider, request.base_url,
+                                      allow_private_network=request.allow_private_network)
         if request.provider == "ollama" and getattr(request, "token", None) is not None:
             raise AppError("local_token_forbidden", "Для локального Ollama API-токен не нужен. "
                            "Удалите токен из запроса.")
@@ -78,7 +79,8 @@ class SettingsService:
                 self._local_client = OllamaClient()
             return self._local_client
 
-    def _request(self, base_url: str, path: str, token: str | None = None, *, local=False):
+    def _request(self, base_url: str, path: str, token: str | None = None, *, local=False,
+                 allow_private_network=False):
         with self._lock:
             now = time.monotonic()
             recent = tuple(stamp for stamp in self._request_times if now - stamp < 60)
@@ -89,6 +91,8 @@ class SettingsService:
         try:
             if local:
                 return self.local_client().catalog()
+            if allow_private_network:
+                return self.transport.request(base_url, path, token, allow_private_network=True)
             return self.transport.request(base_url, path, token)
         except AppError:
             raise
@@ -117,7 +121,8 @@ class SettingsService:
                     "price_unit": "Цена и валюта не указаны в каталоге Qwen"}
         public = request.provider in ("openrouter", "simpleclaw")
         token = None if public else self._token(request, scope)
-        payload = self._request(base_url, "/models", token)
+        payload = self._request(base_url, "/models", token,
+                                allow_private_network=request.allow_private_network)
         currency = "RUB" if request.provider == "simpleclaw" else "USD"
         return {"models": parse_models(payload, request.provider),
                 "fetched_at": datetime.now(UTC).isoformat(), "currency": currency,
@@ -158,7 +163,8 @@ class SettingsService:
         elif request.provider == "simpleclaw":
             payload = self._request(base_url, "/models")
         else:
-            payload = self._request(base_url, "/models", token)
+            payload = self._request(base_url, "/models", token,
+                                allow_private_network=request.allow_private_network)
         models = parse_models(payload, request.provider)
         available = any(model["id"] == request.model_id for model in models)
         available = available if request.model_id else None
@@ -179,7 +185,8 @@ class SettingsService:
         if request.provider == "ollama":
             settings = Settings(provider=request.provider, base_url=base_url,
                                 model_id=request.model_id,
-                                model_name=request.model_name.strip() or request.model_id)
+                                model_name=request.model_name.strip() or request.model_id,
+                                allow_private_network=request.allow_private_network)
             with self._lock:
                 self.store.save(settings)
             return {"settings": settings.model_dump(), "token_saved": False}
@@ -190,7 +197,8 @@ class SettingsService:
                 raise AppError("token_required", "Вставьте API-токен выбранного провайдера.")
             settings = Settings(provider=request.provider, base_url=base_url,
                                 model_id=request.model_id,
-                                model_name=request.model_name.strip() or request.model_id)
+                                model_name=request.model_name.strip() or request.model_id,
+                                allow_private_network=request.allow_private_network)
             replaced = request.token is not None
             if replaced:
                 vault_operation(self.vault, "set", scope, token)

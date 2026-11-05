@@ -119,8 +119,10 @@ rather than a development app, see [releasing](docs/releasing.md).
    token. Save the model and test a small batch. Cloud processing sends text to
    that provider and may incur charges; local processing uses your Mac. Ollama
    and model weights are separate installs. A custom OpenAI-compatible API needs
-   its public base URL, token and exact model ID; catalog loading is optional.
-   See the [connection guide](docs/user-guide.en.md#4-models-and-cards)
+   its HTTPS base URL (public by default), token and exact model ID; catalog
+   loading is optional. **Unreleased source builds** add an explicit opt-in for a
+   trusted corporate API on an internal network; the published `v0.1.0` ZIP does
+   not include that option. See the [connection guide](docs/user-guide.en.md#4-models-and-cards)
    and [local Qwen setup](docs/user-guide.en.md#qwen-api-and-local-qwen).
 6. **Set automation.** Session watching polls about every 30 seconds, using a
    completed-turn marker or 90 seconds of inactivity. Connected remote sources
@@ -317,8 +319,11 @@ open "Second Brain.app"
    Qwen API с токеном, либо локальную Qwen через Ollama без токена. Сохраните модель
    и проверьте небольшую партию. Облако получает текст и может требовать оплаты;
    локальная обработка использует ресурсы Mac. Ollama и веса устанавливаются
-   отдельно. Для **Свой API · OpenAI-совместимый** нужны публичный базовый URL,
-   токен и точный ID модели; загрузка каталога необязательна. Подробнее —
+   отдельно. Для **Свой API · OpenAI-совместимый** нужны базовый HTTPS-адрес
+   (по умолчанию публичный), токен и точный ID модели; каталог необязателен.
+   **В неопубликованных сборках из исходников** добавлено явное разрешение для
+   доверенного корпоративного API во внутренней сети. В ZIP `v0.1.0` этой настройки
+   ещё нет. Подробнее —
    [подключение модели](docs/user-guide.ru.md#4-подключение-модели-и-карточки) и
    [локальная Qwen](docs/user-guide.ru.md#qwen-api-и-локальная-qwen).
 6. Настройте автоматизацию. Сессии проверяются примерно каждые 30 секунд:

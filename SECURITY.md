@@ -36,8 +36,14 @@ For optional card generation, cloud Qwen API uses a region-matched API key in
 Keychain. The named local Ollama connection needs no model token and connects
 only to its fixed loopback service, using downloaded models without cloud
 fallback. Ollama and model weights are installed separately. Custom provider
-endpoints remain restricted to public HTTPS; the local server and OS must be
-trusted. Remote-source imports and MCP-client processing have separate data flows.
+endpoints use public HTTPS by default; published `v0.1.0` rejects private
+addresses. **Unreleased source builds** add a custom-API-only, disabled-by-default
+internal-network permission for a trusted corporate endpoint. It resets when the
+address or provider changes, retains HTTPS/443 and verified TLS, and keeps
+loopback, link-local and known cloud metadata endpoints blocked. See the
+[network policy](docs/security.en.md#outbound-connections-and-source-access).
+The local server and OS must be trusted. Remote-source imports and MCP-client
+processing have separate data flows.
 
 The current downloadable package is ad-hoc signed and **not Developer ID signed
 or notarized by Apple**. Scanning for known secret patterns and personal paths is
@@ -74,9 +80,15 @@ Second Brain рассчитан на личный Mac и доверенную у
 проектного архива нет. Облачная Qwen API использует региональный API-ключ в
 Keychain; локальное подключение Ollama не требует токена модели, обращается
 только к фиксированному loopback-сервису и загруженным моделям без перехода в
-облако. Ollama и веса устанавливаются отдельно. Собственные провайдеры по-прежнему
-ограничены публичным HTTPS; локальный сервер и ОС должны быть доверенными.
-Импорт удалённых источников и обработка MCP-клиентом — отдельные потоки данных.
+облако. Ollama и веса устанавливаются отдельно. Собственный API по умолчанию
+использует публичный HTTPS; опубликованная `v0.1.0` запрещает приватные адреса.
+**В неопубликованной сборке из исходников** добавлено выключенное по умолчанию
+разрешение внутренней сети только для доверенного собственного API. Оно
+сбрасывается при смене адреса или провайдера, сохраняет HTTPS/443 и проверку TLS;
+loopback, link-local и известные адреса метаданных облачных машин блокируются.
+Подробности — в [сетевой политике](docs/security.ru.md).
+Локальный сервер и ОС должны быть доверенными. Импорт удалённых источников и
+обработка MCP-клиентом — отдельные потоки данных.
 Проверка известных шаблонов не гарантирует обнаружение
 всех чувствительных сведений. Текущая ad-hoc подпись не является Developer ID или
 нотарификацией Apple. Не отключайте защиту ОС ради недоверенного файла.
