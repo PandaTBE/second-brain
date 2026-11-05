@@ -62,7 +62,7 @@ jobs:
           node-version: "24"
           package-manager-cache: false
       - name: Test static model and memory graph behavior
-        run: node --test tests/test-model-utils.mjs tests/test-memory-atlas.mjs
+        run: node --test tests/test-*.mjs
 
   native:
     name: Native macOS checks and build

@@ -23,13 +23,15 @@ struct MemoryAutomationSheet: View {
             memory.editSchedule(draft)
         })
     }
+    private var localProcessing: Bool { memory.status?.providerBackoff?.isLocalExecution == true }
+
     private var concurrencyIsValid: Bool {
         MemoryCardConcurrency.parse(concurrencyText ?? String(memory.scheduleDraft.cardConcurrency)) != nil
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 6) { Text("Автоматизация памяти").font(.title2.weight(.semibold)); Text("Локальный импорт и платная обработка настраиваются отдельно.").foregroundStyle(.secondary).font(.callout) }.padding(24)
+            VStack(alignment: .leading, spacing: 6) { Text("Автоматизация памяти").font(.title2.weight(.semibold)); Text(localProcessing ? "Локальный импорт и обработка через Ollama настраиваются отдельно." : "Локальный импорт и платная обработка настраиваются отдельно.").foregroundStyle(.secondary).font(.callout) }.padding(24)
             Form {
                 if memory.synchronizationPaused {
                     Section("Синхронизация остановлена") {
@@ -42,7 +44,7 @@ struct MemoryAutomationSheet: View {
                     Toggle("Полная сверка локальных источников каждые 15 минут", isOn: flag(\.enabled))
                     Text("Полная сверка включает обычные папки. Ручной импорт не запускает модель, даже если автоматические карточки включены.").font(.caption).foregroundStyle(.secondary)
                 }
-                Section("Карточки через API — платно") {
+                Section(localProcessing ? "Карточки через Ollama — на этом Mac" : "Карточки через API — платно") {
                     Toggle("Автоматически создавать карточки", isOn: flag(\.processCards))
                     Stepper("Не более \(memory.scheduleDraft.batchLimit) материалов за запуск", value: batch, in: MemoryProcessingLimit.range)
                     LabeledContent("Одновременные запросы") {
@@ -57,7 +59,7 @@ struct MemoryAutomationSheet: View {
                     }
                     Text("По умолчанию — 10. Можно задать любое положительное целое число. Одновременно обрабатывается не больше материалов, чем в текущей партии. Настройка применяется к следующему запуску, включая ручную обработку.").font(.caption).foregroundStyle(.secondary)
                     Text("Если включено, модель обрабатывает ожидающие материалы после автоимпорта и периодической сверки. Готовые неизменённые карточки не обрабатываются повторно.").font(.caption).foregroundStyle(.secondary)
-                    Label("Это лимит размера пакета, а не денежный бюджет. Каждый автоматический запуск может расходовать API-кредиты по тарифам выбранной модели.", systemImage: "creditcard").font(.caption).foregroundStyle(.orange)
+                    Label(localProcessing ? "Локальная модель использует память и процессор Mac. Выполняется один запрос за раз; заданная параллельность сохранится для облачных моделей." : "Это лимит размера пакета, а не денежный бюджет. Каждый автоматический запуск может расходовать API-кредиты по тарифам выбранной модели.", systemImage: localProcessing ? "desktopcomputer" : "creditcard").font(.caption).foregroundStyle(.orange)
                 }
                 if memory.scheduleEdited { Text("Есть несохранённые изменения.").font(.caption).foregroundStyle(.secondary) }
                 if let notice = memory.notice { Text(notice).font(.callout).foregroundStyle(memory.noticeIsError ? Color.orange : Color.green) }
@@ -72,9 +74,9 @@ struct MemoryAutomationSheet: View {
                 }.buttonStyle(.borderedProminent).disabled(memory.status == nil || !memory.scheduleEdited || !memory.action.isEmpty || !concurrencyIsValid)
             }.padding(20)
         }.frame(width: 590, height: 590)
-        .alert("Разрешить автоматические платные запросы?", isPresented: $confirmPaid) {
+        .alert(localProcessing ? "Разрешить автоматическую локальную обработку?" : "Разрешить автоматические платные запросы?", isPresented: $confirmPaid) {
             Button("Отмена", role: .cancel) {}
             Button("Разрешить и сохранить") { Task { await memory.applySchedule() } }
-        } message: { Text("После автоматического импорта или сверки выбранная модель сможет обработать до \(memory.scheduleDraft.batchLimit) материалов за запуск. Это повторяющиеся API-расходы; денежный лимит этим параметром не задаётся. Отключить обработку можно здесь в любой момент.") }
+        } message: { Text("После автоматического импорта или сверки выбранная модель сможет обработать до \(memory.scheduleDraft.batchLimit) материалов за запуск. \(localProcessing ? "Ollama будет обрабатывать текст на этом Mac, без API-тарифа, используя его ресурсы." : "Это повторяющиеся API-расходы; денежный лимит этим параметром не задаётся.") Отключить обработку можно здесь в любой момент.") }
     }
 }

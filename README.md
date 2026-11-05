@@ -101,10 +101,14 @@ rather than a development app, see [releasing](docs/releasing.md).
    required to populate and search the archive.
 4. **Find context.** Search **Memory**. Counters filter materials, completed cards,
    pending records and errors. Scrolling loads more records; details show evidence.
-5. **Optionally create cards.** In **Model and API**, choose a provider/model,
-   enter its token and save. Enable card processing only if you accept sending
-   source text to that provider and paying its charges. Catalog and connection
-   checks do not prove that a selected model can generate cards.
+5. **Optionally create cards.** In **Model and API**, choose a cloud provider
+   (including Qwen API) with its token, or local Qwen through Ollama without a
+   token. Save the model and test a small batch. Cloud processing sends text to
+   that provider and may incur charges; local processing uses your Mac. Ollama
+   and model weights are separate installs. A custom OpenAI-compatible API needs
+   its public base URL, token and exact model ID; catalog loading is optional.
+   See the [connection guide](docs/user-guide.en.md#4-models-and-cards)
+   and [local Qwen setup](docs/user-guide.en.md#qwen-api-and-local-qwen).
 6. **Set automation.** Session watching polls about every 30 seconds, using a
    completed-turn marker or 90 seconds of inactivity. Connected remote sources
    use the memory reconciliation schedule while the app runs.
@@ -164,8 +168,9 @@ These are specific protections, **not a guarantee of complete security**:
 
 - SQLite, its WAL and backups are not encrypted by the application.
 - Redaction is heuristic and can miss secrets or personal information.
-- Optional cards send text to your model provider; MCP results can also be
-  transmitted by the AI client using them.
+- Cloud cards send text to the selected provider; local Ollama cards use a
+  downloaded model on this Mac. MCP results can still be transmitted by the
+  AI client using them.
 - Connected projects share one memory without per-project permissions.
 - These measures do not isolate data from a compromised same-user process.
 
@@ -283,9 +288,14 @@ open "Second Brain.app"
    поиска модель не требуется.
 4. Найдите нужный материал. Счётчики переключают фильтры, прокрутка подгружает
    следующие страницы, а детали позволяют проверить исходный текст.
-5. Если нужны карточки, настройте провайдера и модель в **Модель и API**. Включайте
-   обработку только если согласны передавать текст этому провайдеру и оплачивать
-   запросы. Проверка каталога не гарантирует работу генерации.
+5. Если нужны карточки, в **Модель и API** выберите облачного провайдера, включая
+   Qwen API с токеном, либо локальную Qwen через Ollama без токена. Сохраните модель
+   и проверьте небольшую партию. Облако получает текст и может требовать оплаты;
+   локальная обработка использует ресурсы Mac. Ollama и веса устанавливаются
+   отдельно. Для **Свой API · OpenAI-совместимый** нужны публичный базовый URL,
+   токен и точный ID модели; загрузка каталога необязательна. Подробнее —
+   [подключение модели](docs/user-guide.ru.md#4-подключение-модели-и-карточки) и
+   [локальная Qwen](docs/user-guide.ru.md#qwen-api-и-локальная-qwen).
 6. Настройте автоматизацию. Сессии проверяются примерно каждые 30 секунд:
    завершение хода позволяет импортировать раньше, иначе ожидается 90 секунд
    тишины. Удалённые источники обновляются по общему расписанию памяти.
@@ -325,8 +335,9 @@ CSRF. Известные форматы секретов маскируются 
 
 - SQLite, WAL и резервные копии не шифруются самим приложением.
 - Маскирование может пропустить секреты или персональные данные.
-- Включённое создание карточек передаёт текст выбранной модели; найденные через
-  MCP фрагменты также могут передаваться ИИ-клиентом.
+- Облачные карточки передают текст провайдеру; локальная Ollama использует
+  загруженную модель на этом Mac. Найденные через MCP фрагменты могут передаваться
+  ИИ-клиентом независимо от режима карточек.
 - Подключённые проекты используют общую память без отдельных прав для каждого.
 - Эти меры не защищают от скомпрометированного процесса того же пользователя.
 

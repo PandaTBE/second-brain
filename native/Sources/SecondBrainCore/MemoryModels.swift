@@ -134,6 +134,11 @@ public struct MemoryProviderBackoff: Decodable {
     public let message: String?
     public let effectiveConcurrency: Int
     public let configuredConcurrency: Int
+    public let executionMode: String?
+    public var isLocalExecution: Bool { executionMode == "local" }
+    public var executionTitle: String {
+        blocked ? "Карточки ожидают провайдера" : isLocalExecution ? "Локальная обработка карточек" : "Скорость карточек временно снижена"
+    }
 
     public var concurrencyLabel: String? {
         guard effectiveConcurrency < configuredConcurrency else { return nil }

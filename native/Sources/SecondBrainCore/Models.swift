@@ -16,6 +16,7 @@ public struct ProviderInfo: Codable, Identifiable {
     public let baseUrl: String
     public let description: String
     public let keyUrl: String
+    public let requiresToken: Bool?
 }
 
 public struct ModelInfo: Codable, Identifiable, Hashable {
@@ -45,6 +46,8 @@ public struct CatalogResponse: Decodable {
     public let fetchedAt: String
     public let currency: String?
     public let priceUnit: String?
+    public let truncated: Bool?
+    public let message: String?
 }
 public struct ConnectionResponse: Decodable {
     public let status: String

@@ -25,6 +25,9 @@ enum CoreChecks {
             ("Price distinguishes unknown, free, invalid values and currency", price),
             ("Sorting uses both prices, preserves input and puts unknown last", sorting),
             ("Settings encode the API contract without persisting secrets", settings),
+            ("Local Qwen connections require no credentials and preserve cloud requirements", localModelConnection),
+            ("Local model execution is distinct from temporary provider throttling", localModelExecution),
+            ("Catalog pagination warnings remain optional and explicit", catalogPagination),
             ("Requests stay on the owned loopback origin and carry CSRF", requests),
             ("Source counts describe files or messages instead of imported knowledge", sources),
             ("Mail providers hide server settings and preserve explicit import scope", mailSources),
@@ -371,6 +374,39 @@ enum CoreChecks {
         try require(ModelFormatting.sorted(models).map(\.id) == ["free", "a", "b", "unknown"],
                     "Cost ordering")
         try require(models.first?.id == "unknown", "Input must remain unchanged")
+    }
+
+    private static func localModelConnection() throws {
+        let local = ModelSettings(provider: "ollama", baseUrl: "http://127.0.0.1:11434/v1", modelId: "qwen3:8b")
+        try require(local.isLocal && !local.requiresCredential, "Ollama is a token-free local connection")
+        try require(local.canUseCredential(tokenSaved: false, tokenDraft: ""), "Local model needs no saved token")
+        try require(local.matchesSavedConnection(local, tokenSaved: false, tokenDraft: ""), "Local settings are saved without faking tokenSaved")
+        let cloud = ModelSettings(provider: "qwen", baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", modelId: "qwen-flash")
+        try require(!cloud.isLocal && cloud.requiresCredential, "Qwen API remains a credentialed cloud provider")
+        try require(!cloud.canUseCredential(tokenSaved: false, tokenDraft: ""), "Cloud requires a real credential")
+        try require(cloud.canUseCredential(tokenSaved: false, tokenDraft: "synthetic"), "Cloud accepts a draft credential")
+        try require(!cloud.matchesSavedConnection(cloud, tokenSaved: false, tokenDraft: ""), "Cloud cannot claim saved without a saved token")
+        let provider = try APIClient.decoder.decode(ProviderInfo.self, from: Data(#"{"id":"ollama","label":"Local","base_url":"http://127.0.0.1:11434/v1","description":"Local models","key_url":"","requires_token":false}"#.utf8))
+        try require(provider.requiresToken == false && !provider.needsToken, "Snake-case requires_token decodes explicitly, without relying on provider ID fallback")
+        let legacy = try APIClient.decoder.decode(ProviderInfo.self, from: Data(#"{"id":"qwen","label":"Qwen API","base_url":"https://dashscope-intl.aliyuncs.com/compatible-mode/v1","description":"Cloud","key_url":""}"#.utf8))
+        try require(legacy.needsToken, "Legacy cloud metadata remains credentialed")
+        let payload = try JSONSerialization.jsonObject(with: APIClient.encoder.encode(SaveRequest(local, token: nil))) as! [String: Any]
+        try require(payload["token"] == nil, "Local save sends no placeholder credential")
+    }
+
+    private static func catalogPagination() throws {
+        let partial = try APIClient.decoder.decode(CatalogResponse.self, from: Data(#"{"models":[],"fetched_at":"2026-11-05T12:00:00Z","truncated":true,"message":"Показана часть каталога."}"#.utf8))
+        try require(partial.truncated == true && partial.message == "Показана часть каталога.", "Partial catalog must carry an explicit nonblocking warning")
+        let legacy = try APIClient.decoder.decode(CatalogResponse.self, from: Data(#"{"models":[],"fetched_at":"2026-11-05T12:00:00Z"}"#.utf8))
+        try require(legacy.truncated == nil && legacy.message == nil, "Older catalogs decode without pagination fields")
+    }
+
+    private static func localModelExecution() throws {
+        let local = try APIClient.decoder.decode(MemoryProviderBackoff.self, from: Data(#"{"blocked":false,"retry_at":null,"requires_user_action":false,"message":null,"effective_concurrency":1,"configured_concurrency":10,"execution_mode":"local"}"#.utf8))
+        try require(local.isLocalExecution && local.executionTitle == "Локальная обработка карточек", "A local cap is not reported as temporary throttling")
+        try require(local.concurrencyLabel != nil, "Local effective concurrency stays visible")
+        let cloud = try APIClient.decoder.decode(MemoryProviderBackoff.self, from: Data(#"{"blocked":false,"retry_at":null,"requires_user_action":false,"message":null,"effective_concurrency":4,"configured_concurrency":10}"#.utf8))
+        try require(!cloud.isLocalExecution && cloud.executionTitle == "Скорость карточек временно снижена", "Older cloud helpers preserve throttling wording")
     }
 
     private static func settings() throws {

@@ -19,6 +19,7 @@ class Provider:
     base_url: str
     description: str
     key_url: str
+    requires_token: bool = True
 
 
 PROVIDERS = (
@@ -51,7 +52,18 @@ PROVIDERS = (
         "https://simple-claw.ru/login",
     ),
     Provider(
-        "custom", "Свой провайдер", "", "Совместимый с OpenAI API, в том числе SimpleClaw", ""
+        "qwen", "Qwen API", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        "Qwen через Alibaba Cloud Model Studio",
+        "https://modelstudio.console.alibabacloud.com/",
+    ),
+    Provider(
+        "ollama", "Qwen / Ollama · локально", "http://127.0.0.1:11434/v1",
+        "Загруженные модели на этом Mac; API-токен не нужен", "https://ollama.com/download",
+        requires_token=False,
+    ),
+    Provider(
+        "custom", "Свой API · OpenAI-совместимый", "",
+        "Базовый HTTPS-адрес, API-токен и точный ID текстовой модели", ""
     ),
 )
 
@@ -65,6 +77,11 @@ def normalize_endpoint(provider: str, base_url: str) -> str:
     if known is None:
         raise AppError("invalid_provider", "Выберите провайдера из списка.")
     candidate = base_url.strip() or known.base_url
+    if provider == "ollama":
+        if candidate.rstrip("/") != known.base_url:
+            raise AppError("invalid_endpoint", "Локальный Ollama доступен только по "
+                           "фиксированному адресу на этом Mac.")
+        return known.base_url
     try:
         url = urlsplit(candidate)
         hostname = (url.hostname or "").encode("idna").decode("ascii").lower()

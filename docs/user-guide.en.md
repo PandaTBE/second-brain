@@ -80,11 +80,13 @@ These steps require no model or model API token. In a fresh installation, automa
 
 ## 4. Models and cards
 
-In **Модель и API** (Model and API), choose a provider, enter its token, load a model catalog or enter a model ID, check the connection, and save. Preset providers and a custom OpenAI-compatible API with a public HTTPS endpoint are supported. Local endpoints, plain HTTP, and nonstandard ports are not supported in this release.
+In **Модель и API** (Model and API), choose a provider and model, check the connection, and save. Cloud presets, including **Qwen API**, use an API token. **Qwen / Ollama · локально** (local) uses a downloaded local model without an API token. A custom OpenAI-compatible endpoint still requires public HTTPS; it cannot be used to access arbitrary local/private addresses.
 
-Tokens are stored in macOS Keychain, separately for each provider and Base URL. The app does not reveal a stored token. If Keychain is unavailable, saving fails rather than falling back to a token file.
+For a provider configured by URL, select **Свой API · OpenAI-совместимый** (Custom API · OpenAI-compatible). Enter the public base URL, for example `https://api.example.com/v1`, without `/chat/completions`; supply its API token and the exact model ID issued by that provider. The endpoint must accept OpenAI-style `POST /chat/completions` requests. Loading a catalog and checking the connection are optional: a manually entered model ID can be saved even when `/models` is unavailable or does not list it. Check generation with a small batch after saving. Arbitrary HTTP, private addresses and custom ports are not supported; the named Ollama connection is the local exception.
 
-A connection check does not generate a card. OpenRouter is checked through the authenticated `/key` endpoint; other providers use `/models`. SimpleClaw's catalog is public, so loading it does not prove the token is valid. Custom API catalogs may also be public. Use a small manual card batch to check generation with the selected model.
+Cloud tokens are stored in macOS Keychain, separately for each provider and Base URL. The app does not reveal a stored token. If Keychain is unavailable, saving a cloud credential fails rather than falling back to a token file. Ollama model configuration needs no token or model-credential access to Keychain.
+
+A connection check does not generate a card. OpenRouter uses the authenticated `/key` endpoint. Qwen API uses Alibaba Cloud's documented `/api/v1/models` catalog; Ollama checks installed models through `/api/tags`. Other cloud presets use `/models`. SimpleClaw's catalog is public, so loading it does not prove the token is valid. Custom API catalogs may also be public. Use a small manual card batch to check generation with the selected model.
 
 Cards contain a summary, keywords, retrieval questions, and facts supported by excerpts of the imported text. They supplement the archive: full imported text remains searchable when generation fails. Review both model output and its interpretation of the evidence.
 
@@ -97,9 +99,24 @@ To enable automatic cards:
 3. Choose the batch size and number of simultaneous requests.
 4. Read the recurring API-cost warning and save.
 
-The default batch size is 10 materials, with a range of 1–50. Default concurrency is 10 requests. Enter any positive whole number in the concurrency field; there is no application-imposed upper limit. Existing explicitly saved values are preserved. Actual parallel work cannot exceed the current batch size: for example, concurrency 1000 with a batch of 10 can run at most 10 materials simultaneously. This bounds work per run, not money spent. Repeated automatic runs and retries can also incur charges.
+The default batch size is 10 materials, with a range of 1–50. Default concurrency is 10 requests. Enter any positive whole number in the concurrency field; there is no application-imposed upper limit. Existing explicitly saved values are preserved. Actual parallel work cannot exceed the current batch size: for example, concurrency 1000 with a batch of 10 can run at most 10 materials simultaneously. This bounds work per run, not money spent. Repeated automatic runs and retries can also incur cloud-provider charges. Local Ollama processing is limited to one effective generation request at a time; the configured target is preserved.
 
 A failed card can receive two automatic retries, approximately 60 and 300 seconds after the respective failures. There are at most three automatic requests per material revision: the initial request and two retries. A request rejected by the local provider-pause guard is not sent and does not consume an attempt; a sent request that receives `429` does. The budget survives restarts and unchanged imports. Once exhausted, the card waits for your action. The retry panel in **Память** shows remaining automatic retries, cards needing manual action, and whether processing is enabled, disabled, paused, or waiting for the provider. **Повторить все ошибки** (Retry all errors) asks for confirmation, queues every eligible failed card and gives each a new initial attempt plus two retries. Ready cards are unchanged. With automatic cards disabled or synchronization paused, queued cards wait; this button changes neither automation settings nor the provider hold. A changed source material gets a new revision and a new budget.
+
+### Qwen API and local Qwen
+
+**Connection guide updated 2026-11-05.** Qwen API is Alibaba Cloud's hosted service. The preset uses the Singapore endpoint `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`; create an API key for the matching region in [Model Studio](https://modelstudio.console.alibabacloud.com/). A Qwen chat account is not a substitute for that API key. Other regional endpoints can be configured as a custom public HTTPS provider. Catalog access does not run generation or prove model availability for your account. Prices remain unknown when the catalog does not establish a usable currency or tier.
+
+To create cards locally:
+
+1. Install the current [Ollama for macOS](https://ollama.com/download/mac) and start it.
+2. Download a model, for example `ollama pull qwen3:8b`. The [official model page](https://ollama.com/library/qwen3:8b) lists a roughly 5.2 GB download; working memory and context add to that size. Speed and memory use depend on the Mac and model.
+3. In **Model and API**, select the local Ollama connection, refresh the catalog, select the exact downloaded model ID, and save. The token field is not required.
+4. Start with a small manual card batch before enabling automatic processing. Existing cloud settings are not switched automatically.
+
+Ollama and model weights are installed separately; the Second Brain ZIP does not include them. This connection uses only the fixed service at `127.0.0.1:11434`, downloaded models, and no cloud fallback. Cloud models and remote aliases are rejected; update Ollama if it cannot enforce the required local mode. Use a trusted local server and OS account. Source imports such as Notion, GitHub and mail still contact their own services.
+
+Local card generation makes one model request at a time while preserving your configured concurrency value. It has no model-provider API charge, but uses your Mac's compute, memory and electricity. The same exact evidence validation, retry budgets, SQLite search and MCP memory apply. The local adapter requests JSON without thinking output, a 16,384-token context, up to 1,024 output tokens, and a bounded generation timeout. These settings are not a quality or speed benchmark.
 
 ### Provider pauses and card errors
 

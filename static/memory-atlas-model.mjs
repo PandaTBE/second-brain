@@ -4,21 +4,40 @@ export function normalizeKeyword(value) {
   return typeof value === 'string' ? value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('ru') : '';
 }
 
-export function filterRecords(records, { status = 'all', source = 'all', query = '' } = {}) {
-  const term = normalizeKeyword(query);
-  return records.filter(record => (status === 'all' || record.card_status === status)
-    && (source === 'all' || record.source_id === source)
-    && (!term || normalizeKeyword([record.title, record.summary, record.snippet, ...(record.keywords || [])].join(' ')).includes(term)));
+export function filterRecords(records, filter = {}) {
+  return createRecordFilter(records)(filter);
+}
+
+export function createRecordFilter(records) {
+  const indexed = records.map(record => ({ record,
+    text: normalizeKeyword([record.title, record.summary, record.snippet, ...(record.keywords || [])].join(' ')) }));
+  return ({ status = 'all', source = 'all', query = '' } = {}) => {
+    const term = normalizeKeyword(query);
+    return indexed.filter(({ record, text }) => (status === 'all' || record.card_status === status)
+      && (source === 'all' || record.source_id === source) && (!term || text.includes(term))).map(row => row.record);
+  };
+}
+
+export function graphSignature(records, sources) {
+  return JSON.stringify([
+    records.map(record => [record.id, record.source_id, record.title, record.card_status, record.keywords || []]),
+    sources.map(source => [source.id, source.name]),
+  ]);
 }
 
 export function buildGraph(records, sources) {
-  const sourceIds = [...new Set(records.map(record => record.source_id))];
+  const bySource = new Map();
+  for (const record of records) {
+    if (!bySource.has(record.source_id)) bySource.set(record.source_id, []);
+    bySource.get(record.source_id).push(record);
+  }
+  const sourceIds = [...bySource.keys()];
   const nodes = [], links = [];
   const sourceMap = new Map(sources.map(source => [source.id, source]));
   sourceIds.forEach((id, index) => {
     const angle = (index / Math.max(sourceIds.length, 1)) * Math.PI * 2 - Math.PI / 2;
     const anchor = sourceIds.length === 1 ? { x: 500, y: 340 } : { x: 500 + Math.cos(angle) * 235, y: 340 + Math.sin(angle) * 175 };
-    const members = records.filter(record => record.source_id === id);
+    const members = bySource.get(id);
     nodes.push({ id: `source:${id}`, kind: 'source', label: sourceMap.get(id)?.name || 'Источник', members: members.map(record => record.id), ...anchor });
     members.forEach((record, position) => {
       const theta = position * 2.3999632297;

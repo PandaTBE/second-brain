@@ -38,12 +38,18 @@ shared local memory server for AI assistants.
 - Optional model-generated cards with evidence validation, API usage metadata,
   a separate batch limit and configurable concurrency: any positive whole number,
   defaulting to 10 requests. Actual parallel work is bounded by the current batch.
+- Qwen API cloud connection and a separate credential-free local Ollama connection
+  for downloaded Qwen models. Local cards retain exact evidence validation, use
+  one effective generation request at a time and have no cloud fallback. Ollama
+  and model weights are separate installs; the saved concurrency target is retained.
 - Durable card retry budgets: an initial attempt and two automatic retries,
   followed by an explicit user retry when needed. The memory screen shows which
   errors can retry automatically and which need user action; Retry all errors
   requeues eligible failures with a fresh budget while preserving pauses.
 - Clickable memory counters and paginated browsing, plus a local HTML graph and
   history view. Graph connections reflect sources and shared card keywords.
+  Batched SVG paths, reusable nodes, indexed filtering and frame-coalesced camera
+  updates keep dense graphs responsive while retaining every relationship.
 - Global synchronization pause and per-mailbox import pause, retaining access
   to cached memory and MCP search.
 - macOS Keychain credential storage, heuristic secret redaction, loopback API
@@ -63,8 +69,8 @@ shared local memory server for AI assistants.
   The separate developer build still depends on its checkout and Python environment.
   This project is not a published PyPI SDK.
 - The SQLite memory and its backups are not encrypted by the application.
-  Redaction is heuristic, and optional card generation sends text to the selected
-  model provider.
+  Redaction is heuristic, and optional cloud card generation sends text to the
+  selected model provider. Local generation requires a separate Ollama installation.
 - Notion does not crawl whole workspaces; GitHub does not import code, comments,
   review discussions or diffs. Email imports only Inbox, and whole messages over
   1 MiB, including their attachments, are skipped with a visible warning.
@@ -83,6 +89,8 @@ shared local memory server for AI assistants.
 - SQLite/FTS5/BM25, ссылки на источники, ревизии и чтение через MCP.
 - Импорт Codex, Claude Code, заметок, выбранных страниц Notion, материалов GitHub
   и входящих Gmail / Яндекс Почты.
+- Облачная Qwen API и локальная Qwen через отдельно установленную Ollama: без
+  токена модели для локального режима, без перехода в облако и с точной проверкой цитат.
 - Карточки через выбранную модель, ограниченные партии, параллельная обработка
   и два автоматических повтора после первой неудачи.
 - Фоновая синхронизация, глобальная пауза, пауза почтовых источников, постраничный
@@ -94,5 +102,5 @@ shared local memory server for AI assistants.
 Переносимый ZIP для Apple Silicon и macOS 14+ включает Python-сервис и не требует
 Xcode, Python или uv у пользователя. В сборке пока используется локальная подпись
 без нотарификации Apple. Отдельная сборка для разработки зависит от папки проекта.
-База не шифруется приложением; включённое создание карточек передаёт текст выбранному
-провайдеру. Перед обновлением рекомендуется согласованная резервная копия SQLite.
+База не шифруется приложением; облачные карточки передают текст выбранному
+провайдеру, локальные используют отдельно установленную Ollama. Перед обновлением рекомендуется согласованная резервная копия SQLite.

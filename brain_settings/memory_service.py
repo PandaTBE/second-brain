@@ -207,7 +207,12 @@ class MemoryService:
 
     def _provider_status(self, config=None):
         config = config if config is not None else self.schedule_store.load()
-        return self.provider_backoff.status(self._provider_scope(), config.card_concurrency)
+        status = self.provider_backoff.status(self._provider_scope(), config.card_concurrency)
+        limit = getattr(self.generator, "concurrency_limit", lambda: None)()
+        if isinstance(limit, int) and not isinstance(limit, bool) and limit > 0:
+            return {**status, "effective_concurrency": min(status["effective_concurrency"], limit),
+                    "execution_mode": "local"}
+        return {**status, "execution_mode": "cloud"}
 
     def resume_provider(self) -> dict:
         with self._lock:
@@ -481,6 +486,7 @@ class MemoryService:
             limit=limit, retry_errors=retry_errors, allowed_source_ids=self._allowed(),
             automatic_retries=automatic_retries,
         )
+        batch_scope = self._provider_scope()
         provider = self._provider_status()
         concurrency = provider["effective_concurrency"]
         limited = threading.Event()
@@ -492,12 +498,14 @@ class MemoryService:
 
         def can_start():
             with self._lock:
-                return not self._stop.is_set() and not limited.is_set() and (
+                return (self._provider_scope() == batch_scope
+                        and not self._stop.is_set() and not limited.is_set()) and (
                     not automatic_retries or self._automatic_cards_enabled()
                 ) and not self._provider_status()["blocked"]
 
         def process(record):
-            result = self._process_card(record, manual=retry_errors, automatic=automatic_retries)
+            result = self._process_card(record, expected_scope=batch_scope,
+                                        manual=retry_errors, automatic=automatic_retries)
             if result.get("provider_limited"):
                 limited.set()
             return result
@@ -520,9 +528,11 @@ class MemoryService:
         return (not config.paused and config.process_cards
                 and (config.enabled or config.auto_import_enabled))
 
-    def _process_card(self, record, *, manual=False, automatic=False):
+    def _process_card(self, record, *, expected_scope, manual=False, automatic=False):
         stats = {"ready": 0, "errors": 0, "stale": 0, "usage": {}}
-        scope = self._provider_scope()
+        scope = expected_scope
+        if self._provider_scope() != scope:
+            return {**stats, "stale": 1}
         try:
             self.provider_backoff.ensure_ready(scope)
         except AppError as error:

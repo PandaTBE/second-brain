@@ -32,6 +32,13 @@ Release data is created per user in `~/Library/Application Support/Second Brain`
 source builds use checkout-local `.data`. Credentials remain in macOS Keychain.
 The portable package does not automatically migrate a source-build archive.
 
+For optional card generation, cloud Qwen API uses a region-matched API key in
+Keychain. The named local Ollama connection needs no model token and connects
+only to its fixed loopback service, using downloaded models without cloud
+fallback. Ollama and model weights are installed separately. Custom provider
+endpoints remain restricted to public HTTPS; the local server and OS must be
+trusted. Remote-source imports and MCP-client processing have separate data flows.
+
 The current downloadable package is ad-hoc signed and **not Developer ID signed
 or notarized by Apple**. Scanning for known secret patterns and personal paths is
 not a security certification and cannot prove that every sensitive detail was
@@ -64,6 +71,12 @@ Second Brain рассчитан на личный Mac и доверенную у
 Готовый выпуск создаёт данные пользователя в
 `~/Library/Application Support/Second Brain`; сборка из исходников использует
 проектную `.data`. Секреты остаются в Связке ключей. Автоматического переноса
-проектного архива нет. Проверка известных шаблонов не гарантирует обнаружение
+проектного архива нет. Облачная Qwen API использует региональный API-ключ в
+Keychain; локальное подключение Ollama не требует токена модели, обращается
+только к фиксированному loopback-сервису и загруженным моделям без перехода в
+облако. Ollama и веса устанавливаются отдельно. Собственные провайдеры по-прежнему
+ограничены публичным HTTPS; локальный сервер и ОС должны быть доверенными.
+Импорт удалённых источников и обработка MCP-клиентом — отдельные потоки данных.
+Проверка известных шаблонов не гарантирует обнаружение
 всех чувствительных сведений. Текущая ad-hoc подпись не является Developer ID или
 нотарификацией Apple. Не отключайте защиту ОС ради недоверенного файла.

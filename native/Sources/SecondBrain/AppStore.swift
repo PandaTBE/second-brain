@@ -27,6 +27,7 @@ final class AppStore: ObservableObject {
     @Published var sortByPrice = true
     @Published var catalogLoading = false
     @Published var catalogError: String?
+    @Published var catalogWarning: String?
     @Published var catalogUpdated: String?
     @Published var action = ""
     @Published var notice: String?
@@ -47,10 +48,11 @@ final class AppStore: ObservableObject {
 
     var selectedProvider: ProviderInfo? { providers.first { $0.id == draft.provider } }
     var scopeKey: String { "\(draft.provider)|\(draft.baseUrl.trimmingCharacters(in: .whitespacesAndNewlines))" }
-    var hasToken: Bool { tokenSaved || !tokenDraft.isEmpty }
+    var requiresToken: Bool { selectedProvider?.needsToken ?? draft.requiresCredential }
+    var hasToken: Bool { !requiresToken || draft.canUseCredential(tokenSaved: tokenSaved, tokenDraft: tokenDraft) }
     var hasSavedModel: Bool { !savedSettings.modelId.isEmpty }
-    var isSaved: Bool { tokenSaved && tokenDraft.isEmpty && draft == savedSettings && !draft.modelId.isEmpty }
-    var publicCatalog: Bool { ["openrouter", "simpleclaw"].contains(draft.provider) }
+    var isSaved: Bool { draft.matchesSavedConnection(savedSettings, tokenSaved: tokenSaved, tokenDraft: tokenDraft) }
+    var publicCatalog: Bool { ["openrouter", "simpleclaw", "ollama"].contains(draft.provider) }
     var filteredModels: [ModelInfo] {
         let filtered = models.filter { query.isEmpty || "\($0.name) \($0.id)".localizedCaseInsensitiveContains(query) }
         return sortByPrice ? ModelFormatting.sorted(filtered) : filtered.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
@@ -68,7 +70,7 @@ final class AppStore: ObservableObject {
             client = APIClient(baseURL: base, csrf: result.csrfToken)
             providers = result.providers; draft = result.settings; savedSettings = result.settings
             tokenSaved = result.tokenSaved; storageWarning = result.warning
-            if !result.storage.available && storageWarning == nil { storageWarning = "Связка ключей недоступна. Сохранение секретов требует доступа к Связке ключей macOS." }
+            if requiresToken && !result.storage.available && storageWarning == nil { storageWarning = "Связка ключей недоступна. Сохранение секретов требует доступа к Связке ключей macOS." }
             ready = true
             await refreshSources()
             if let client { await memory.configure(client) }
@@ -77,20 +79,20 @@ final class AppStore: ObservableObject {
     }
 
     private func changed() { draftRevision += 1; connection = nil; notice = nil }
-    private func candidateToken() -> String? { tokenDraft.isEmpty ? nil : tokenDraft }
+    private func candidateToken() -> String? { requiresToken && !tokenDraft.isEmpty ? tokenDraft : nil }
 
     func changeProvider(_ id: String) {
         guard id != draft.provider, let provider = providers.first(where: { $0.id == id }) else { return }
         credentialTask?.cancel()
         draft = ModelSettings(provider: id, baseUrl: provider.baseUrl)
-        tokenDraft = ""; tokenSaved = false; models = []; catalogError = nil; catalogUpdated = nil
+        tokenDraft = ""; tokenSaved = false; models = []; catalogError = nil; catalogWarning = nil; catalogUpdated = nil
         scopeRevision += 1; catalogRevision += 1; catalogLoading = false; changed()
         Task { await refreshCredential(); if publicCatalog || tokenSaved { await loadCatalog() } }
     }
 
     func changeBaseURL(_ value: String) {
         draft.baseUrl = value; tokenDraft = ""; tokenSaved = false
-        scopeRevision += 1; catalogRevision += 1; catalogLoading = false; models = []; catalogUpdated = nil; changed()
+        scopeRevision += 1; catalogRevision += 1; catalogLoading = false; models = []; catalogWarning = nil; catalogUpdated = nil; changed()
         credentialTask?.cancel()
         credentialTask = Task {
             do { try await Task.sleep(nanoseconds: 450_000_000) } catch { return }
@@ -101,7 +103,7 @@ final class AppStore: ObservableObject {
 
     func changeToken(_ value: String) {
         tokenDraft = value
-        if !publicCatalog { catalogRevision += 1; catalogLoading = false; models = []; catalogError = nil }
+        if !publicCatalog { catalogRevision += 1; catalogLoading = false; models = []; catalogError = nil; catalogWarning = nil }
         changed()
     }
 
@@ -111,6 +113,7 @@ final class AppStore: ObservableObject {
     func enterModelID(_ value: String) { draft.modelId = value; draft.modelName = value; changed() }
 
     func refreshCredential() async {
+        guard requiresToken else { tokenSaved = false; storageWarning = nil; return }
         guard let client, !draft.baseUrl.isEmpty, mutationScope != scopeKey else { return }
         credentialRevision += 1
         let epoch = credentialRevision; let scope = scopeRevision
@@ -128,12 +131,13 @@ final class AppStore: ObservableObject {
         guard let client, !draft.baseUrl.isEmpty else { return }
         catalogRevision += 1
         let epoch = catalogRevision; let scope = scopeRevision
-        catalogLoading = true; catalogError = nil
+        catalogLoading = true; catalogError = nil; catalogWarning = nil
         defer { if epoch == catalogRevision { catalogLoading = false } }
         do {
             let result: CatalogResponse = try await client.send("/api/models", body: ModelRequest(draft, token: candidateToken()))
             guard scope == scopeRevision, epoch == catalogRevision else { return }
             models = result.models; currency = result.currency ?? "USD"; catalogUpdated = result.fetchedAt
+            catalogWarning = result.message ?? (result.truncated == true ? "Показана часть каталога. Нужную модель можно указать по точному ID." : nil)
         } catch { if scope == scopeRevision, epoch == catalogRevision { catalogError = error.localizedDescription } }
     }
 
@@ -169,12 +173,12 @@ final class AppStore: ObservableObject {
             if savingScope == scopeRevision { tokenSaved = result.tokenSaved; storageWarning = nil }
             guard revision == draftRevision else { notice = "Предыдущие настройки сохранены. Текущие изменения ещё не сохранены."; noticeIsError = false; return }
             draft = result.settings; tokenSaved = result.tokenSaved; tokenDraft = ""
-            notice = "Настройки сохранены. Токен — в Связке ключей macOS."; noticeIsError = false
+            notice = result.settings.isLocal ? "Локальная модель сохранена. API-токен не требуется." : "Настройки сохранены. Токен — в Связке ключей macOS."; noticeIsError = false
         } catch { if revision == draftRevision { showError(error.localizedDescription) } }
     }
 
     func deleteToken() async {
-        guard let client, action.isEmpty else { return }
+        guard requiresToken, let client, action.isEmpty else { return }
         let scope = scopeRevision; let revision = draftRevision
         action = "delete"; mutationScope = scopeKey; credentialRevision += 1
         defer { action = ""; mutationScope = nil }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildGraph, filterRecords, normalizeKeyword, LatestRequest, mergePage, focusNodeId, recordChanged, fitGraph } from '../static/memory-atlas-model.mjs';
+import { buildGraph, filterRecords, normalizeKeyword, LatestRequest, mergePage, focusNodeId, recordChanged, fitGraph, createRecordFilter, graphSignature } from '../static/memory-atlas-model.mjs';
 
 const records = [
   { id: 'a', title: 'SQLite решение', source_id: 'codex', card_status: 'ready', keywords: [' SQLite ', 'FTS5'] },
@@ -27,6 +27,28 @@ test('Filtering intersects status, source, and text without changing input', () 
   assert.equal(records.length, 3);
   assert.equal(buildGraph([], []).nodes.length, 0);
   assert.equal(buildGraph([records[0]], sources).nodes.some(n => n.kind === 'keyword'), false);
+});
+
+test('A search index normalizes each snapshot once and a refreshed snapshot sees changed text', () => {
+  let reads = 0;
+  const first = { ...records[0], get summary() { reads += 1; return 'Первое решение'; } };
+  const search = createRecordFilter([first, records[1]]);
+  const indexedReads = reads;
+  assert.deepEqual(search({ query: 'первое' }).map(row => row.id), ['a']);
+  assert.deepEqual(search({ query: 'решение', status: 'ready' }).map(row => row.id), ['a']);
+  assert.deepEqual(search({ query: 'unmatched' }), []);
+  assert.equal(reads, indexedReads);
+  const updated = createRecordFilter([{ ...records[0], summary: 'Новое содержание' }]);
+  assert.equal(updated({ query: 'новое' }).length, 1);
+});
+
+test('Graph refresh keys ignore poll timestamps but include labels, state, membership and keywords', () => {
+  const key = graphSignature(records, sources);
+  assert.equal(graphSignature(records.map(row => ({ ...row })), sources.map(row => ({ ...row }))), key);
+  for (const change of [{ title: 'Changed' }, { card_status: 'pending' }, { keywords: ['new'] }, { source_id: 'new' }]) {
+    assert.notEqual(graphSignature([{ ...records[0], ...change }, ...records.slice(1)], sources), key);
+  }
+  assert.notEqual(graphSignature(records, [{ ...sources[0], name: 'Changed' }, sources[1]]), key);
 });
 
 test('Only the newest asynchronous response is current, including late errors', () => {

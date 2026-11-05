@@ -18,7 +18,7 @@ struct ModelSettingsView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Модель для ваших карточек").font(.title2.weight(.semibold))
-                    Text("Выберите недорогую модель. Провайдера можно изменить в любой момент.").font(.callout).foregroundStyle(.secondary)
+                    Text(store.draft.isLocal ? "Выберите загруженную модель Ollama для обработки на этом Mac." : "Выберите недорогую модель. Провайдера можно изменить в любой момент.").font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Label(store.isSaved ? "Сохранено" : "Есть изменения", systemImage: store.isSaved ? "checkmark.circle.fill" : "pencil.circle")
@@ -34,12 +34,23 @@ struct ModelSettingsView: View {
                     if store.draft.provider == "custom" {
                         TextField("Адрес API", text: Binding(get: { store.draft.baseUrl }, set: { store.changeBaseURL($0); revealToken = false }), prompt: Text("https://api.example.com/v1"))
                             .textFieldStyle(.roundedBorder)
-                        Text("Совместимый с OpenAI HTTPS API. Укажите базовый адрес, без /chat/completions.").font(.caption).foregroundStyle(.secondary)
+                        TextField("Точный ID модели", text: Binding(get: { store.draft.modelId }, set: { store.enterModelID($0) }), prompt: Text("ID из документации вашего API"))
+                            .textFieldStyle(.roundedBorder)
+                        Text("Совместимый с OpenAI HTTPS API. Укажите базовый адрес, без /chat/completions. Каталог необязателен: можно сохранить адрес, токен и ID из документации вашего API.").font(.caption).foregroundStyle(.secondary)
                     } else {
                         LabeledContent("Адрес API") { Text(store.draft.baseUrl).font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled) }
                     }
                 } header: { Label("Провайдер", systemImage: "network") }
 
+                if store.draft.isLocal {
+                    Section {
+                        Label("API-токен не требуется", systemImage: "desktopcomputer")
+                        Text("Запустите Ollama и загрузите Qwen. В каталоге появятся только загруженные локальные модели; облачные модели Ollama не поддерживаются.").font(.caption).foregroundStyle(.secondary)
+                        Link("Установить Ollama ↗", destination: URL(string: "https://ollama.com/download/mac")!).font(.caption)
+                        Text("ollama pull qwen3:8b").font(.caption.monospaced()).textSelection(.enabled)
+                        Text("Команда загрузит модель размером около 5,2 ГБ. После загрузки нажмите «Обновить» и выберите точный ID. Локальное создание карточек использует память и процессор Mac.").font(.caption).foregroundStyle(.secondary)
+                    } header: { Label("Qwen на этом Mac", systemImage: "desktopcomputer") }
+                } else {
                 Section {
                     HStack {
                         Group {
@@ -60,17 +71,19 @@ struct ModelSettingsView: View {
                     if let warning = store.storageWarning { Label(warning, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange) }
                     Text("Сохранённый токен не считывается обратно в интерфейс. Новый токен остаётся в этом поле до успешного сохранения.").font(.caption).foregroundStyle(.secondary)
                 } header: { Label("API-токен", systemImage: "key.horizontal") }
+                }
 
                 Section {
                     HStack {
                         HStack { Image(systemName: "magnifyingglass").foregroundStyle(.secondary); TextField("Название или ID модели", text: $store.query).textFieldStyle(.plain) }
                             .padding(7).background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
-                        Toggle("Сначала дешевле", isOn: $store.sortByPrice).toggleStyle(.checkbox)
+                        if !store.draft.isLocal { Toggle("Сначала дешевле", isOn: $store.sortByPrice).toggleStyle(.checkbox) }
                         Button { Task { await store.loadCatalog() } } label: { Label("Обновить", systemImage: "arrow.clockwise") }
                             .disabled(store.catalogLoading)
                     }
                     if store.catalogLoading { HStack { ProgressView().controlSize(.small); Text("Загружаем каталог…").foregroundStyle(.secondary) } }
                     if let error = store.catalogError { Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange) }
+                    if let warning = store.catalogWarning { Label(warning, systemImage: "info.circle").font(.caption).foregroundStyle(.orange) }
                     if !store.models.isEmpty {
                         Table(store.filteredModels, selection: modelSelection) {
                             TableColumn("Модель") { model in
@@ -83,13 +96,18 @@ struct ModelSettingsView: View {
                         ContentUnavailableView("Каталог ещё не загружен", systemImage: "cpu", description: Text("Загрузите список у провайдера или укажите ID вручную.")).frame(height: 130)
                     }
                     HStack {
-                        Text("\(store.filteredModels.count) моделей · цены в \(store.currency)")
+                        Text(store.draft.isLocal ? "\(store.filteredModels.count) локальных моделей · без API-тарифа" : store.draft.provider == "qwen" ? "\(store.filteredModels.count) моделей · валюта не указана" : "\(store.filteredModels.count) моделей · цены в \(store.currency)")
                         Spacer()
-                        Text("Сортировка по входу, затем выходу").foregroundStyle(.secondary)
+                        if !store.draft.isLocal { Text("Сортировка по входу, затем выходу").foregroundStyle(.secondary) }
                     }.font(.caption)
-                    TextField("ID модели", text: Binding(get: { store.draft.modelId }, set: { store.enterModelID($0) }), prompt: Text("Точный ID модели из каталога или документации"))
-                        .textFieldStyle(.roundedBorder)
-                    Text("Ручной ID подходит и для API, которые не отдают каталог. Неизвестная цена не означает бесплатную модель.").font(.caption).foregroundStyle(.secondary)
+                    if store.draft.provider == "qwen" {
+                        Text("Цены и валюта в каталоге Qwen не указаны. Проверьте тариф в кабинете.").font(.caption).foregroundStyle(.secondary)
+                    }
+                    if store.draft.provider != "custom" {
+                        TextField("ID модели", text: Binding(get: { store.draft.modelId }, set: { store.enterModelID($0) }), prompt: Text("Точный ID модели из каталога или документации"))
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    Text(store.draft.isLocal ? "Для Ollama нужен точный ID загруженной локальной модели. Облачные модели и автоматическая загрузка не используются." : "Ручной ID подходит и для API, которые не отдают каталог. Неизвестная цена не означает бесплатную модель.").font(.caption).foregroundStyle(.secondary)
                 } header: { Label("Модель", systemImage: "cpu") }
 
                 Section {
@@ -100,7 +118,7 @@ struct ModelSettingsView: View {
             }.formStyle(.grouped)
 
             HStack {
-                Label("Секреты — в Связке ключей macOS", systemImage: "lock.shield").font(.caption).foregroundStyle(.secondary)
+                Label(store.draft.isLocal ? "Обработка на этом Mac · без API-токена" : "Секреты — в Связке ключей macOS", systemImage: store.draft.isLocal ? "desktopcomputer" : "lock.shield").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if !store.action.isEmpty { ProgressView().controlSize(.small) }
                 Button("Проверить подключение") { Task { await store.testConnection() } }.disabled(!store.action.isEmpty)

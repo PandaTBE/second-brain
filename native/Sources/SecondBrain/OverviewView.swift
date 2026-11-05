@@ -14,7 +14,7 @@ struct OverviewView: View {
                     Text("Подключите модель и выберите, откуда собирать знания.").foregroundStyle(.secondary)
                 }.padding(.bottom, 6)
                 HStack(alignment: .top, spacing: 16) {
-                    readinessCard(title: "Модель", symbol: "cpu", value: store.hasSavedModel ? store.savedSettings.modelName : "Не выбрана", subtitle: store.hasSavedModel ? "Настройки сохранены" : "Выберите провайдера и добавьте API-токен", action: { store.section = .model })
+                    readinessCard(title: "Модель", symbol: "cpu", value: store.hasSavedModel ? store.savedSettings.modelName : "Не выбрана", subtitle: store.hasSavedModel ? "Настройки сохранены" : "Выберите локальную модель или провайдера API", action: { store.section = .model })
                     readinessCard(title: "Источники", symbol: "tray.full", value: store.sources.isEmpty ? "Не добавлены" : "\(store.sources.count) подключений", subtitle: "Codex, Claude, Notion, GitHub, Gmail и Яндекс Почта", action: { store.section = .sources })
                 }
                 GroupBox {
@@ -35,10 +35,10 @@ struct OverviewView: View {
                             if let job = status.jobs.first(where: { $0.active }) { MemoryJobView(job: job) }
                         } else { Text(memory.statusError ?? "Получаем состояние памяти…").foregroundStyle(.secondary) }
                         HStack { Button("Открыть память") { store.section = .memory }; Button("Подключить MCP") { store.section = .mcp } }
-                        Text("Локальный поиск не запускает модель. Создание карточек через API включается отдельно и может расходовать кредиты.").font(.caption).foregroundStyle(.secondary)
+                        Text(store.savedSettings.isLocal ? "Локальный поиск не запускает модель. Карточки создаются отдельно через Ollama на этом Mac, без API-тарифа." : "Локальный поиск не запускает модель. Создание карточек через API включается отдельно и может расходовать кредиты.").font(.caption).foregroundStyle(.secondary)
                     }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
                 }
-                Text("API-токены и пароли приложений сохраняются в Связке ключей macOS. Материалы для обработки будут передаваться выбранному провайдеру.")
+                Text(store.savedSettings.isLocal ? "Для карточек выбрана локальная Ollama: текст обрабатывается на этом Mac. Токены подключённых источников и пароли приложений хранятся в Связке ключей macOS." : "API-токены и пароли приложений сохраняются в Связке ключей macOS. Материалы для обработки будут передаваться выбранному провайдеру.")
                     .font(.caption).foregroundStyle(.secondary)
             }.padding(32).frame(maxWidth: 950, alignment: .leading)
         }

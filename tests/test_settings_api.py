@@ -24,7 +24,7 @@ def test_bootstrap_has_safe_defaults_and_live_provider_metadata(harness):
     assert data["token_saved"] is False
     assert data["storage"]["available"] is True
     assert {item["id"] for item in data["providers"]} == {
-        "openrouter", "deepseek", "openai", "simpleclaw", "custom"
+        "openrouter", "deepseek", "openai", "simpleclaw", "qwen", "ollama", "custom"
     }
     assert response.headers["cache-control"] == "no-store"
     assert harness.transport.calls == ()

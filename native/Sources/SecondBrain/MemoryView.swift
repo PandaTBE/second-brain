@@ -52,11 +52,11 @@ struct MemoryView: View {
                     Spacer()
                     Button {
                         confirmedLimit = memory.cardBatchLimit; confirmCards = true
-                    } label: { Label("Создать карточки · API", systemImage: "sparkles") }
+                    } label: { Label(store.savedSettings.isLocal ? "Создать карточки · локально" : "Создать карточки · API", systemImage: "sparkles") }
                         .help(memory.providerBlocked ? "Создание карточек ожидает снятия паузы провайдера." : "Создать карточки для выбранного пакета материалов.")
                         .disabled(memory.providerBlocked || memory.busy || !store.hasSavedModel || (memory.status?.cardsPending ?? 0) == 0)
                 }
-                Text("Создание карточек использует выбранную модель и оплачивается по её тарифам. Лимит ограничивает материалы в одном пакете, а не сумму списания.").font(.caption).foregroundStyle(.secondary)
+                Text(store.savedSettings.isLocal ? "Карточки создаются моделью Ollama на этом Mac, без API-тарифа. Для локальной модели выполняется один запрос за раз; заданная параллельность сохраняется." : "Создание карточек использует выбранную модель и оплачивается по её тарифам. Лимит ограничивает материалы в одном пакете, а не сумму списания.").font(.caption).foregroundStyle(.secondary)
                 if let notice = memory.notice { Label(notice, systemImage: memory.noticeIsError ? "exclamationmark.circle" : "checkmark.circle").font(.callout).foregroundStyle(memory.noticeIsError ? Color.orange : Color.green).textSelection(.enabled) }
                 if let error = memory.statusError { Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange) }
                 if let job = memory.status?.jobs.first(where: { $0.active }) { MemoryJobView(job: job) }
@@ -108,15 +108,15 @@ struct MemoryView: View {
             }
         }
         .sheet(isPresented: $showAutomation) { MemoryAutomationSheet(memory: memory) }
-        .alert("Создать карточки через API?", isPresented: $confirmCards) {
+        .alert(store.savedSettings.isLocal ? "Создать карточки локально?" : "Создать карточки через API?", isPresented: $confirmCards) {
             Button("Отмена", role: .cancel) {}
             Button("Обработать до \(confirmedLimit)") { Task { await memory.startCards(limit: confirmedLimit, retryErrors: false) } }
-        } message: { Text("До \(confirmedLimit) материалов будут отправлены модели \(store.savedSettings.modelName.isEmpty ? store.savedSettings.modelId : store.savedSettings.modelName). Это платные API-запросы. Неизменённые готовые карточки не обрабатываются повторно.") }
+        } message: { Text("До \(confirmedLimit) материалов будут отправлены модели \(store.savedSettings.modelName.isEmpty ? store.savedSettings.modelId : store.savedSettings.modelName). \(store.savedSettings.isLocal ? "Ollama обработает текст на этом Mac, используя его ресурсы." : "Это платные API-запросы.") Неизменённые готовые карточки не обрабатываются повторно.") }
         .alert("Повторить все ошибки?", isPresented: $confirmRetryErrors) {
             Button("Отмена", role: .cancel) {}
             Button("Вернуть ошибки в очередь") { Task { await memory.retryAllErrors() } }
         } message: {
-            Text("В очередь будут возвращены все текущие карточки с ошибками (сейчас: \(memory.status?.cardsError ?? 0)). Для каждой будет доступна новая попытка и до двух автоматических повторов. При включённых автокарточках запросы к модели оплачиваются по её тарифам. Настройки автоматизации и пауза провайдера сохранятся.")
+            Text("В очередь будут возвращены все текущие карточки с ошибками (сейчас: \(memory.status?.cardsError ?? 0)). Для каждой будет доступна новая попытка и до двух автоматических повторов. \(store.savedSettings.isLocal ? "При включённых автокарточках Ollama обработает их на этом Mac, без API-тарифа." : "При включённых автокарточках запросы к модели оплачиваются по её тарифам.") Настройки автоматизации и пауза провайдера сохранятся.")
         }
         .task { await memory.refreshStatus(); await memory.search() }
     }
@@ -153,12 +153,12 @@ struct MemoryView: View {
     @ViewBuilder
     private var providerBackoffBar: some View {
         if let provider = memory.status?.providerBackoff,
-           provider.blocked || provider.concurrencyLabel != nil {
+           provider.blocked || provider.concurrencyLabel != nil || provider.isLocalExecution {
             HStack(alignment: .top, spacing: 10) {
-                Image(systemName: provider.blocked ? "clock.badge.exclamationmark" : "speedometer")
+                Image(systemName: provider.blocked ? "clock.badge.exclamationmark" : provider.isLocalExecution ? "desktopcomputer" : "speedometer")
                     .foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(provider.blocked ? "Карточки ожидают провайдера" : "Скорость карточек временно снижена")
+                    Text(provider.executionTitle)
                         .font(.callout.weight(.medium))
                     if provider.blocked {
                         Text(provider.message ?? "Провайдер временно приостановил обработку карточек.")
@@ -173,6 +173,10 @@ struct MemoryView: View {
                         Text("Пауза касается карточек. Импорт и поиск через MCP доступны.")
                             .font(.caption).foregroundStyle(.secondary)
                         Text("Кнопка снимает паузу. Прошлые ошибки повторяются отдельно.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if provider.isLocalExecution {
+                        Text("Ollama работает на этом Mac. Один запрос за раз ограничивает расход памяти; платный облачный провайдер не используется.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     if let label = provider.concurrencyLabel {
@@ -205,7 +209,7 @@ struct MemoryView: View {
                         Text("Изменения сессий подхватываются после паузы в записи около \(memory.status?.scheduler.quietSeconds ?? 90) секунд.").font(.caption).foregroundStyle(.secondary)
                     } else { Text("Автоимпорт сессий выключен в настройках автоматизации.").font(.caption).foregroundStyle(.secondary) }
                     if memory.status?.scheduler.enabled == true { Text("Полная сверка локальных источников каждые \(memory.status?.scheduler.intervalMinutes ?? 15) минут.").font(.caption).foregroundStyle(.secondary) }
-                    if memory.status?.scheduler.processCards == true { Text("Автокарточки через API включены: до \(memory.status?.scheduler.batchLimit ?? 10) материалов за запуск.").font(.caption).foregroundStyle(.orange) }
+                    if memory.status?.scheduler.processCards == true { Text(store.savedSettings.isLocal ? "Локальные автокарточки включены: до \(memory.status?.scheduler.batchLimit ?? 10) материалов за запуск." : "Автокарточки через API включены: до \(memory.status?.scheduler.batchLimit ?? 10) материалов за запуск.").font(.caption).foregroundStyle(.orange) }
                 }
             }
             Spacer()

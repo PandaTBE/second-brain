@@ -1,9 +1,11 @@
-import { buildGraph, filterRecords, LatestRequest, mergePage, statusLabels, recordChanged } from './memory-atlas-model.mjs';
+import { buildGraph, createRecordFilter, graphSignature, LatestRequest, mergePage, statusLabels, recordChanged } from './memory-atlas-model.mjs';
 import { MemoryGraph } from './memory-atlas-graph.mjs';
 
 const $ = selector => document.querySelector(selector);
 const atlasGate = new LatestRequest(), detailGate = new LatestRequest(), historyGate = new LatestRequest();
 let snapshot = { records: [], sources: [], total_records: 0 };
+let searchSnapshot = createRecordFilter([]), currentGraph = null, currentGraphKey = null;
+let sourceNames = new Map(), recordsById = new Map(), sourceOptionsKey = null;
 let filter = { status: 'all', source: 'all', query: '' };
 let tab = 'graph', selected = null, detailController = null, atlasController = null, historyController = null;
 let history = { records: [], cursor: null, hasMore: true, loading: false, started: false };
@@ -35,7 +37,7 @@ function date(value) {
 }
 
 function sourceName(id, kind = '') {
-  return snapshot.sources.find(source => source.id === id)?.name || ({ codex: 'Codex', claude: 'Claude Code', folder: 'Заметки' }[kind] || 'Источник');
+  return sourceNames.get(id) || ({ codex: 'Codex', claude: 'Claude Code', folder: 'Заметки' }[kind] || 'Источник');
 }
 
 function clearDetail() {
@@ -55,6 +57,9 @@ async function loadAtlas(manual = false) {
     if (!atlasGate.isCurrent(request)) return;
     if (!Array.isArray(data.records) || !Array.isArray(data.sources)) throw new Error('Не удалось прочитать данные графа. Обновите страницу.');
     snapshot = data; atlasLoaded = true;
+    searchSnapshot = createRecordFilter(snapshot.records);
+    sourceNames = new Map(snapshot.sources.map(source => [source.id, source.name]));
+    recordsById = new Map(snapshot.records.map(record => [record.id, record]));
     $('#notice').hidden = true;
     $('#updated-at').textContent = `Обновлено ${date(data.generated_at)}`;
     const allowed = new Set(snapshot.sources.map(source => source.id));
@@ -62,14 +67,17 @@ async function loadAtlas(manual = false) {
     history.records = history.records.filter(record => allowed.has(record.source_id));
     if (selected?.sourceId && !allowed.has(selected.sourceId)) clearDetail();
     if (selected?.kind === 'record' && !snapshot.truncated && !snapshot.records.some(record => record.id === selected.recordId)) clearDetail();
-    renderSources(); renderCounts(); renderGraph(); renderHistory();
+    renderSources(); renderCounts();
+    const graphChanged = renderGraph();
+    if (tab === 'history') renderHistory();
     if (selected?.kind === 'record') {
       const current = snapshot.records.find(record => record.id === selected.recordId);
       if (manual || recordChanged(current, selected)) await selectRecord(selected.recordId);
     }
     else if (selected) {
       const current = graph.nodes.get(selected.id);
-      if (current) selectNode(current); else clearDetail();
+      if (!current) clearDetail();
+      else if (graphChanged) selectNode(current);
     }
   } catch (error) {
     if (error.name === 'AbortError' || !atlasGate.isCurrent(request)) return;
@@ -90,6 +98,9 @@ function renderCounts() {
 
 function renderSources() {
   const select = $('#source-filter');
+  const key = JSON.stringify(snapshot.sources.map(source => [source.id, source.name]));
+  if (sourceOptionsKey === key) { select.value = filter.source; return; }
+  sourceOptionsKey = key;
   const options = [element('option', '', 'Все источники')]; options[0].value = 'all';
   for (const source of snapshot.sources) {
     const option = element('option', '', source.name); option.value = source.id; options.push(option);
@@ -98,11 +109,17 @@ function renderSources() {
 }
 
 function renderGraph() {
-  const records = filterRecords(snapshot.records, filter);
-  const model = buildGraph(records, snapshot.sources);
-  graph.render(model);
-  $('#graph-count').textContent = `${records.length} материалов · ${model.sharedKeywordCount} общих тем`;
+  const records = searchSnapshot(filter);
+  const key = graphSignature(records, snapshot.sources);
+  const changed = key !== currentGraphKey;
+  if (changed) {
+    currentGraph = buildGraph(records, snapshot.sources);
+    currentGraphKey = key;
+    graph.render(currentGraph);
+  }
+  $('#graph-count').textContent = `${records.length} материалов · ${currentGraph.sharedKeywordCount} общих тем`;
   $('#graph-empty').hidden = records.length > 0;
+  return changed;
 }
 
 function selectNode(node) {
@@ -114,7 +131,7 @@ function selectNode(node) {
     element('p', 'detail-meta', `${node.members.length} материалов в текущем представлении`));
   if (node.kind === 'keyword') content.append(element('p', '', 'Эти материалы имеют общее ключевое слово в готовых карточках. Связь не означает, что все их утверждения совпадают.'));
   for (const id of node.members) {
-    const record = snapshot.records.find(item => item.id === id);
+    const record = recordsById.get(id);
     if (!record) continue;
     const button = element('button', 'related-button', record.title); button.type = 'button';
     button.append(element('small', '', `${sourceName(record.source_id, record.source_kind)} · ${statusLabels[record.card_status] || 'Материал'}`));

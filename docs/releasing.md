@@ -28,10 +28,18 @@ locked dependencies, then run the project's checks:
 uv sync --frozen --group dev
 uv run ruff check brain_settings tests scripts launch.py
 uv run pytest --cov=brain_settings --cov-report=term-missing
-node --test tests/test-model-utils.mjs tests/test-memory-atlas.mjs
+node --test tests/test-*.mjs
 swift run --package-path native SecondBrainCoreChecks
 ./scripts/build-release.sh
+.venv/bin/python scripts/check_release_bundle.py --app "build/release/app/Second Brain.app"
+.venv/bin/python scripts/smoke_release.py --app "build/release/app/Second Brain.app"
+.venv/bin/python scripts/smoke_local_model.py --app "build/release/app/Second Brain.app"
 ```
+
+The local-model smoke uses a synthetic Ollama on `127.0.0.1:11434` and disposable
+user data. It refuses to run when that port is occupied; it never replaces an
+existing Ollama server, downloads weights, calls a real model, or uses a provider
+key. It validates the integration protocol rather than model quality or speed.
 
 The release builder writes artifacts under `dist/`. Keep that generated directory
 out of Git. Review the resulting app, checksums and logs before attaching them to

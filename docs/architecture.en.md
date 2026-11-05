@@ -11,7 +11,7 @@ flowchart TD
     Sources --> Import[Parse, redact, chunk]
     Import --> DB[(SQLite + FTS5)]
     API --> Cards[Bounded card queue]
-    Cards --> LLM[Selected model API]
+    Cards --> LLM[Selected cloud API or local Ollama]
     Cards --> DB
     API --> Graph[Local graph and history page]
     Graph --> API
@@ -35,7 +35,7 @@ The window and background process have different lifecycles: closing the window 
 | Remote sources | `notion_*.py`, `github_*.py`, `mail_*.py` | Bounded read clients, material conversion, and durable import progress. |
 | Storage and retrieval | `memory_store.py`, `memory_browse.py`, `memory_atlas.py`, `memory_text.py` | SQLite, FTS5/BM25, page cursors, graph snapshots, and redaction. |
 | Automation | `background.py`, `memory_service.py`, `card_parallel.py`, `card_retries.py`, `provider_backoff.py` | Watching, writer ownership, batches, concurrency, retries, and durable provider admission pauses. |
-| Model calls | `llm_cards.py`, `providers.py`, `transport.py` | Provider settings, bounded HTTPS calls, card and evidence validation. |
+| Model calls | `llm_cards.py`, `providers.py`, `transport.py`, `ollama.py` | Cloud provider settings, bounded public HTTPS and fixed-loopback Ollama calls, card and evidence validation. |
 | MCP | `mcp_server.py`, `mcp_config.py`, `scripts/mcp-server.command` | Four read tools and client-configuration generation. |
 | Graph and compatible web UI | `static/` | Local assets without CDNs; the browser graph is separate from native settings. |
 
@@ -59,11 +59,17 @@ Build and artifact checks are described in [releasing](releasing.md). The curren
 ZIP is ad-hoc signed; a portable runtime is separate from Developer ID signing
 and Apple notarization.
 
+## Model connections
+
+**Updated 2026-11-05.** `qwen` is a cloud preset for Alibaba Cloud's Singapore OpenAI-compatible endpoint. It uses a region-matched Keychain token and the native `/api/v1/models` catalog. `ollama` is a separate credential-free connection to the fixed `127.0.0.1:11434` service. Its adapter discovers downloaded models through `/api/tags`, rejects remote/cloud models, and uses native `/api/chat` with an explicit local model qualifier; no cloud fallback is provided. The native response is normalized into the existing card-validation path, with exact source evidence and usage metadata.
+
+Local requests use JSON format, disable thinking output, request a 16,384-token context and up to 1,024 output tokens, and have bounded timeouts. Effective local concurrency is one while the saved target remains unchanged. Provider status reports local execution separately from a temporary provider cooldown. Database search and the MCP tools are unchanged. Local Ollama and model weights are external installations, not part of the release ZIP.
+
 ## Persistence model
 
 A source defines an import and visibility scope. A material stores a stable ID, source-object identifier, text, source/URI, timestamps, content hash, and current revision. Replacing one object's chunks is transactional. Unchanged text does not generate a new card; changed text creates a revision and resets its processing state.
 
-FTS5 indexes text and retrieval fields, with BM25 ranking. Reads use bounded snippets and paginated cursors. The graph uses a snapshot of up to 2000 materials. The database retains the current revision rather than every historical text version.
+FTS5 indexes text and retrieval fields, with BM25 ranking. Reads use bounded snippets and paginated cursors. The graph uses a snapshot of up to 2000 materials. All source/topic relationships are retained in batched SVG paths; keyed nodes and snapshot-scoped search indexes avoid rebuilding unchanged scenes, while camera writes are coalesced to animation frames. The database retains the current revision rather than every historical text version.
 
 Card status and retry budgets are durable SQLite state. Automatic processing uses bounded claims and revision checks; concurrent API calls do not become independent, unsynchronized database writers. A writer lease prevents two import processes from owning the queue simultaneously. Deleted sources have tombstones that block late commits from work already in flight.
 
@@ -76,7 +82,7 @@ Local, GitHub, and email checkpoints retain import continuation. Mail uses UIDVA
 - Sources are untrusted data, including instructions, inaccurate claims, and potential secrets. They must not become agent commands.
 - HTTPS clients bound destinations and responses; validated public IPs are pinned for TLS connections. Notion/GitHub use fixed APIs; mail uses read-only IMAP over TLS.
 - Known secret patterns are redacted before persistence and model processing. This is a heuristic, not a guarantee that all sensitive content is removed.
-- The model provider becomes a separate recipient of text when card generation is permitted. Local search does not call the model.
+- A cloud model provider becomes a separate recipient of text when cloud card generation is permitted. The named Ollama adapter instead uses a downloaded model at its fixed local endpoint; the OS and server must be trusted. Local search does not call either model.
 - Keychain stores secrets. JSON settings and SQLite can contain private metadata and are not encrypted by the application.
 - MCP is limited to search and reads, but a client granted access can retrieve private materials. This mechanism does not isolate other processes running as the same user.
 

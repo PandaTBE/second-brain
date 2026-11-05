@@ -20,14 +20,15 @@ Connected MCP clients share the enabled memory sources. There is no separate aut
 | Import Notion, GitHub, or mail | The application contacts the selected service using its saved credential. It stores the selected content locally. |
 | Search, browse, graph, and history | Retrieval uses local SQLite/FTS5. The graph uses local assets and source/keyword relationships; it does not need a model or external CDN. |
 | MCP retrieval | A connected client receives bounded excerpts and source metadata from local memory. That client's later handling of the data is controlled by the client and its model provider. |
-| Create cards | When explicitly requested or enabled in automation, masked source text is sent to the selected model API. Requests can incur provider charges. |
+| Create cloud cards | When explicitly requested or enabled in automation, masked source text is sent to the selected cloud model API, including Qwen API. Requests can incur provider charges. |
+| Create local Ollama cards | Masked source text is sent only to the fixed local Ollama service and a downloaded local model. No cloud fallback or model API token is used; computation uses the Mac's resources. |
 | Load a catalog or check a connection | Some checks make network requests even while card generation is disabled. A public catalog response may not prove that a credential is valid. |
 
-Model providers and source services have their own retention, access, pricing, residency, and account policies. Local storage does not make model processing local. Verify a provider's policy before submitting sensitive material; the application cannot guarantee deletion from a provider after a request has been sent.
+Cloud model providers and source services have their own retention, access, pricing, residency, and account policies. Local database storage alone does not make cloud card processing local. Verify a cloud provider's policy before submitting sensitive material; the application cannot guarantee deletion from that provider after a request has been sent. Selecting local Ollama affects card generation only: remote-source imports and a connected MCP client's own model remain separate data flows.
 
 ## Credentials and local storage
 
-- API tokens and mail app passwords are stored in **macOS Keychain**, scoped to a provider/address or source connection. There is no plaintext-file fallback if Keychain is unavailable.
+- Cloud API tokens and mail app passwords are stored in **macOS Keychain**, scoped to a provider/address or source connection. There is no plaintext-file fallback if Keychain is unavailable. The local Ollama model connection requires no credential and does not read or store a model token.
 - Settings and source configuration are separate from credentials. Do not add secrets to configuration files, MCP arguments, URLs, or shell history.
 - The data directory is created/restricted with mode `0700`; the primary SQLite database is created/restricted with mode `0600`. These filesystem permissions limit access by other ordinary OS users, not by your own account or an administrator.
 - **SQLite is not encrypted by the application.** Imported text, titles, mail headers, source paths/URLs, cards, search indexes, and synchronization state can be sensitive. SQLite WAL/SHM files and backups must be protected with the database.
@@ -49,7 +50,8 @@ The native client validates that it is talking to the helper instance it started
 
 - HTTPS connections verify TLS certificates. Public destination addresses are validated and pinned for the connection while TLS still verifies the original hostname. Redirects are not followed.
 - GitHub and Notion clients use fixed API hosts and read operations. Source selection is explicit: new repositories, child pages, or an entire workspace are not silently added to the selected scope.
-- A custom model endpoint must be public HTTPS on the supported port. Local/private endpoints are intentionally rejected by this release; local-model support should not be inferred from local database storage.
+- A custom model endpoint must be public HTTPS on port 443. Arbitrary local/private addresses, plain HTTP, and custom ports remain rejected.
+- The named Ollama connection is a narrow exception: its client connects only to `127.0.0.1:11434`, with fixed native model-list/chat routes, no API credentials, no DNS or proxy selection, and no redirects. Installed models are checked for remote/cloud metadata; chat requests enforce local mode and do not fall back to a cloud provider. Use an up-to-date, trusted Ollama installation. These checks do not defend against malicious software replacing the local server.
 - Gmail and Yandex Mail use TLS and read-only inbox selection plus `BODY.PEEK` reads. Import does not mark messages read, move them, or delete them. Existing mail connections do not silently opt into body import.
 - Small mail messages are received as bounded complete RFC822 messages. Attachment bytes can therefore exist transiently in process memory, but attachments are excluded from stored text and cards. Whole messages above 1 MiB, including large attachments, are skipped with an explicit warning. Remote images and linked files are not fetched by the mail renderer.
 - Responses, files, UID windows, MIME parsing, and import batches have bounds. Incomplete or unsupported content is reported instead of silently replacing an existing full record with a partial one.

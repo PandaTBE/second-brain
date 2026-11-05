@@ -61,12 +61,19 @@ jobs:
           .venv/bin/ruff check brain_settings tests scripts launch.py
           .venv/bin/python -m pytest --cov=brain_settings --cov-report=term-missing
           swift run --package-path native SecondBrainCoreChecks
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Check graph and static interface behavior
+        run: node --test tests/test-*.mjs
       - name: Build portable app archive
         run: ./scripts/build-release.sh
       - name: Verify portable app and isolated runtime
         run: |
           .venv/bin/python scripts/check_release_bundle.py --app "build/release/app/Second Brain.app"
           .venv/bin/python scripts/smoke_release.py --app "build/release/app/Second Brain.app"
+          .venv/bin/python scripts/smoke_local_model.py --app "build/release/app/Second Brain.app"
       - name: Prepare source archive and release notes
         env:
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
