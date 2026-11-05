@@ -167,7 +167,6 @@ are built separately; see the [artifact checks](docs/releasing.md#privacy-and-ar
 These are specific protections, **not a guarantee of complete security**:
 
 - SQLite, its WAL and backups are not encrypted by the application.
-- Redaction is heuristic and can miss secrets or personal information.
 - Cloud cards send text to the selected provider; local Ollama cards use a
   downloaded model on this Mac. MCP results can still be transmitted by the
   AI client using them.
@@ -334,7 +333,6 @@ CSRF. Известные форматы секретов маскируются 
 Границы защиты:
 
 - SQLite, WAL и резервные копии не шифруются самим приложением.
-- Маскирование может пропустить секреты или персональные данные.
 - Облачные карточки передают текст провайдеру; локальная Ollama использует
   загруженную модель на этом Mac. Найденные через MCP фрагменты могут передаваться
   ИИ-клиентом независимо от режима карточек.
