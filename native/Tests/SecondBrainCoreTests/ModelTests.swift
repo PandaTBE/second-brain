@@ -21,7 +21,7 @@ private func requireThrows(_ operation: () throws -> Void, _ message: String) th
 @main
 enum CoreChecks {
     static func main() async throws {
-        let checks: [(String, () throws -> Void)] = [
+        var checks: [(String, () throws -> Void)] = [
             ("Price distinguishes unknown, free, invalid values and currency", price),
             ("Sorting uses both prices, preserves input and puts unknown last", sorting),
             ("Settings encode the API contract without persisting secrets", settings),
@@ -53,6 +53,12 @@ enum CoreChecks {
             ("Retry-all contract resets only the explicit error queue", memoryRetryAllContract),
             ("Portable launch prefers bundled service and retains developer fallback", backendLaunch),
         ]
+        #if SECOND_BRAIN_STAGE2_CHECKS
+        checks += [
+            ("Embedding settings remain explicit, local and separate from card settings", embeddingSettingsContract),
+            ("Search diagnostics preserve actual modes and separate local timings", embeddingSearchContract),
+        ]
+        #endif
         var failures: [String] = []
         for (name, check) in checks {
             do {
