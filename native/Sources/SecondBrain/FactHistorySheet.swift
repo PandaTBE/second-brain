@@ -44,7 +44,9 @@ struct FactHistorySheet: View {
             ContentUnavailableView("Наблюдения не найдены", systemImage: "clock", description: Text("История появляется после обновления фактов из карточек и учитывает текущие разрешения источников."))
         } else {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
+                // Eager rows keep fetched history available to Accessibility scroll actions.
+                // SwiftUI's lazy AX materialization can trap while resolving off-screen ForEach rows.
+                VStack(alignment: .leading, spacing: 14) {
                     ForEach(history.events) { event in eventView(event) }
                     if history.isLoading { ProgressView("Загружаем более ранние наблюдения…") }
                     else if history.nextCursor != nil { Button("Загрузить более ранние наблюдения") { loadMore() } }
