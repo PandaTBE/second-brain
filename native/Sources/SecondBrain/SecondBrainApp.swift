@@ -138,10 +138,12 @@ struct MainView: View {
                     case .memory: MemoryView(store: store)
                     case .model: ModelSettingsView(store: store)
                     case .sources: SourcesView(store: store)
+                    case .backups: BackupSettingsView(store: store)
                     case .mcp: MCPView(memory: store.memory)
                     }
                 }
             }
+            .disabled(store.isRestoring)
             .navigationTitle(store.section.rawValue)
         }
         .onAppear {

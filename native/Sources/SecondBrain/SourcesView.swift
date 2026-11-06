@@ -7,6 +7,7 @@ struct SourcesView: View {
     @ViewState private var addKind: String?
     @ViewState private var removeCandidate: MemorySource?
     @ViewState private var policySource: MemorySource?
+    @ViewState private var recoverySource: MemorySource?
     @ViewState private var selectedID: String?
     init(store: AppStore) { self.store = store; self.memory = store.memory }
 
@@ -49,6 +50,9 @@ struct SourcesView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(source.name).fontWeight(.medium)
                                 Text(source.displayKind).font(.caption).foregroundStyle(.secondary)
+                                if source.requiresRelocation || source.requiresReauthentication {
+                                    Text("Требуется восстановить подключение").font(.caption).foregroundStyle(.orange)
+                                }
                                 if source.isMailSource && source.mailImportEnabled != true {
                                     Text("Импорт писем выключен").font(.caption).foregroundStyle(.secondary)
                                 }
@@ -71,6 +75,10 @@ struct SourcesView: View {
                     }.width(min: 120, ideal: 150)
                     TableColumn("") { source in
                         HStack(spacing: 6) {
+                            if source.requiresRelocation || source.requiresReauthentication {
+                                Button { recoverySource = source } label: { Image(systemName: "arrow.uturn.backward.circle") }
+                                    .help("Выбрать новый путь или войти заново").accessibilityLabel("Восстановить подключение \(source.name)")
+                            }
                             if store.busySources.contains(source.id) { ProgressView().controlSize(.small) }
                             if source.canImportMemory {
                                 Button { Task { await memory.startImport(sourceId: source.id); store.section = .memory } } label: { Image(systemName: "square.and.arrow.down") }
@@ -91,7 +99,7 @@ struct SourcesView: View {
                             Button(role: .destructive) { removeCandidate = source } label: { Image(systemName: "trash") }
                                 .help("Удалить подключение").accessibilityLabel("Удалить \(source.name)")
                         }.buttonStyle(.borderless)
-                    }.width(166)
+                    }.width(192)
                 }.padding(.horizontal, 12)
             }
             if let notice = store.notice { Text(notice).font(.callout).foregroundStyle(store.noticeIsError ? Color.orange : Color.green).padding(.horizontal, 24).padding(.bottom, 12) }
@@ -112,6 +120,8 @@ struct SourcesView: View {
             else if let kind = addKind { AddSourceSheet(store: store, kind: kind) }
         }
         .sheet(item: $policySource) { source in SourcePolicySheet(store: store, source: source) }
+        .sheet(item: $recoverySource) { source in SourceRecoverySheet(store: store, source: source) }
+        .onChange(of: store.restoreEpoch) { _, _ in addKind = nil; policySource = nil; recoverySource = nil; removeCandidate = nil }
         .alert("Удалить подключение?", isPresented: Binding(get: { removeCandidate != nil }, set: { if !$0 { removeCandidate = nil } })) {
             Button("Отмена", role: .cancel) { removeCandidate = nil }
             Button("Удалить подключение", role: .destructive) { if let source = removeCandidate { Task { await store.removeSource(source) } }; removeCandidate = nil }

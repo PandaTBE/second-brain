@@ -32,6 +32,8 @@ struct EvidenceSheet: View {
     @ViewState private var actionRevision = UUID()
     @ViewState private var pendingAction: EvidenceAction?
     @ViewState private var isSheetActive = false
+    @ViewState private var memoryEpoch: UUID
+    private var scopeIsCurrent: Bool { memoryEpoch == memory.restoreEpoch && !memory.isRestoring }
     @ViewState private var verified: [String: String] = [:]
     @ViewState private var actionMessage: String?
     @ViewState private var actionError = false
@@ -41,6 +43,7 @@ struct EvidenceSheet: View {
         self.memory = memory; self.sources = sources; self.localOriginalAccess = localOriginalAccess
         _query = ViewState(initialValue: initialQuery)
         _mode = ViewState(initialValue: initialMode)
+        _memoryEpoch = ViewState(initialValue: memory.restoreEpoch)
     }
 
     private var parameters: EvidenceRequest? { try? makeParameters() }
@@ -97,6 +100,7 @@ struct EvidenceSheet: View {
             if parameters != nil { search() }
         }
         .onDisappear { isSheetActive = false; invalidate() }
+        .onChange(of: memory.restoreEpoch) { _, _ in isSheetActive = false; invalidate(); dismiss() }
         .onChange(of: query) { _, _ in invalidate() }
         .onChange(of: mode) { _, _ in invalidate() }
         .onChange(of: sourceId) { _, _ in invalidate() }
@@ -215,7 +219,7 @@ struct EvidenceSheet: View {
     }
     private func close() { isSheetActive = false; invalidate(); dismiss() }
     private func search() {
-        guard isSheetActive else { return }
+        guard isSheetActive, scopeIsCurrent else { return }
         guard let parameters else {
             do { _ = try makeParameters() } catch { actionMessage = error.localizedDescription; actionError = true }
             return
@@ -231,11 +235,11 @@ struct EvidenceSheet: View {
         }
     }
     private func actionIsCurrent(_ request: EvidenceState.Request) -> Bool {
-        isSheetActive && !Task.isCancelled && evidence.isCurrent(request)
+        isSheetActive && scopeIsCurrent && !Task.isCancelled && evidence.isCurrent(request)
             && parameters == request.parameters
     }
     private func perform(_ action: EvidenceAction) {
-        guard isSheetActive, pendingAction == nil, let parameters,
+        guard isSheetActive, scopeIsCurrent, pendingAction == nil, let parameters,
               let request = evidence.beginRefresh(parameters) else {
             invalidate(); actionMessage = "Обновите пакет перед действием."; actionError = true
             return
@@ -290,10 +294,8 @@ struct EvidenceSheet: View {
         case .verify:
             verified[citation.citationId] = "Цитата совпадает с текущей ревизией и источником."
         case .open:
-            guard let uri = record.sourceUri, let kind = record.sourceKind,
-                  let target = OriginalSourceLink.target(uri: uri, sourceKind: kind, localFiles: localOriginalAccess) else {
-                throw ServiceError("Оригинал недоступен для безопасного открытия.")
-            }
+            let target = try await memory.originalTarget(record, localFiles: localOriginalAccess)
+            guard actionIsCurrent(request) else { return }
             open(target, request: request)
         case .copy: break
         }

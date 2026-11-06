@@ -15,8 +15,9 @@ final class QuickSearchViewModel: ObservableObject {
     var closePanel: (() -> Void)?
     var announce: ((String) -> Void)?
     init(memory: MemoryViewModel) { self.memory = memory }
-    var canAct: Bool { state.selectedRecord != nil && !state.isLoading && !state.isActing }
-    func present() { cancel(); query = ""; notice = nil; state.present() }
+    var canPresent: Bool { !memory.isRestoring }
+    var canAct: Bool { canPresent && state.selectedRecord != nil && !state.isLoading && !state.isActing }
+    func present() { guard canPresent else { dismiss(); return }; cancel(); query = ""; notice = nil; state.present() }
     func dismiss() { cancel(); state.dismiss(); notice = nil }
     private func cancel() { searchTask?.cancel(); actionTask?.cancel() }
     func changeQuery(_ value: String) {
@@ -59,7 +60,7 @@ final class QuickSearchViewModel: ObservableObject {
         }
     }
     func perform(copy: Bool) {
-        guard let action = state.beginAction() else { return }
+        guard canPresent, let action = state.beginAction() else { return }
         actionTask?.cancel(); notice = "Проверяем актуальные разрешения и ревизию…"
         actionTask = Task {
             defer { state.finishAction(action) }
@@ -96,6 +97,6 @@ final class QuickSearchViewModel: ObservableObject {
         }
     }
     private func current(_ action: QuickSearchState.Action) -> Bool {
-        !Task.isCancelled && state.isCurrentAction(action)
+        canPresent && !Task.isCancelled && state.isCurrentAction(action)
     }
 }

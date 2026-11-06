@@ -9,8 +9,15 @@ struct FactHistorySheet: View {
     @ViewState private var history = MemoryFactHistoryState()
     @ViewState private var task: Task<Void, Never>?
     @ViewState private var isActive = false
+    @ViewState private var memoryEpoch: UUID
     @ViewState private var checking = false
     @ViewState private var material: FactMaterialSnapshot?
+    private var scopeIsCurrent: Bool { memoryEpoch == memory.restoreEpoch && !memory.isRestoring }
+
+    init(memory: MemoryViewModel, fact: MemoryFactIdentity, localOriginalAccess: LocalOriginalAccess) {
+        self.memory = memory; self.fact = fact; self.localOriginalAccess = localOriginalAccess
+        _memoryEpoch = ViewState(initialValue: memory.restoreEpoch)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -31,6 +38,7 @@ struct FactHistorySheet: View {
         }.padding(24).frame(width: 800, height: 730)
         .task { guard !Task.isCancelled else { return }; isActive = true; loadFirst() }
         .onDisappear { invalidate() }
+        .onChange(of: memory.restoreEpoch) { _, _ in material = nil; invalidate(); dismiss() }
         .sheet(item: $material) { selected in
             FactCurrentMaterialSheet(memory: memory, snapshot: selected, localOriginalAccess: localOriginalAccess)
         }
@@ -90,15 +98,15 @@ struct FactHistorySheet: View {
     private func invalidate() { isActive = false; task?.cancel(); history.invalidate(); checking = false }
     private func close() { invalidate(); dismiss() }
     private func current(_ request: MemoryFactHistoryState.Request) -> Bool {
-        isActive && !Task.isCancelled && request.factId == fact.id && history.isCurrent(request)
+        isActive && scopeIsCurrent && !Task.isCancelled && request.factId == fact.id && history.isCurrent(request)
     }
     private func loadFirst() {
-        guard isActive else { return }
+        guard isActive, scopeIsCurrent else { return }
         task?.cancel(); checking = false
         load(history.begin(factId: fact.id))
     }
     private func loadMore() {
-        guard isActive, !checking, let request = history.beginNextPage() else { return }
+        guard isActive, scopeIsCurrent, !checking, let request = history.beginNextPage() else { return }
         load(request)
     }
     private func load(_ request: MemoryFactHistoryState.Request) {
@@ -111,10 +119,10 @@ struct FactHistorySheet: View {
         }
     }
     private func showCurrent(_ selected: MemoryFactHistoryEvent) {
-        guard isActive, !checking, let request = history.beginRefresh(eventId: selected.id) else { return }
+        guard isActive, scopeIsCurrent, !checking, let request = history.beginRefresh(eventId: selected.id) else { return }
         checking = true; task?.cancel()
         task = Task {
-            defer { if isActive, history.isCurrent(request) { checking = false } }
+            defer { if isActive, scopeIsCurrent, history.isCurrent(request) { checking = false } }
             do {
                 let page = try await memory.factHistory(request.factId, before: request.before)
                 guard current(request), try history.accept(page, request: request) else { return }

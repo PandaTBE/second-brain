@@ -51,8 +51,10 @@ public struct APIClient {
     public func get<Value: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> Value {
         try await perform(makeRequest(path, method: "GET", query: query))
     }
-    public func send<Value: Decodable, Body: Encodable>(_ path: String, method: String = "POST", body: Body) async throws -> Value {
-        try await perform(makeRequest(path, method: method, body: Self.encoder.encode(body)))
+    public func send<Value: Decodable, Body: Encodable>(_ path: String, method: String = "POST", body: Body, timeout: TimeInterval = 30) async throws -> Value {
+        var request = try makeRequest(path, method: method, body: Self.encoder.encode(body))
+        request.timeoutInterval = min(120, max(1, timeout))
+        return try await perform(request)
     }
     private func perform<Value: Decodable>(_ request: URLRequest) async throws -> Value {
         do {

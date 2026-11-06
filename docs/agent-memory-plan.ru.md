@@ -1,8 +1,8 @@
 # План развития Second Brain для Codex и Claude
 
-Статус: реализация в работе; этапы 0–1, 3–4 завершены, код этапов 2 и 5 реализован
-и проверен. Приёмка настоящих embeddings ожидает локальную модель; GUI-проверки
-этапа 5 продолжаются после разблокировки Mac. В работе — этап 6.
+Статус: этапы 0–1 и 3–5 завершены; код этапа 2 реализован и проверен, приёмка качества
+настоящих embeddings ожидает локальную модель. Backend/native этапа 6 реализованы
+и прошли review; финальная GUI-приёмка и portable app в работе.
 Дата: 2026-11-06. Репозиторий: `second-brain`.
 Исходная точка на момент подготовки: ветка `codex/apple-notes-outlook`, коммит `7fe1f49`.
 
@@ -463,7 +463,7 @@ Recall@5 на переформулированных запросах лучше
   generator_calls=0; личная память не менялась.
   Исправление AX-прокрутки: `fce8aa9`.
 
-### Этап 5 — реализован; GUI-приёмка в работе (2026-11-06)
+### Этап 5 — завершён (2026-11-06)
 
 - RED native/selected context: `0bae159`. GREEN: `fb56d3a`.
 - Панель из строки меню и глобальной настраиваемой Carbon hotkey. Начальное
@@ -489,10 +489,18 @@ Recall@5 на переформулированных запросах лучше
   RED backup/maintenance. 18 selected-context регрессий; code/Python/RAG — APPROVE.
   Native: 46 CoreChecks стандартной командой без флага, полный build — PASS;
   Swift/generic/security review — APPROVE по точному Git index.
-- Реальный вызов из другого приложения, hotkey conflict/focus и VoiceOver speech
-  пока не проверены. После разблокировки Mac GUI QA продолжает отдельный агент;
-  code/AX review и CoreChecks не подменяют эти сценарии. Настройки пользователя
-  и реальный буфер обмена при разработке к этому checkpoint не менялись.
+- Изолированная native GUI-приёмка: 30 сценариев PASS, включая ввод/стрелки/Return/Esc,
+  menu, конфликт Carbon -9878 с сохранением прежнего сочетания, VoiceOver modifiers,
+  debounce/поздние query/mode/close, безопасное копирование и открытие выбранной записи.
+  Пользователь физически нажал Cmd+Option+Shift+Space из отдельного FocusHost при
+  закрытом главном окне; QA без активации приложения наблюдал открывшуюся панель.
+  Автоматизация сама не доставляет Carbon global events — это подтверждено отдельным
+  тестовым handler, физическая проверка дополнила её.
+- Только явное копирование синтетического пакета изменило clipboard changeCount 1→2;
+  все deny-сценарии сохранили 2, содержимое буфера не читалось. QA app/helper/host
+  закрыты, регистрации освобождены, политики/модель восстановлены, пауза сохранена,
+  generator_calls=0. Полный CJK IME и VoiceOver speech остаются непроверенными;
+  code/AX и keyboard modifier проверки выполнены без новых системных разрешений.
 
 ### Этап 6 — backend завершён; native/GUI в работе
 
@@ -521,16 +529,26 @@ Recall@5 на переформулированных запросах лучше
   мешает следующему запуску. Удаление managed-копии проверяет quarantine ownership.
   Целые read→Vault→save и configure/admission workflows держат SH до writer lease;
   backup EX выполняется вне guarded memory tick. Никаких завершений чужих процессов.
-- Native: первые 51 CoreChecks/build PASS; Swift review требует синхронного сброса
-  кешей/модельных черновиков до первого await после restore и отклонения старых
-  mutation responses/defers по session epoch. Исправление в работе, одобрения пока нет.
+- Native: 52 CoreChecks/build PASS; Swift/generic/security — APPROVE. Синхронный
+  admission barrier отзывает кеши, модели, источники, запросы, расписание и quick panel
+  ДО POST восстановления. UUID/session epoch запрещает старые responses/defers;
+  четыре sheet держат стабильный presentation epoch. При timeout/rejection/bootstrap
+  failure состояние остаётся fail-closed без старого кеша. Подтверждение пароля
+  сравнивает точные UTF-8 байты, включая composed/decomposed Unicode.
+- `bash scripts/check-native-restore-state.sh`: 4 PASS на реальных AppStore,
+  MemoryViewModel и BackupViewModel с удержанным POST и старыми успешными ответами,
+  одинаковыми ID/rev/URI; bootstrap503, timeout, rejection и успешный fresh paused
+  resync. Первый RED действительно воспроизвёл отсутствие pre-POST барьера.
 - Финальный frozen arm64 helper v2: реальные age roundtrip/ошибки пароля/header,
   семь MCP-инструментов, два отдельных читателя с maintenance pause/resume и
   обновлением политик — PASS. Семь Mach-O arm64, pyrage и ресурсы проверены.
   Хеши входного Python-кода совпали до/после сборки; late security fixes включены.
   Отчёт: ignored `outputs/verification/portable-plan-final/backend-final-v2/summary.json`.
-  Portable app/GUI 6 ещё не приняты. Исходный ZIP/тег v0.1.0 совпадают с сохранёнными
-  хешами. Физический второй Mac и настоящая embedding-модель не проверены.
+  Portable app/GUI 6 ещё не приняты. Bundle guard обнаружил PEM parser constants
+  pyrage (не ключи, подтверждено security); узкое исправление guard с сохранением
+  обнаружения настоящих ключей проверяется отдельно, без allowlist пакета.
+  Исходный ZIP/тег v0.1.0 совпадают с сохранёнными хешами. Физический второй Mac
+  и настоящая embedding-модель не проверены.
 
 ## Первичные источники для реализации
 

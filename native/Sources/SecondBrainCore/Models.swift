@@ -113,12 +113,24 @@ public struct MemorySource: Codable, Identifiable, Hashable {
     public let outlookClientId: String?
     public let outlookAccountId: String?
     public let policy: SourcePolicy?
+    private let relocationNeeded: Bool?
+    private let reauthenticationNeeded: Bool?
+    public var requiresRelocation: Bool { relocationNeeded ?? false }
+    public var requiresReauthentication: Bool { reauthenticationNeeded ?? false }
+    private enum CodingKeys: String, CodingKey {
+        case id, name, kind, path, host, username, port, mailbox, enabled, credentialSaved,
+             lastCheckedAt, status, message, itemCount, notionPageIds, githubRepositories,
+             githubContent, mailProvider, mailImportEnabled, mailLookbackDays, notesFolderIds,
+             outlookClientId, outlookAccountId, policy
+        case relocationNeeded = "requiresRelocation"
+        case reauthenticationNeeded = "requiresReauthentication"
+    }
     public var displayKind: String {
         kind == "imap" ? (MailProvider.detect(raw: mailProvider, host: host)?.title ?? "Другая почта") : SourceFormatting.label(kind)
     }
     public var isMailSource: Bool { kind == "imap" || kind == "outlook" }
     public var canImportMemory: Bool {
-        enabled && (policy?.importEnabled ?? true) && (["codex", "claude", "qwen", "folder", "notion", "github", "apple_notes"].contains(kind) || (isMailSource && mailImportEnabled == true))
+        enabled && !requiresRelocation && !requiresReauthentication && (policy?.importEnabled ?? true) && (["codex", "claude", "qwen", "folder", "notion", "github", "apple_notes"].contains(kind) || (isMailSource && mailImportEnabled == true))
     }
     public var location: String {
         if kind == "notion" { return "Выбрано страниц: \(notionPageIds?.count ?? 0)" }

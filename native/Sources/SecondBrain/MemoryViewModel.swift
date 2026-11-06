@@ -25,6 +25,8 @@ final class MemoryViewModel: ObservableObject {
     @Published var mcp: MCPConfiguration?
     @Published var mcpLoading = false
     @Published var mcpError: String?
+    @Published private(set) var restoreEpoch = UUID()
+    @Published private(set) var isRestoring = false
     private var client: APIClient?
     private var statusRequest = 0
     private var detailRequest = 0
@@ -33,10 +35,11 @@ final class MemoryViewModel: ObservableObject {
     private var searchTask: Task<Void, Never>?
     private var lastCompletedJobs: Set<String> = []
     private var receivedStatus = false
+    init(client: APIClient? = nil) { self.client = client }
 
-    var busy: Bool { !action.isEmpty || status?.busy == true }
+    var busy: Bool { isRestoring || !action.isEmpty || status?.busy == true }
     var providerBlocked: Bool { status?.providerBackoff?.blocked == true }
-    var synchronizationPaused: Bool { status?.scheduler.paused ?? false }
+    var synchronizationPaused: Bool { isRestoring || (status?.scheduler.paused ?? false) }
     var cardConcurrency: Int { MemoryCardConcurrency.clamped(status?.scheduler.cardConcurrency ?? MemoryCardConcurrency.defaultValue) }
     var autoImportEnabled: Bool { !synchronizationPaused && (status?.scheduler.autoImportEnabled ?? true) }
     var atlasURL: URL? { client.flatMap { MemoryAtlasLink.url(baseURL: $0.baseURL) } }
@@ -61,12 +64,16 @@ final class MemoryViewModel: ObservableObject {
     }
 
     func configure(_ client: APIClient) async {
+        let lifetime = restoreEpoch
         pollTask?.cancel(); pollTask = nil; searchTask?.cancel()
         browsing.invalidate(); clearSelection()
         self.client = client
         await refreshStatus()
+        guard lifetime == restoreEpoch else { return }
         await search()
+        guard lifetime == restoreEpoch else { return }
         await loadMCP()
+        guard lifetime == restoreEpoch else { return }
         ensurePolling()
     }
 
@@ -95,7 +102,7 @@ final class MemoryViewModel: ObservableObject {
     }
 
     private func ensurePolling() {
-        guard pollTask == nil else { return }
+        guard !isRestoring, client != nil, pollTask == nil else { return }
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
@@ -108,11 +115,47 @@ final class MemoryViewModel: ObservableObject {
     }
 
     func sourcePolicyDidChange() async {
+        let lifetime = restoreEpoch
         searchTask?.cancel(); searchTask = nil
         browsing.invalidate(); clearSelection()
         statusRequest += 1; status = nil
         await refreshStatus()
+        guard lifetime == restoreEpoch else { return }
         await search()
+    }
+
+    func invalidateForRestore() {
+        restoreEpoch = UUID(); isRestoring = true
+        pollTask?.cancel(); pollTask = nil; searchTask?.cancel(); searchTask = nil
+        browsing.invalidate(); clearSelection(); client = nil
+        query = ""; filter = .all; searchMode = .lexical
+        statusRequest += 1; scheduleRevision += 1
+        scheduleEdited = false; scheduleDraft = MemoryScheduleRequest(autoImportEnabled: false, paused: true)
+        status = nil; statusError = nil; statusLoading = false; notice = nil; action = ""
+        mcp = nil; mcpError = nil; mcpLoading = false
+        receivedStatus = false; lastCompletedJobs = []; resultsHaveUpdates = false
+    }
+
+    func restoreDidComplete(_ client: APIClient) async {
+        isRestoring = false
+        await configure(client)
+    }
+
+    private func currentResponse<Value>(_ operation: (APIClient) async throws -> Value) async throws -> Value {
+        guard !isRestoring, let client else { throw CancellationError() }
+        let lifetime = restoreEpoch
+        do {
+            let value = try await operation(client)
+            guard lifetime == restoreEpoch, !isRestoring else { throw CancellationError() }
+            return value
+        } catch {
+            guard lifetime == restoreEpoch, !isRestoring else { throw CancellationError() }
+            throw error
+        }
+    }
+
+    func originalTarget(_ record: MemoryRecord, localFiles: LocalOriginalAccess = .currentDevice) async throws -> OriginalSourceTarget {
+        try await currentResponse { try await OriginalSourceOperations(client: $0).target(for: record, localFiles: localFiles) }
     }
 
     func changeSearchMode(_ value: MemorySearchMode) {
@@ -125,56 +168,57 @@ final class MemoryViewModel: ObservableObject {
     }
 
     func factPage(_ request: MemoryFactsRequest) async throws -> MemoryFactsResponse {
-        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
-        return try await client.get("/api/memory/facts", query: request.queryItems)
+        try await currentResponse { try await $0.get("/api/memory/facts", query: request.queryItems) }
     }
 
     func factHistory(_ factId: String, before: String? = nil) async throws -> MemoryFactHistoryResponse {
-        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        guard client != nil else { throw ServiceError("Локальный сервис не запущен.") }
         guard !factId.isEmpty, factId.count <= 128, factId.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") }),
               (before?.unicodeScalars.count ?? 0) <= 4096 else { throw ServiceError("Недопустимый идентификатор истории.") }
         var query = [URLQueryItem(name: "limit", value: "50")]
         if let before { query += [URLQueryItem(name: "before", value: before)] }
-        return try await client.get("/api/memory/facts/\(factId)/history", query: query)
+        return try await currentResponse { try await $0.get("/api/memory/facts/\(factId)/history", query: query) }
     }
 
     func currentFactRecord(_ recordId: String) async throws -> MemoryRecord {
-        guard let client, !recordId.isEmpty, recordId.count <= 128,
+        guard client != nil, !recordId.isEmpty, recordId.count <= 128,
               recordId.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") }) else { throw ServiceError("Материал недоступен.") }
-        let response: MemoryRecordResponse = try await client.get("/api/memory/records/\(recordId)")
+        let response: MemoryRecordResponse = try await currentResponse { try await $0.get("/api/memory/records/\(recordId)") }
         return response.record
     }
 
     func projectFacts() async throws -> MemoryJobResponse {
-        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
-        let result: MemoryJobResponse = try await client.send("/api/memory/facts/project", body: FactsProjectionRequest())
-        await refreshStatus(); ensurePolling()
+        let lifetime = restoreEpoch
+        let result: MemoryJobResponse = try await currentResponse { try await $0.send("/api/memory/facts/project", body: FactsProjectionRequest()) }
+        guard lifetime == restoreEpoch else { throw CancellationError() }
+        await refreshStatus()
+        guard lifetime == restoreEpoch else { throw CancellationError() }
+        ensurePolling()
         return result
     }
 
     func factProjectionJob(_ jobId: String) async throws -> MemoryJob {
-        guard let client, !jobId.isEmpty, jobId.count <= 128,
+        guard client != nil, !jobId.isEmpty, jobId.count <= 128,
               jobId.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }) else { throw ServiceError("Задание недоступно.") }
-        let response: MemoryJobStatusResponse = try await client.get("/api/memory/jobs/\(jobId)")
+        let response: MemoryJobStatusResponse = try await currentResponse { try await $0.get("/api/memory/jobs/\(jobId)") }
         return response.job
     }
 
     func quickSearch(query: String, mode: MemorySearchMode) async throws -> MemorySearchResponse {
-        guard let client else { throw ServiceError("Локальный сервис не запущен. Откройте Second Brain и дождитесь запуска.") }
-        return try await client.get("/api/memory/search", query: [
+        guard client != nil else { throw ServiceError("Локальный сервис не запущен. Откройте Second Brain и дождитесь запуска.") }
+        return try await currentResponse { try await $0.get("/api/memory/search", query: [
             URLQueryItem(name: "q", value: query), URLQueryItem(name: "mode", value: mode.rawValue),
             URLQueryItem(name: "limit", value: "8")
-        ])
+        ]) }
     }
 
     func evidenceBundle(_ request: EvidenceRequest) async throws -> EvidenceBundle {
-        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
-        return try await client.get("/api/memory/evidence", query: request.queryItems)
+        try await currentResponse { try await $0.get("/api/memory/evidence", query: request.queryItems) }
     }
 
     func currentCitationRecord(_ citation: EvidenceCitation) async throws -> MemoryRecord {
-        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
-        let response: MemoryRecordResponse = try await client.get("/api/memory/records/\(citation.recordId)")
+        guard client != nil else { throw ServiceError("Локальный сервис не запущен.") }
+        let response: MemoryRecordResponse = try await currentResponse { try await $0.get("/api/memory/records/\(citation.recordId)") }
         guard citation.matches(record: response.record) else {
             throw ServiceError("Материал или его источник изменились. Обновите пакет доказательств.")
         }
@@ -182,27 +226,28 @@ final class MemoryViewModel: ObservableObject {
     }
 
     func embeddingSettings() async throws -> EmbeddingSettings {
-        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
-        return try await client.get("/api/memory/embeddings")
+        try await currentResponse { try await $0.get("/api/memory/embeddings") }
     }
 
     func embeddingModels() async throws -> EmbeddingModelsResponse {
-        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
-        return try await client.get("/api/memory/embeddings/models")
+        try await currentResponse { try await $0.get("/api/memory/embeddings/models") }
     }
 
     func saveEmbeddingSettings(_ request: EmbeddingSettingsRequest) async throws -> EmbeddingSettings {
-        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
-        let response: EmbeddingSettings = try await client.send("/api/memory/embeddings", body: request)
+        let lifetime = restoreEpoch
+        let response: EmbeddingSettings = try await currentResponse { try await $0.send("/api/memory/embeddings", body: request) }
         searchTask?.cancel(); browsing.invalidate(); clearSelection()
         await search()
+        guard lifetime == restoreEpoch else { throw CancellationError() }
         return response
     }
 
     func startEmbeddingIndex() async throws -> EmbeddingIndexResponse {
-        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
-        let response: EmbeddingIndexResponse = try await client.send("/api/memory/embeddings/index", body: EmbeddingIndexRequest())
-        await refreshStatus(); ensurePolling()
+        let lifetime = restoreEpoch
+        let response: EmbeddingIndexResponse = try await currentResponse { try await $0.send("/api/memory/embeddings/index", body: EmbeddingIndexRequest()) }
+        await refreshStatus()
+        guard lifetime == restoreEpoch else { throw CancellationError() }
+        ensurePolling()
         return response
     }
 
@@ -270,6 +315,7 @@ final class MemoryViewModel: ObservableObject {
     }
 
     func selectRecord(_ id: String?) async {
+        guard !isRestoring else { return }
         guard let id else { clearSelection(); return }
         selectedId = id; detailRequest += 1
         let request = detailRequest
@@ -316,56 +362,67 @@ final class MemoryViewModel: ObservableObject {
 
     func startImport(sourceId: String? = nil) async {
         guard let client, !busy else { return }
+        let lifetime = restoreEpoch
         action = "import"; notice = nil
-        defer { action = "" }
+        defer { if lifetime == restoreEpoch { action = "" } }
         do {
             let _: MemoryJobResponse = try await client.send("/api/memory/import", body: MemoryImportRequest(sourceId: sourceId))
+            guard lifetime == restoreEpoch else { return }
             notice = "Импорт запущен. Создание карточек через модель не запускается."; noticeIsError = false
             await refreshStatus(); ensurePolling()
-        } catch { notice = error.localizedDescription; noticeIsError = true }
+        } catch { if lifetime == restoreEpoch { notice = error.localizedDescription; noticeIsError = true } }
     }
 
     func startCards(limit: Int, retryErrors: Bool) async {
         guard let client, !busy, !providerBlocked else { return }
+        let lifetime = restoreEpoch
         action = "cards"; notice = nil
-        defer { action = "" }
+        defer { if lifetime == restoreEpoch { action = "" } }
         do {
             let _: MemoryJobResponse = try await client.send("/api/memory/cards", body: MemoryCardsRequest(limit: limit, retryErrors: retryErrors))
+            guard lifetime == restoreEpoch else { return }
             notice = "Обработка запущена: не более \(MemoryProcessingLimit.clamped(limit)) материалов в этом пакете."; noticeIsError = false
             await refreshStatus(); ensurePolling()
-        } catch { notice = error.localizedDescription; noticeIsError = true }
+        } catch { if lifetime == restoreEpoch { notice = error.localizedDescription; noticeIsError = true } }
     }
 
     func retryAllErrors() async {
         guard let client else { return }
+        let lifetime = restoreEpoch
         guard !busy else {
             notice = "Дождитесь завершения текущей операции памяти и повторите действие."
             noticeIsError = true
             return
         }
         action = "retry-errors"; notice = nil
-        defer { action = "" }
+        defer { if lifetime == restoreEpoch { action = "" } }
         do {
             let response: MemoryRetryErrorsResponse = try await client.send(
                 "/api/memory/cards/retry-errors", body: MemoryRetryErrorsRequest()
             )
+            guard lifetime == restoreEpoch else { return }
             notice = response.notice; noticeIsError = false
-            await refreshStatus(); await search()
+            await refreshStatus()
+            guard lifetime == restoreEpoch else { return }
+            await search()
+            guard lifetime == restoreEpoch else { return }
             if let selectedId { await selectRecord(selectedId) }
             ensurePolling()
-        } catch { notice = error.localizedDescription; noticeIsError = true }
+        } catch { if lifetime == restoreEpoch { notice = error.localizedDescription; noticeIsError = true } }
     }
 
     func resumeProvider() async {
         guard let client, action.isEmpty, providerBlocked else { return }
+        let lifetime = restoreEpoch
         action = "provider-resume"; notice = nil
-        defer { action = "" }
+        defer { if lifetime == restoreEpoch { action = "" } }
         do {
             let _: MemoryProviderResumeResponse = try await client.send("/api/memory/provider-resume", body: MemoryProviderResumeRequest())
+            guard lifetime == restoreEpoch else { return }
             notice = "Пауза провайдера снята. При включённых автокарточках обработка продолжится автоматически. Прошлые ошибки повторяются отдельно."
             noticeIsError = false
             await refreshStatus(); ensurePolling()
-        } catch { notice = error.localizedDescription; noticeIsError = true }
+        } catch { if lifetime == restoreEpoch { notice = error.localizedDescription; noticeIsError = true } }
     }
 
     func editSchedule(_ value: MemoryScheduleRequest) {
@@ -374,24 +431,28 @@ final class MemoryViewModel: ObservableObject {
 
     func applySchedule() async {
         guard let client, action.isEmpty, status != nil else { return }
+        let lifetime = restoreEpoch
         let revision = scheduleRevision
         let request = scheduleDraft
         action = "schedule"
-        defer { action = "" }
+        defer { if lifetime == restoreEpoch { action = "" } }
         do {
             let response: MemoryScheduleResponse = try await client.send("/api/memory/schedule", body: request)
+            guard lifetime == restoreEpoch else { return }
             if revision == scheduleRevision { scheduleDraft = response.scheduler.request; scheduleEdited = false }
             notice = "Настройки автоматизации сохранены."; noticeIsError = false
             await refreshStatus()
-        } catch { notice = error.localizedDescription; noticeIsError = true }
+        } catch { if lifetime == restoreEpoch { notice = error.localizedDescription; noticeIsError = true } }
     }
 
     func setSynchronizationPaused(_ paused: Bool) async {
         guard let client, action.isEmpty, status != nil else { return }
+        let lifetime = restoreEpoch
         action = "sync"
-        defer { action = "" }
+        defer { if lifetime == restoreEpoch { action = "" } }
         do {
             let response: MemoryScheduleResponse = try await client.send("/api/memory/sync", body: MemorySyncRequest(paused: paused))
+            guard lifetime == restoreEpoch else { return }
             if scheduleEdited {
                 scheduleDraft = scheduleDraft.applyingSynchronizationPause(response.scheduler.paused ?? paused)
             } else { scheduleDraft = response.scheduler.request }
@@ -399,21 +460,23 @@ final class MemoryViewModel: ObservableObject {
             noticeIsError = false
             await refreshStatus()
             ensurePolling()
-        } catch { notice = error.localizedDescription; noticeIsError = true }
+        } catch { if lifetime == restoreEpoch { notice = error.localizedDescription; noticeIsError = true } }
     }
 
     func setAutoImport(_ enabled: Bool) async {
         guard let client, action.isEmpty, let current = status?.scheduler.request else { return }
+        let lifetime = restoreEpoch
         var request = current
         request.autoImportEnabled = enabled
         action = "autoimport"
-        defer { action = "" }
+        defer { if lifetime == restoreEpoch { action = "" } }
         do {
             let _: MemoryScheduleResponse = try await client.send("/api/memory/schedule", body: request)
+            guard lifetime == restoreEpoch else { return }
             if !scheduleEdited { scheduleDraft = request }
             notice = enabled ? "Автоимпорт Codex, Claude и Qwen Code включён." : "Автоимпорт приостановлен."; noticeIsError = false
             await refreshStatus()
-        } catch { notice = error.localizedDescription; noticeIsError = true }
+        } catch { if lifetime == restoreEpoch { notice = error.localizedDescription; noticeIsError = true } }
     }
 
     func openAtlas() {
@@ -430,9 +493,13 @@ final class MemoryViewModel: ObservableObject {
 
     func loadMCP() async {
         guard let client else { return }
+        let lifetime = restoreEpoch
         mcpLoading = true
-        defer { mcpLoading = false }
-        do { mcp = try await client.get("/api/memory/mcp"); mcpError = nil }
-        catch { mcpError = error.localizedDescription }
+        defer { if lifetime == restoreEpoch { mcpLoading = false } }
+        do {
+            let response: MCPConfiguration = try await client.get("/api/memory/mcp")
+            guard lifetime == restoreEpoch else { return }
+            mcp = response; mcpError = nil
+        } catch { if lifetime == restoreEpoch { mcpError = error.localizedDescription } }
     }
 }

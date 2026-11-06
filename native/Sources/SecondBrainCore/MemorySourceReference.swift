@@ -11,13 +11,17 @@ enum ExactSourceText {
 }
 
 /// Metadata can change without a text revision; original-source actions compare both.
-public struct MemorySourceReference: Equatable {
+public struct MemorySourceReference: Equatable, Decodable {
     private let recordId: String
     private let revision: Int?
     private let sourceId: String?
     private let sourceKind: String?
     private let sourceObjectId: String?
     private let sourceUri: String?
+    private enum CodingKeys: String, CodingKey {
+        case recordId = "id"
+        case revision, sourceId, sourceKind, sourceObjectId, sourceUri
+    }
     public init(record: MemoryRecord) {
         recordId = record.id; revision = record.revision; sourceId = record.sourceId
         sourceKind = record.sourceKind; sourceObjectId = record.sourceObjectId; sourceUri = record.sourceUri

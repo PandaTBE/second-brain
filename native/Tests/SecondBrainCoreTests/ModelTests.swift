@@ -32,6 +32,11 @@ enum CoreChecks {
             ("Requests stay on the owned loopback origin and carry CSRF", requests),
             ("Source counts describe files or messages instead of imported knowledge", sources),
             ("Source policies preserve legacy defaults and independent permissions", sourcePolicyContract),
+            ("Backups preserve explicit scheduling, retention and bounded requests", backupSettingsContract),
+            ("Backup password confirmation preserves exact Unicode bytes", backupPassphraseConfirmation),
+            ("Restore authority is bound to a fresh reviewed inspection", backupInspectionContract),
+            ("Restored sources require explicit relocation or reauthentication", sourceRecoveryContract),
+            ("Original opening uses a fresh fail-closed server target after restore", restoreOpeningContract),
             ("Policy exclusions require a current preview and bounded relative paths", sourcePolicyPreview),
             ("Mail providers hide server settings and preserve explicit import scope", mailSources),
             ("Apple Notes require selected folders and retain source compatibility", appleNotesConnector),
@@ -82,10 +87,14 @@ enum CoreChecks {
             try await memoryFactJobEnvelope()
             print("PASS: Fact projection polls the actual nested job response envelope")
         } catch { failures.append("Fact projection job envelope: \(error)") }
+        do {
+            try await originalOpeningAfterAwait()
+            print("PASS: Original opening rejects metadata changed during its final HTTP await")
+        } catch { failures.append("Original opening reference: \(error)") }
         if !failures.isEmpty {
             throw CheckFailure(description: failures.joined(separator: "\n"))
         }
-        print("\(checks.count + optionalChecks.count + 2) core checks passed.")
+        print("\(checks.count + optionalChecks.count + 3) core checks passed.")
     }
 
 

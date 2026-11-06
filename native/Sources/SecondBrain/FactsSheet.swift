@@ -16,11 +16,18 @@ struct FactsSheet: View {
     @ViewState private var projectionJob: MemoryJob?
     @ViewState private var projectionRevision = UUID()
     @ViewState private var isActive = false
+    @ViewState private var memoryEpoch: UUID
+    private var scopeIsCurrent: Bool { memoryEpoch == memory.restoreEpoch && !memory.isRestoring }
     @ViewState private var checking = false
     @ViewState private var notice: String?
     @ViewState private var history: MemoryFactIdentity?
     @ViewState private var material: FactMaterialSnapshot?
     private var parameters: MemoryFactsRequest? { try? MemoryFactsRequest(query: query, sourceId: sourceId, includeHistory: includeHistory) }
+
+    init(memory: MemoryViewModel, sources: [MemorySource], localOriginalAccess: LocalOriginalAccess) {
+        self.memory = memory; self.sources = sources; self.localOriginalAccess = localOriginalAccess
+        _memoryEpoch = ViewState(initialValue: memory.restoreEpoch)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -57,6 +64,7 @@ struct FactsSheet: View {
         .onChange(of: sourceId) { _, _ in invalidateResults() }
         .onChange(of: includeHistory) { _, _ in invalidateResults(); load() }
         .onDisappear { invalidate() }
+        .onChange(of: memory.restoreEpoch) { _, _ in history = nil; material = nil; invalidate(); dismiss() }
         .sheet(item: $history) { fact in
             FactHistorySheet(memory: memory, fact: fact, localOriginalAccess: localOriginalAccess)
         }
@@ -126,14 +134,14 @@ struct FactsSheet: View {
     private func invalidateResults() { task?.cancel(); facts.invalidate(); checking = false; notice = nil }
     private func invalidate() {
         isActive = false; invalidateResults(); projectionTask?.cancel()
-        projectionRevision = UUID(); projecting = false
+        projectionRevision = UUID(); projecting = false; projectionJob = nil
     }
     private func close() { invalidate(); dismiss() }
     private func current(_ request: MemoryFactsState.Request) -> Bool {
-        isActive && !Task.isCancelled && facts.isCurrent(request) && parameters == request.parameters
+        isActive && scopeIsCurrent && !Task.isCancelled && facts.isCurrent(request) && parameters == request.parameters
     }
     private func load() {
-        guard isActive, let parameters else { return }
+        guard isActive, scopeIsCurrent, let parameters else { return }
         task?.cancel(); checking = false
         let request = facts.begin(parameters)
         task = Task {
@@ -145,10 +153,10 @@ struct FactsSheet: View {
         }
     }
     private func freshAction(factId: String, proof: MemoryFactProof?) {
-        guard isActive, !checking, let parameters, let request = facts.beginRefresh(parameters) else { return }
+        guard isActive, scopeIsCurrent, !checking, let parameters, let request = facts.beginRefresh(parameters) else { return }
         checking = true; task?.cancel()
         task = Task {
-            defer { if isActive, facts.isCurrent(request) { checking = false } }
+            defer { if isActive, scopeIsCurrent, facts.isCurrent(request) { checking = false } }
             do {
                 let page = try await memory.factPage(request.parameters)
                 guard current(request), try facts.accept(page, request: request) else { return }
@@ -167,16 +175,16 @@ struct FactsSheet: View {
         }
     }
     private func project() {
-        guard isActive, !projecting, !memory.busy else { return }
+        guard isActive, scopeIsCurrent, !projecting, !memory.busy else { return }
         projecting = true; notice = nil; projectionRevision = UUID()
         let revision = projectionRevision
         projectionTask = Task {
-            defer { if isActive, revision == projectionRevision { projecting = false } }
+            defer { if isActive, scopeIsCurrent, revision == projectionRevision { projecting = false } }
             do {
                 let handle = try await memory.projectFacts()
-                while !Task.isCancelled && isActive && revision == projectionRevision {
+                while !Task.isCancelled && isActive && scopeIsCurrent && revision == projectionRevision {
                     let job = try await memory.factProjectionJob(handle.jobId)
-                    guard isActive, !Task.isCancelled, revision == projectionRevision else { return }
+                    guard isActive, scopeIsCurrent, !Task.isCancelled, revision == projectionRevision else { return }
                     projectionJob = job
                     if !job.active {
                         guard job.status == "completed" else { throw ServiceError(job.error ?? "Обновление фактов не завершено.") }
@@ -185,7 +193,7 @@ struct FactsSheet: View {
                     }
                     try await Task.sleep(nanoseconds: 500_000_000)
                 }
-            } catch { if isActive, !Task.isCancelled, revision == projectionRevision { notice = error.localizedDescription } }
+            } catch { if isActive, scopeIsCurrent, !Task.isCancelled, revision == projectionRevision { notice = error.localizedDescription } }
         }
     }
 }

@@ -15,6 +15,7 @@ struct FactCurrentMaterialSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ViewState private var record: MemoryRecord?
     @ViewState private var isActive = false
+    @ViewState private var memoryEpoch: UUID
     @ViewState private var busy = false
     @ViewState private var request = UUID()
     @ViewState private var task: Task<Void, Never>?
@@ -22,6 +23,7 @@ struct FactCurrentMaterialSheet: View {
     init(memory: MemoryViewModel, snapshot: FactMaterialSnapshot, localOriginalAccess: LocalOriginalAccess) {
         self.memory = memory; self.snapshot = snapshot; self.localOriginalAccess = localOriginalAccess
         _record = ViewState(initialValue: snapshot.record)
+        _memoryEpoch = ViewState(initialValue: memory.restoreEpoch)
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -53,13 +55,14 @@ struct FactCurrentMaterialSheet: View {
             }
         }.padding(24).frame(width: 760, height: 650)
         .onAppear { isActive = true }
+        .onChange(of: memory.restoreEpoch) { _, _ in record = nil; invalidate(); dismiss() }
         .onDisappear { invalidate() }
     }
     private func invalidate() { isActive = false; task?.cancel(); request = UUID(); busy = false }
     private func close() { invalidate(); dismiss() }
-    private func current(_ token: UUID) -> Bool { isActive && request == token && !Task.isCancelled }
+    private func current(_ token: UUID) -> Bool { isActive && memoryEpoch == memory.restoreEpoch && !memory.isRestoring && request == token && !Task.isCancelled }
     private func open(_ displayed: MemoryRecord) {
-        guard isActive, !busy else { return }
+        guard isActive, memoryEpoch == memory.restoreEpoch, !memory.isRestoring, !busy else { return }
         request = UUID(); let token = request
         let reference = MemorySourceReference(record: displayed)
         busy = true; error = nil
@@ -72,10 +75,7 @@ struct FactCurrentMaterialSheet: View {
                     record = fresh; error = "Материал или адрес изменились. Просмотрите новое состояние и выберите действие заново."
                     return
                 }
-                guard let uri = fresh.sourceUri, let kind = fresh.sourceKind,
-                      let target = OriginalSourceLink.target(uri: uri, sourceKind: kind, localFiles: localOriginalAccess) else {
-                    throw ServiceError("Оригинал недоступен для безопасного открытия.")
-                }
+                let target = try await memory.originalTarget(fresh, localFiles: localOriginalAccess)
                 switch target {
                 case .web(let url):
                     guard current(token) else { return }

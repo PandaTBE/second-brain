@@ -150,6 +150,10 @@ struct MemoryView: View {
             Text("В очередь будут возвращены все текущие карточки с ошибками (сейчас: \(memory.status?.cardsError ?? 0)). Для каждой будет доступна новая попытка и до двух автоматических повторов. \(store.savedSettings.isLocal ? "При включённых автокарточках Ollama обработает их на этом Mac, без API-тарифа." : "При включённых автокарточках запросы к модели оплачиваются по её тарифам.") Настройки автоматизации и пауза провайдера сохранятся.")
         }
         .task { await memory.refreshStatus(); await memory.search() }
+        .onChange(of: memory.restoreEpoch) { _, _ in
+            showAutomation = false; showEmbeddingSettings = false; showFacts = false; showEvidence = false
+            confirmCards = false; confirmRetryErrors = false
+        }
     }
 
     @ViewBuilder

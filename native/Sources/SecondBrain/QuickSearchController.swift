@@ -47,6 +47,7 @@ final class QuickSearchController: NSObject, ObservableObject, NSWindowDelegate 
         do { try hotKey.install(shortcut) } catch { registrationError = error.localizedDescription }
     }
     func show() {
+        guard model.canPresent else { return }
         if panel?.isVisible == true { panel?.makeKeyAndOrderFront(nil); return }
         previousApplication = NSWorkspace.shared.frontmostApplication
         model.present()
