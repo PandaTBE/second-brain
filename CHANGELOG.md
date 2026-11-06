@@ -9,6 +9,14 @@ listed in the release notes; preparing local artifacts does not publish a releas
 
 ### Added
 
+- Opt-in local semantic and hybrid retrieval with a separate installed Ollama
+  embedding model, SQLite index generations and bounded writer-owned indexing.
+  Native settings expose the model, progress and search modes; HTTP/MCP share
+  lexical fallback and partial-coverage diagnostics. Oversized prepared text is
+  reported rather than truncated and remains available to BM25. No model download
+  or paid inference is started by retrieval. Real-model relevance improvement and
+  cold/query-embedding timings remain unverified; a separate synthetic 10,000-vector
+  scan report measures only precomputed retrieval. Published `v0.1.0` is unchanged.
 - Independent source permissions for import, native retrieval, MCP retrieval,
   local processing and external processing, persisted in SQLite. Source-build
   UI includes local-path/selected-Notes-folder exclusions and a bounded preview.
@@ -106,6 +114,12 @@ shared local memory server for AI assistants.
 
 ### Ещё не выпущено
 
+- Явно включаемые локальные embeddings и гибридный поиск: отдельная установленная
+  модель Ollama, поколения SQLite, фоновая индексация, нативные настройки и выбор
+  режима. HTTP/MCP показывают возврат к BM25 и неполное покрытие; слишком длинный
+  текст получает ошибку без усечения. Модели не скачиваются, платной генерации
+  при чтении нет. Цель качества и время настоящей модели пока не проверены;
+  отчёт по 10 000 готовых синтетических векторов измеряет только их поиск.
 - Раздельные разрешения источника: импорт, поиск в приложении, MCP, локальная
   и внешняя обработка; исключения локальных путей и выбранных папок Notes
   с предпросмотром. Старые настройки сохраняют поведение; политики проверяются

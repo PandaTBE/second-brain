@@ -109,6 +109,9 @@ class MemoryStore:
             from .source_policy import migrate as migrate_policy
 
             migrate_policy(connection)
+            from .embedding_store import migrate as migrate_embeddings
+
+            migrate_embeddings(connection)
 
     @contextmanager
     def _connection(self, write=False):

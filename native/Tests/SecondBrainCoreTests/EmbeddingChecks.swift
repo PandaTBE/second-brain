@@ -1,4 +1,3 @@
-#if SECOND_BRAIN_STAGE2_CHECKS
 import Foundation
 import SecondBrainCore
 
@@ -13,11 +12,21 @@ extension CoreChecks {
         try embeddingRequire(!disabled.enabled && disabled.modelId == nil && disabled.dimension == nil && disabled.generation == nil && disabled.ready == 0, "Embeddings start disabled without borrowing the card model")
         let active = try APIClient.decoder.decode(EmbeddingSettings.self, from: Data(#"{"enabled":true,"model_id":"embed-test:latest","digest":"sha256:synthetic","dimension":768,"generation":"generation-two","prep_version":1,"ready":7,"pending":3,"errors":1,"message":"Local model"}"#.utf8))
         try embeddingRequire(active.modelId == "embed-test:latest" && active.digest == "sha256:synthetic" && active.dimension == 768 && active.ready == 7 && active.pending == 3 && active.errors == 1, "The native UI retains index identity, dimension and separate progress counts")
+        var draft = EmbeddingSettingsState()
+        draft.acceptStatus(active)
+        try embeddingRequire(draft.enabled && draft.selection.selectedId == active.modelId, "The first successful settings response after an unavailable service initializes the actual enabled state and model")
+        draft.enabled = false
+        draft.acceptStatus(active)
+        try embeddingRequire(!draft.enabled && draft.selection.selectedId == active.modelId, "Later status polls preserve an edited draft")
+        draft.acceptSaved(active)
+        try embeddingRequire(draft.enabled && draft.settings?.generation == active.generation, "A successful save replaces the draft with the confirmed settings")
         let request = EmbeddingSettingsRequest(enabled: true, modelId: "embed-test:latest")
         let body = try JSONSerialization.jsonObject(with: APIClient.encoder.encode(request)) as! [String: Any]
         try embeddingRequire(body.count == 2 && body["enabled"] as? Bool == true && body["model_id"] as? String == "embed-test:latest", "Explicit embedding settings never send card-provider settings, credentials, digest or an invented dimension")
         let disable = try JSONSerialization.jsonObject(with: APIClient.encoder.encode(EmbeddingSettingsRequest(enabled: false, modelId: nil))) as! [String: Any]
         try embeddingRequire(disable.count == 1 && disable["enabled"] as? Bool == false, "Disabling does not need a model or a provider request")
+        let job = try APIClient.decoder.decode(MemoryJob.self, from: Data(#"{"id":"index-job","kind":"embeddings","status":"running","processed":3,"total":8}"#.utf8))
+        try embeddingRequire(job.title == "Индексация поиска" && job.progressLabel == "3 из 8 материалов", "Embedding jobs describe indexed materials rather than imported sources")
         let response = try APIClient.decoder.decode(EmbeddingModelsResponse.self, from: Data(#"{"models":[{"id":"embed-test:latest","name":"embed-test:latest","digest":"sha256:synthetic"}],"message":null}"#.utf8))
         var selection = EmbeddingModelSelection()
         try embeddingRequire(!selection.canEnable && selection.selectedId == nil, "An embedding model is never selected automatically")
@@ -31,6 +40,18 @@ extension CoreChecks {
     }
 
     static func embeddingSearchContract() throws {
+        let excerptCases = [
+            ("", " \n ", "Source excerpt", "Source excerpt"),
+            ("Summary", "Card summary", "Source excerpt", "Summary"),
+            (" \n ", "Card summary", "Source excerpt", "Card summary"),
+            ("", "", " \n ", "")
+        ]
+        for (summary, cardSummary, snippet, expected) in excerptCases {
+            let payload: [String: Any] = ["id": "pending", "title": "Synthetic", "summary": summary,
+                                          "card": ["summary": cardSummary], "snippet": snippet]
+            let record = try APIClient.decoder.decode(MemoryRecord.self, from: JSONSerialization.data(withJSONObject: payload))
+            try embeddingRequire(record.displaySnippet == expected, "Empty summaries must not hide the first available source excerpt")
+        }
         let legacy = try APIClient.decoder.decode(MemorySearchResponse.self, from: Data(#"{"results":[]}"#.utf8))
         try embeddingRequire(legacy.search == nil, "The existing search result contract remains compatible")
         let fallback = try APIClient.decoder.decode(MemorySearchResponse.self, from: Data(#"{"results":[],"search":{"requested_mode":"hybrid","used_mode":"lexical","fallback_reason":"embeddings_disabled","generation":null,"query_embedding_ms":null,"vector_search_ms":null,"eligible":4,"ready":0,"partial":true}}"#.utf8))
@@ -51,4 +72,3 @@ extension CoreChecks {
         try embeddingRequire(blank.mode == .lexical && blank.filter == .pending, "Blank queries preserve lexical history and status pagination")
     }
 }
-#endif

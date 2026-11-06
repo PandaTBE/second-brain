@@ -8,6 +8,7 @@ struct MemoryView: View {
     @ViewState private var confirmRetryErrors = false
     @ViewState private var confirmedLimit = 10
     @ViewState private var showAutomation = false
+    @ViewState private var showEmbeddingSettings = false
     init(store: AppStore) { self.store = store; self.memory = store.memory }
 
     private var importableSources: [MemorySource] { store.sources.filter { $0.canImportMemory && $0.enabled } }
@@ -64,6 +65,11 @@ struct MemoryView: View {
                 HStack {
                     HStack { Image(systemName: "magnifyingglass").foregroundStyle(.secondary); TextField("Найти решение, ошибку, проект…", text: Binding(get: { memory.query }, set: { memory.changeQuery($0) })).textFieldStyle(.plain).onSubmit { Task { await memory.search() } } }
                         .padding(8).background(.quaternary, in: RoundedRectangle(cornerRadius: 7))
+                    Picker("Режим поиска", selection: Binding(get: { memory.searchMode }, set: { memory.changeSearchMode($0) })) {
+                        ForEach(MemorySearchMode.allCases) { mode in Text(mode.title).tag(mode) }
+                    }.labelsHidden().pickerStyle(.menu).frame(width: 140)
+                    Button { showEmbeddingSettings = true } label: { Image(systemName: "slider.horizontal.3") }
+                        .help("Настройки поиска по смыслу").accessibilityLabel("Настройки поиска по смыслу")
                     if memory.searchLoading { ProgressView().controlSize(.small) }
                     Button { Task { await memory.refreshStatus(); await memory.search() } } label: { Image(systemName: "arrow.clockwise") }.help("Обновить память")
                 }
@@ -71,10 +77,20 @@ struct MemoryView: View {
             Divider()
             HSplitView {
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Text(memory.listTitle).font(.caption.weight(.medium))
-                        Spacer()
-                        Text("Загружено: \(memory.results.count)").font(.caption).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack {
+                            Text(memory.listTitle).font(.caption.weight(.medium))
+                            Spacer()
+                            Text("Загружено: \(memory.results.count)").font(.caption).foregroundStyle(.secondary)
+                        }
+                        if memory.usesRankedSearch {
+                            Text("До \(MemorySearchMode.rankedResultLimit) материалов. Для страниц истории и фильтров состояния выберите «По словам».")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                        if let diagnostics = memory.searchDiagnostics {
+                            Text(diagnostics.message).font(.caption2).foregroundStyle(.secondary)
+                            if let fallback = diagnostics.fallbackMessage { Text(fallback).font(.caption2).foregroundStyle(.orange) }
+                        }
                     }.padding(12)
                     if memory.resultsHaveUpdates {
                         HStack {
@@ -108,6 +124,7 @@ struct MemoryView: View {
             }
         }
         .sheet(isPresented: $showAutomation) { MemoryAutomationSheet(memory: memory) }
+        .sheet(isPresented: $showEmbeddingSettings) { EmbeddingSettingsSheet(memory: memory) }
         .alert(store.savedSettings.isLocal ? "Создать карточки локально?" : "Создать карточки через API?", isPresented: $confirmCards) {
             Button("Отмена", role: .cancel) {}
             Button("Обработать до \(confirmedLimit)") { Task { await memory.startCards(limit: confirmedLimit, retryErrors: false) } }
@@ -265,7 +282,8 @@ struct MemoryView: View {
         .accessibilityHint("Показать материалы в этом разделе.")
         .accessibilityAddTraits(.isButton)
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .help("Показать: \(filter.title.lowercased())")
+        .disabled(memory.usesRankedSearch)
+        .help(memory.usesRankedSearch ? "Для фильтров состояния выберите режим «По словам»." : "Показать: \(filter.title.lowercased())")
     }
 }
 
@@ -274,7 +292,7 @@ private struct MemoryResultRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(item.card?.title ?? item.title).font(.callout.weight(.medium)).lineLimit(2)
-            Text(item.summary ?? item.card?.summary ?? item.snippet ?? "").font(.caption).foregroundStyle(.secondary).lineLimit(3)
+            Text(item.displaySnippet).font(.caption).foregroundStyle(.secondary).lineLimit(3)
             HStack { Text(SourceFormatting.label(item.sourceKind ?? "")); Spacer(); Image(systemName: item.cardStatus == "ready" ? "rectangle.stack.fill" : item.cardStatus == "error" ? "exclamationmark.circle" : "clock") }.font(.caption2).foregroundStyle(.secondary)
         }.padding(.vertical, 5)
     }

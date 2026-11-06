@@ -1,6 +1,9 @@
 # Development
 
-Second Brain 0.1.0 is a source-distributed macOS application with a local Python service and a separate read-only MCP process. It is not a published Python SDK or a standalone app bundle with an embedded Python runtime.
+Second Brain is a macOS application with a local Python service and a separate
+read-only MCP process. The published 0.1.0 Apple Silicon bundle embeds its Python
+runtime; development builds use the checkout's environment. Unreleased features
+documented below require current source builds. This is not a published Python SDK.
 
 ## Tools and setup
 
@@ -26,6 +29,7 @@ No environment file or real provider token is required for tests. Application cr
 | `brain_settings/memory_service.py` | Bounded import/card jobs and automation |
 | `brain_settings/memory_store.py` | SQLite, revisions, FTS5, and source deletion guards |
 | `brain_settings/source_policy.py`, `source_policy_routes.py` | Unreleased independent permissions/exclusions, SQLite predicates and preview API |
+| `brain_settings/embedding_store.py`, `embeddings.py`, `retrieval.py` | Unreleased local index generations, background batches, bounded exact scans and shared RRF retrieval |
 | `brain_settings/mcp_server.py` | Read-only stdio memory tools |
 | `brain_settings/*_client.py`, `*_import.py` | Source-specific read-only access and ingestion |
 | `static/` | Local memory atlas and optional browser settings interface |
@@ -86,5 +90,25 @@ to construct migration fixtures. See [search contracts](search-contracts.md) and
 [the offline benchmark](search-contracts.md#offline-evaluation).
 
 The native UI is currently Russian. The public README and user guides are bilingual; documentation translation does not imply that every native view is localized into English.
+
+## Retrieval evaluation
+
+The offline BM25 benchmark and precomputed-vector scan use disposable synthetic
+databases and need no model or private configuration:
+
+```sh
+uv run --frozen python scripts/benchmark_search.py
+uv run --frozen python scripts/benchmark_vectors.py --count 10000
+```
+
+See [search contracts](search-contracts.md) for the fixture, metrics, timing scopes
+and measured reports. Integration fakes do not establish semantic quality. The
+real-model evaluator is separate and requires both `--model` and
+`--allow-local-model`; it only uses the synthetic corpus, never downloads weights,
+and must not silently replace a missing model. It compares the unchanged fixture
+against the committed BM25 baseline and reports whether the +0.15 paraphrase
+Recall@5/no exact-MRR regression gate passed. That real-model gate, query latency
+and controlled cold-start timing have not been verified. Server-reported load
+duration is not a controlled cold-start measurement.
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md), [SECURITY.md](../SECURITY.md), and the [release checklist](releasing.md).

@@ -1,0 +1,30 @@
+{
+  "kind": "precomputed_synthetic_exact_vector_scan",
+  "materials": 10000,
+  "dimension": 768,
+  "repeats": 20,
+  "read_batch": 128,
+  "candidate_heap_limit": 20,
+  "hardware": {
+    "cpu": "Apple M5",
+    "machine": "arm64",
+    "system": "Darwin",
+    "release": "27.0.0",
+    "python": "3.12.13"
+  },
+  "vector_search_ms": {
+    "p50": 234.311,
+    "p95": 263.839
+  },
+  "python_scan_peak_mib": 0.871,
+  "process_peak_rss_mib": 38.406,
+  "query_embedding_ms": null,
+  "cold_model_start_ms": null,
+  "semantic_quality": null,
+  "limitations": [
+    "No Ollama or model inference is used.",
+    "Random synthetic vectors measure scan costs, not semantic relevance.",
+    "Python scan peak excludes database creation and native SQLite allocations.",
+    "Process peak RSS includes fixture construction; memory run is untimed."
+  ]
+}

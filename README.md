@@ -49,8 +49,12 @@ This is useful when working across many chats or projects. Compared with manual
 copying, it offers shared search, citations and incremental imports. The tradeoff
 is maintaining a local app and granting explicit source access. It does not
 replace backups or a team's access-control system. It cannot guarantee that an
-assistant calls MCP on every message or that a generated card is correct. BM25 is
-lexical search, not semantic embeddings.
+assistant calls MCP on every message or that a generated card is correct. The
+published release uses lexical BM25 search. **Unreleased source builds** add
+optional local semantic/hybrid retrieval through a separately selected installed
+Ollama embedding model. It is off by default, downloads no weights and keeps BM25
+available. Actual relevance improvement has not yet been verified with a real
+model; see [search modes and limits](docs/user-guide.en.md#semantic-search).
 
 ### Sources
 
@@ -180,7 +184,10 @@ flowchart LR
 ```
 
 MCP tools: `search_memory`, `get_record`, `get_context_brief`, `get_sync_status`.
-They do not trigger imports or model generation. More in the
+They do not trigger imports or card generation. In unreleased builds,
+`search_memory` accepts optional `mode=lexical|semantic|hybrid`; after explicit
+embedding opt-in, semantic/hybrid requests can invoke only the local query
+embedding model and report the mode actually used. More in the
 [architecture guide](docs/architecture.en.md).
 
 ### Security and privacy
@@ -266,7 +273,12 @@ Community expectations: [Code of conduct](CODE_OF_CONDUCT.md).
 постепенный импорт. Взамен нужно поддерживать локальное приложение и осознанно
 предоставлять доступ к источникам. Это не замена резервным копиям или командной
 системе прав доступа. Приложение не гарантирует вызов MCP в каждом сообщении и
-безошибочность карточек. BM25 — лексический поиск, не семантические embeddings.
+безошибочность карточек. Выпущенная версия использует лексический BM25.
+**Неопубликованные исходники** добавляют локальные семантический и гибридный
+режимы с отдельной установленной embedding-моделью Ollama. По умолчанию индекс
+выключен, веса автоматически не загружаются, BM25 сохраняется. Улучшение качества
+с настоящей моделью пока не подтверждено; см.
+[режимы и ограничения](docs/user-guide.ru.md#semantic-search).
 
 ### Источники
 

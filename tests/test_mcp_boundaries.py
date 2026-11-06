@@ -21,6 +21,7 @@ def fake_store():
         "card": {"summary": "x" * 10000, "atoms": ["huge"]},
         "score": 1,
         "revision": 2,
+        "content_hash": "synthetic-hash",
     }
     store = Mock()
     store.search.return_value = [record]
@@ -33,8 +34,21 @@ def fake_store():
     return store
 
 
+def memory_tools(store, data_dir=None):
+    """Keep these metadata-boundary unit fakes independent of SQLite vector internals."""
+    tools = MemoryTools(store, data_dir)
+    tools.retrieval.vectors = Mock()
+    tools.retrieval.vectors.config.return_value = {"enabled": False, "generation": None}
+    tools.retrieval.vectors.coverage.side_effect = lambda **kwargs: {
+        "eligible": int(kwargs.get("allowed_source_ids") != frozenset()),
+        "ready": 0,
+        "partial": True,
+    }
+    return tools
+
+
 def test_fixed_fields_and_bounded_context_never_forward_extra_columns():
-    tools = MemoryTools(fake_store())
+    tools = memory_tools(fake_store())
     for result in [
         tools.search_memory("body"),
         tools.get_record("record-1"),
@@ -68,7 +82,7 @@ def test_record_input_bounds(record_id, offset, max_chars):
 
 def test_search_query_boundary_matches_store_contract():
     store = fake_store()
-    tools = MemoryTools(store)
+    tools = memory_tools(store)
     assert "results" in tools.search_memory("x" * 512)
     store.search.reset_mock()
     assert tools.search_memory("x" * 513)["error"]["code"] == "invalid_query"
@@ -85,7 +99,7 @@ def test_all_store_errors_are_redacted():
     store = fake_store()
     for name in ("search", "get_record", "context_brief", "status"):
         getattr(store, name).side_effect = RuntimeError("sensitive internal provider response")
-    tools = MemoryTools(store)
+    tools = memory_tools(store)
     for result in (
         tools.search_memory("x"),
         tools.get_record("x"),
@@ -100,10 +114,11 @@ def test_disconnected_source_fails_closed_in_all_tools(tmp_path):
     store = fake_store()
     source_store = SourcesStore(tmp_path)
     source_store.save((Source(id=SOURCE_ID, name="Test", kind="codex"),))
-    tools = MemoryTools(store, tmp_path)
+    tools = memory_tools(store, tmp_path)
     assert tools.search_memory("x")["results"]
-    store.search.assert_called_with("x", limit=8, source_id=None,
-                                    allowed_source_ids=[SOURCE_ID], visibility="mcp")
+    store.search.assert_called_with(
+        "x", limit=20, source_id=None, allowed_source_ids=frozenset([SOURCE_ID]), visibility="mcp"
+    )
     source_store.save(())
     assert tools.search_memory("x")["results"] == []
     assert tools.get_context_brief()["records"] == []

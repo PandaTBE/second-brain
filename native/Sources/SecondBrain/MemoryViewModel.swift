@@ -10,6 +10,7 @@ final class MemoryViewModel: ObservableObject {
     @Published var query = ""
     @Published private var browsing = MemoryBrowseState()
     @Published private(set) var filter: MemoryBrowseFilter = .all
+    @Published private(set) var searchMode: MemorySearchMode = .lexical
     @Published private(set) var resultsHaveUpdates = false
     @Published var selectedId: String?
     @Published var record: MemoryRecord?
@@ -43,6 +44,8 @@ final class MemoryViewModel: ObservableObject {
     var searchLoading: Bool { browsing.isLoading && browsing.results.isEmpty }
     var loadMoreLoading: Bool { browsing.isLoading && !browsing.results.isEmpty }
     var hasMore: Bool { browsing.hasMore }
+    var searchDiagnostics: MemorySearchDiagnostics? { browsing.search }
+    var usesRankedSearch: Bool { searchMode != .lexical && !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     var searchError: String? { browsing.results.isEmpty ? browsing.error : nil }
     var loadMoreError: String? { browsing.results.isEmpty ? nil : browsing.error }
     var listTitle: String {
@@ -112,8 +115,43 @@ final class MemoryViewModel: ObservableObject {
         await search()
     }
 
+    func changeSearchMode(_ value: MemorySearchMode) {
+        guard value != searchMode else { return }
+        searchMode = value
+        if usesRankedSearch { filter = .all }
+        searchTask?.cancel()
+        browsing.invalidate(); clearSelection()
+        searchTask = Task { await search() }
+    }
+
+    func embeddingSettings() async throws -> EmbeddingSettings {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        return try await client.get("/api/memory/embeddings")
+    }
+
+    func embeddingModels() async throws -> EmbeddingModelsResponse {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        return try await client.get("/api/memory/embeddings/models")
+    }
+
+    func saveEmbeddingSettings(_ request: EmbeddingSettingsRequest) async throws -> EmbeddingSettings {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        let response: EmbeddingSettings = try await client.send("/api/memory/embeddings", body: request)
+        searchTask?.cancel(); browsing.invalidate(); clearSelection()
+        await search()
+        return response
+    }
+
+    func startEmbeddingIndex() async throws -> EmbeddingIndexResponse {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        let response: EmbeddingIndexResponse = try await client.send("/api/memory/embeddings/index", body: EmbeddingIndexRequest())
+        await refreshStatus(); ensurePolling()
+        return response
+    }
+
     func changeQuery(_ value: String) {
-        query = value
+        query = String(value.prefix(512))
+        if usesRankedSearch { filter = .all }
         browsing.invalidate(); clearSelection()
         searchTask?.cancel()
         searchTask = Task {
@@ -123,7 +161,7 @@ final class MemoryViewModel: ObservableObject {
     }
 
     func changeFilter(_ value: MemoryBrowseFilter) async {
-        guard filter != value else { return }
+        guard filter != value, !usesRankedSearch else { return }
         searchTask?.cancel()
         filter = value
         browsing.invalidate(); clearSelection()
@@ -132,14 +170,14 @@ final class MemoryViewModel: ObservableObject {
 
     func search() async {
         guard client != nil else { return }
-        let request = browsing.beginFirstPage()
+        let request = browsing.beginFirstPage(query: query, mode: searchMode, filter: filter)
         resultsHaveUpdates = false
-        await loadPage(request, query: query, filter: filter)
+        await loadPage(request)
     }
 
     func loadMore() async {
         guard let request = browsing.beginNextPage() else { return }
-        await loadPage(request, query: query, filter: filter)
+        await loadPage(request)
     }
 
     func loadMoreIfNeeded(after id: String) async {
@@ -147,11 +185,22 @@ final class MemoryViewModel: ObservableObject {
         await loadMore()
     }
 
-    private func loadPage(_ request: MemoryBrowseRequest, query: String, filter: MemoryBrowseFilter) async {
+    private func loadPage(_ request: MemoryBrowseRequest) async {
         guard let client else { return }
+        if request.mode != .lexical {
+            do {
+                let response: MemorySearchResponse = try await client.get("/api/memory/search", query: [
+                    URLQueryItem(name: "q", value: request.query),
+                    URLQueryItem(name: "mode", value: request.mode.rawValue),
+                    URLQueryItem(name: "limit", value: String(MemorySearchMode.rankedResultLimit))
+                ])
+                try browsing.acceptSearch(response, for: request)
+            } catch { browsing.fail(error.localizedDescription, for: request) }
+            return
+        }
         var parameters = [
-            URLQueryItem(name: "q", value: query),
-            URLQueryItem(name: "card_status", value: filter.rawValue),
+            URLQueryItem(name: "q", value: request.query),
+            URLQueryItem(name: "card_status", value: request.filter.rawValue),
             URLQueryItem(name: "limit", value: "30")
         ]
         if let cursor = request.cursor { parameters.append(URLQueryItem(name: "cursor", value: cursor)) }

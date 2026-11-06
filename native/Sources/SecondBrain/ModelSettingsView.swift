@@ -5,6 +5,7 @@ struct ModelSettingsView: View {
     @ObservedObject var store: AppStore
     @ViewState private var revealToken = false
     @ViewState private var confirmDelete = false
+    @ViewState private var showEmbeddingSettings = false
 
     private var tokenBinding: Binding<String> { Binding(get: { store.tokenDraft }, set: { store.changeToken($0) }) }
     private var modelSelection: Binding<String?> {
@@ -114,6 +115,11 @@ struct ModelSettingsView: View {
                         Text(store.draft.isLocal ? "Для Ollama нужен точный ID загруженной локальной модели. Облачные модели и автоматическая загрузка не используются." : "Ручной ID подходит и для API, которые не отдают каталог. Неизвестная цена не означает бесплатную модель.").font(.caption).foregroundStyle(.secondary)
                     }
 
+                    settingsGroup("Поиск по смыслу", symbol: "sparkle.magnifyingglass") {
+                        Text("Для поиска используется отдельная локальная embedding-модель. Настройки модели карточек не меняются.").font(.caption).foregroundStyle(.secondary)
+                        Button("Настроить поиск по смыслу…") { showEmbeddingSettings = true }
+                    }
+
                     settingsGroup("Проверка подключения", symbol: "checkmark.shield") {
                         LabeledContent("Проверка API", value: store.connection == nil ? "Не проверено" : store.connection?.status == "ok" ? "API отвечает" : "Есть замечание")
                         Text("Проверка обращается к API, но не запускает генерацию. Доступ к генерации и её качество проверяются отдельно.").font(.caption).foregroundStyle(.secondary)
@@ -131,6 +137,7 @@ struct ModelSettingsView: View {
                     .buttonStyle(.borderedProminent).disabled(!store.action.isEmpty).keyboardShortcut("s", modifiers: .command)
             }.padding(16).background(.bar)
         }
+        .sheet(isPresented: $showEmbeddingSettings) { EmbeddingSettingsSheet(memory: store.memory) }
         .alert("Удалить API-токен?", isPresented: $confirmDelete) {
             Button("Отмена", role: .cancel) {}
             Button("Удалить ключ", role: .destructive) { Task { await store.deleteToken(); revealToken = false } }

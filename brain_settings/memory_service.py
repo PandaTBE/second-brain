@@ -18,6 +18,7 @@ from .background import (
     release_writer_lease,
 )
 from .card_parallel import run_card_window
+from .embeddings import EmbeddingManager
 from .errors import AppError
 from .github_import import import_github
 from .importers import import_source, redact_text
@@ -27,6 +28,7 @@ from .memory_store import MemoryStore
 from .notion_import import import_notion
 from .outlook_import import import_outlook
 from .provider_backoff import ProviderBackoff, paused_error
+from .retrieval import Retrieval
 
 logger = logging.getLogger(__name__)
 MAX_IMPORT_BATCHES = 8
@@ -72,6 +74,8 @@ class MemoryService:
     ):
         self.store = store if store is not None else MemoryStore(data_dir)
         self.provider_backoff = ProviderBackoff(self.store)
+        self.embeddings = EmbeddingManager(self.store)
+        self.retrieval = Retrieval(self.store, client=self.embeddings.client)
         self.source_service = source_service
         self.source_service.memory_store = self.store
         self.settings_service = settings_service
@@ -144,10 +148,39 @@ class MemoryService:
                 "last_updated_at": counts.get("last_updated_at"),
             }
 
-    def search(self, query: str, limit: int = 8) -> dict:
+    def search(self, query: str, limit: int = 8, mode: str = "lexical") -> dict:
         allowed = self._allowed()
-        results = self.store.search(query, limit=limit, allowed_source_ids=allowed)
-        return {"results": [record for record in results if record["source_id"] in allowed]}
+        result = self.retrieval.search(query, limit=limit, allowed_source_ids=allowed, mode=mode)
+        return result | {"results": [
+            record for record in result["results"] if record["source_id"] in self._allowed()
+        ]}
+
+    def embedding_settings(self):
+        return self.embeddings.vectors.settings()
+
+    def embedding_models(self):
+        return {"models": self.embeddings.client.embedding_catalog(),
+                "message": "Установите embedding-модель отдельно в Ollama, затем обновите список."}
+
+    def configure_embeddings(self, enabled, model_id=None):
+        return self.embeddings.configure(enabled=enabled, model_id=model_id)
+
+    def _check_embedding_work(self):
+        self._check_stop()
+        if self.schedule_store.load().paused:
+            raise AppError("sync_paused", "Синхронизация приостановлена.", 409)
+
+    def start_embedding_index(self, limit=8):
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 16:
+            raise AppError("invalid_batch", "Размер пакета embeddings должен быть от 1 до 16.")
+        self._check_embedding_work()
+        def run(job_id):
+            stats = self.embeddings.index_batch(
+                limit=limit, allowed_source_ids=self._allowed(), check=self._check_embedding_work
+            )
+            self._update(job_id, processed=stats["processed"],
+                         total=stats["processed"], stats=stats)
+        return self._begin("embeddings", run)
 
     def browse(self, query="", card_status="all", limit=30, cursor=None) -> dict:
         page = self.store.browse(
@@ -704,6 +737,8 @@ class MemoryService:
                         process_cards=config.process_cards, batch_limit=config.batch_limit,
                         automatic=True,
                     )
+            elif self.embeddings.vectors.pending(limit=1, allowed_source_ids=self._allowed()):
+                self.start_embedding_index(limit=8)
 
     def start_background(self) -> None:
         self.runner.start()

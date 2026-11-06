@@ -1,9 +1,9 @@
 # Retrieval and evidence contracts
 
-Stage 0 contract, 2026-11-06. The implementation baseline is `7fe1f49`.
-This document separates the current API from additions required by the
-[development plan](agent-memory-plan.ru.md). Proposed fields below do not imply
-that semantic search or evidence bundles already exist.
+Contracts updated 2026-11-06; Stage 0 implementation baseline `7fe1f49`.
+Source policies and local retrieval below describe unreleased source builds.
+The proposed evidence bundle remains a later
+[development-plan](agent-memory-plan.ru.md) contract, not an available tool.
 
 ## Existing compatibility boundary
 
@@ -16,7 +16,8 @@ The following stdio MCP names and required arguments remain stable:
 | `get_context_brief` | none | `records`, `untrusted_content`, `notice`, `message` |
 | `get_sync_status` | none | `memory`, `mcp_read_only`, `message` |
 
-`search_memory` keeps optional `limit=8` (1–20) and `source_id=None`.
+`search_memory` keeps optional `limit=8` (1–20) and `source_id=None`, and adds
+optional `mode="lexical"` in unreleased builds.
 The query must contain 1–512 characters. A result has the existing `id`, `title`,
 `source_id`, `source_kind`, `source_uri`, `updated_at`, `revision`, `score`, and
 bounded `snippet`, where available. `summary` may also be present. Metadata bounds
@@ -60,25 +61,59 @@ source. Cached text may remain physically in SQLite, FTS/WAL pages or backups.
 Old MCP binaries must be restarted when upgrading; this implementation does not
 retrofit enforcement into already running older code.
 
-## Proposed search additions
+## Implemented local retrieval — Stage 2, unreleased
 
-Optional `mode` accepts `lexical`, `semantic`, or `hybrid`. Lexical retrieval remains
-available independently of the vector index. Diagnostics name both requested and
-actually used mode, with a bounded reason when falling back to lexical retrieval.
-No response may imply that an incomplete or unavailable index was searched fully.
+Optional `mode` accepts `lexical` (default), `semantic`, or `hybrid`; HTTP
+`GET /api/memory/search` and stdio MCP use `Retrieval`. Lexical retrieval remains
+independent of the vector index and makes no model call. After explicit embedding
+opt-in, semantic/hybrid can call the fixed-loopback Ollama adapter to embed a
+query, including from a standalone MCP process. Query work has a three-second
+deadline and no paid/cloud fallback. MCP does not own index writes.
+
+The response adds a `search` object: `requested_mode`, `used_mode`,
+`fallback_reason`, `generation`, `query_embedding_ms`, `vector_search_ms`,
+`eligible`, `ready`, and `partial`. A disabled index, no ready vectors or a model
+error returns lexical results with a diagnostic reason. A partial semantic index
+searches ready vectors only; hybrid also retains keyword candidates from all
+permitted documents. Coverage is scoped to the requested source/audience, so the
+response does not claim complete semantic coverage of an unfinished index.
 
 BM25 and semantic candidates are retrieved independently across all permitted
-documents before rank fusion. RRF ranks, BM25 scores, cosine similarity, and
+documents before rank fusion. Hybrid uses equal-weight RRF with `k=60`; BM25 and
+cosine scores are not added together. RRF ranks, BM25 scores, cosine similarity, and
 freshness factors are ranking signals, never probabilities that a statement is
 true. The same policy is checked before candidate selection and before response
 formation. Empty permissions produce an empty result, not an unrestricted search.
 
-A vector belongs to the tuple `(document_id, revision, text_hash,
-generation_id, model_digest, dimensions, text_preparation_version)`. Each
-generation has a distinct model identity. Dimension or digest mismatch is an
-error; it must not silently compare incomparable vectors. A text update, deletion,
-source exclusion, or relevant policy change blocks stale and in-flight writes.
-Only the background writer owns index writes. MCP processes only read it.
+A vector belongs to a document ID, revision and content hash, with model
+ID/digest, dimension and preparation version identified by its generation.
+Changing that identity creates a new generation. Dimension or digest mismatch
+is an error; incompatible vectors are not compared. A text update, deletion,
+source exclusion, or relevant processing-policy change blocks stale/in-flight
+writes. Only the app's single background writer indexes materials, respecting
+the global pause and local-processing policy. It processes bounded batches, keeps
+job errors/retries and continues after restart. Model selection is separate from
+cards, starts disabled, probes an installed model using synthetic text, and never
+downloads weights.
+
+After bounded embedding retries are exhausted, a successful explicit capability
+reprobe/resave of the same model identity deletes only failed jobs in the current
+generation, making them pending again. Ready vectors and generation remain;
+a failed reprobe does not reset errors. This is separate from paid card retries.
+
+The implementation stores normalized float32 vectors in SQLite, performs exact
+scans in batches of 128 rows and keeps a bounded top-candidate heap. It loads no
+SQLite extension or separate vector server. Dimensions are limited to 1–4096.
+Prepared input is `title + "\n" + text`; more than 12,000 characters or 100,000
+UTF-8 bytes produces an explicit indexing error. The adapter uses
+`truncate: false`; oversized materials keep their lexical representation.
+
+Embedding settings use `GET`/`POST /api/memory/embeddings`, installed-model lookup
+uses `GET /api/memory/embeddings/models`, and
+`POST /api/memory/embeddings/index` requests one writer-owned batch of 1–16
+materials (default 8). These mutations remain outside MCP. Native semantic/hybrid
+search returns at most 20 ranked materials; status-filtered pagination remains
+lexical.
 
 ## Proposed evidence bundle
 
@@ -191,6 +226,38 @@ is a separate scaling measurement and regression check. Actual local-model
 quality must be distinguished from deterministic fake-embedding integration
 tests. If an installed model is unavailable or testing would require downloading
 weights, record the gap without claiming the quality gate passed.
+
+## Stage 2 measurement scope and remaining quality gate
+
+`benchmark-vectors-10000.json` records an exact scan of 10,000 precomputed
+768-dimensional synthetic vectors on Apple M5/arm64: p50 **234.311 ms**, p95
+**263.839 ms**, Python scan peak **0.871 MiB**, whole-process peak RSS
+**38.406 MiB**. It reads 128 vectors per batch and keeps 20 candidates. The
+separate memory run is untimed; Python allocation tracing excludes native SQLite
+memory, and process RSS includes fixture construction. This is vector retrieval
+alone, not query embedding or end-to-end search latency. Reproduce with:
+
+```sh
+uv run --frozen python scripts/benchmark_vectors.py --count 10000 --dimension 768 --repeats 20
+```
+
+The real-model evaluator is a separate explicit operation, using only the
+reviewed synthetic fixture and a disposable database:
+
+```sh
+uv run --frozen python scripts/benchmark_semantic.py --model INSTALLED_EMBEDDING_MODEL --allow-local-model
+```
+
+It compares hybrid paraphrase Recall@5 and exact MRR@10 with both its lexical
+run and the committed BM25 baseline. A fake client cannot pass the real-model
+acceptance flag; incomplete indexing or hybrid fallback also fails it. The
+required +0.15 absolute paraphrase improvement with no exact-MRR regression has
+**not passed verification**: no installed Ollama model was available for that
+evaluation, and weights were not downloaded. Actual query-embedding latency and
+controlled cold-model startup are also unmeasured. The evaluator does not unload
+a user's model; `load_duration` reported by Ollama is recorded separately and is
+not presented as a controlled cold-start measurement. Deterministic integration
+vectors prove retrieval behavior, not semantic relevance.
 
 ## Recorded Stage 0 evidence
 

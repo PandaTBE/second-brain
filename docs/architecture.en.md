@@ -35,6 +35,7 @@ The window and background process have different lifecycles: closing the window 
 | Local import | `importers.py`, `import_batch.py`, `session_stream.py`, `dialogue_parsers.py` | Bounded scanning, streaming reads, supported formats, and chunking. |
 | Remote sources | `notion_*.py`, `github_*.py`, `mail_*.py` | Bounded read clients, material conversion, and durable import progress. |
 | Storage and retrieval | `memory_store.py`, `memory_browse.py`, `memory_atlas.py`, `memory_text.py` | SQLite, FTS5/BM25, page cursors, graph snapshots, and redaction. |
+| Local embeddings — unreleased | `embedding_store.py`, `embeddings.py`, `retrieval.py` | SQLite index generations, bounded background indexing, exact vector scans and shared retrieval/RRF. |
 | Automation | `background.py`, `memory_service.py`, `card_parallel.py`, `card_retries.py`, `provider_backoff.py` | Watching, writer ownership, batches, concurrency, retries, and durable provider admission pauses. |
 | Model calls | `llm_cards.py`, `providers.py`, `transport.py`, `ollama.py` | Cloud provider settings, bounded public HTTPS and fixed-loopback Ollama calls, card and evidence validation. |
 | MCP | `mcp_server.py`, `mcp_config.py`, `scripts/mcp-server.command` | Four read tools and client-configuration generation. |
@@ -64,7 +65,44 @@ and Apple notarization.
 
 **Updated 2026-11-05.** `qwen` is a cloud preset for Alibaba Cloud's Singapore OpenAI-compatible endpoint. It uses a region-matched Keychain token and the native `/api/v1/models` catalog. `ollama` is a separate credential-free connection to the fixed `127.0.0.1:11434` service. Its adapter discovers downloaded models through `/api/tags`, rejects remote/cloud models, and uses native `/api/chat` with an explicit local model qualifier; no cloud fallback is provided. The native response is normalized into the existing card-validation path, with exact source evidence and usage metadata.
 
-Local requests use JSON format, disable thinking output, request a 16,384-token context and up to 1,024 output tokens, and have bounded timeouts. Effective local concurrency is one while the saved target remains unchanged. Provider status reports local execution separately from a temporary provider cooldown. Database search and the MCP tools are unchanged. Local Ollama and model weights are external installations, not part of the release ZIP.
+Local card requests use JSON format, disable thinking output, request a
+16,384-token context and up to 1,024 output tokens, and have bounded timeouts.
+Effective local concurrency is one while the saved target remains unchanged.
+Provider status reports local execution separately from a temporary provider
+cooldown. Local Ollama and model weights are external installations, not part
+of the release ZIP.
+
+Unreleased embeddings use a separate opt-in setting and installed model, leaving
+the card provider unchanged. The fixed-loopback adapter checks local model
+identity/digest, probes embedding support/dimensions, and uses `/api/embed` with
+`truncate: false`. It does not download weights or fall back to cloud inference.
+Prepared input is the title plus newline plus saved text; more than 12,000
+characters produces an explicit indexing error while BM25 remains available.
+
+## Local retrieval in unreleased builds
+
+`Retrieval` is shared by HTTP and stdio MCP. Optional search modes are `lexical`
+(default), `semantic` and `hybrid`. Lexical retrieval does not call a model;
+semantic/hybrid can generate a query vector using the explicitly enabled local
+model. Query work has a three-second deadline and falls back to BM25 with
+`requested_mode`, `used_mode` and `fallback_reason` diagnostics. Coverage fields
+`eligible`, `ready` and `partial` describe the currently permitted corpus. A
+partial semantic search uses ready vectors only; hybrid also searches BM25 across
+the permitted corpus. An empty/disabled index falls back before model admission.
+
+Vector candidates are independent of lexical candidates. The first implementation
+uses exact normalized-vector scans from SQLite, reads 128 rows at a time and
+retains a bounded top-candidate heap; no extension or vector server is loaded.
+Hybrid uses equal-weight reciprocal-rank fusion with `k=60`, rather than adding
+BM25 and cosine scores. These values rank records, not truth. Real-model tuning
+and the required paraphrase-quality improvement remain unverified.
+
+Index identity includes model ID/digest, dimensions and preparation version, with
+a new generation on identity changes. Each vector is tied to document revision
+and content hash. The app's single background writer indexes bounded resumable
+batches with local-processing policy and pause checks; MCP only reads vectors
+and may embed a query. Revision, generation and policy are checked before result
+storage/retrieval. See [contracts and measured limits](search-contracts.md).
 
 ## Persistence model
 
@@ -112,7 +150,7 @@ local. There is no verified per-client identity or project authorization layer.
 - Sources are untrusted data, including instructions, inaccurate claims, and potential secrets. They must not become agent commands.
 - HTTPS clients bound destinations and responses; validated public IPs are pinned for TLS connections. Notion/GitHub use fixed APIs; mail uses read-only IMAP over TLS.
 - Known secret patterns are redacted before persistence and model processing. This is a heuristic, not a guarantee that all sensitive content is removed.
-- A cloud model provider becomes a separate recipient of text when cloud card generation is permitted. The named Ollama adapter instead uses a downloaded model at its fixed local endpoint; the OS and server must be trusted. Local search does not call either model.
+- A cloud model provider becomes a separate recipient of text when cloud card generation is permitted. The named Ollama adapter instead uses a downloaded model at its fixed local endpoint; the OS and server must be trusted. Lexical search calls neither model. Unreleased semantic/hybrid search may call the explicitly enabled local embedding model.
 - Keychain stores secrets. JSON settings and SQLite can contain private metadata and are not encrypted by the application.
 - MCP is limited to search and reads, but a client granted access can retrieve private materials. This mechanism does not isolate other processes running as the same user.
 

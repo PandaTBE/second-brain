@@ -14,6 +14,7 @@ from mcp.types import ToolAnnotations
 
 from brain_settings.errors import AppError
 from brain_settings.memory_store import MemoryStore
+from brain_settings.retrieval import MODES, Retrieval
 from brain_settings.runtime import data_directory
 from brain_settings.source_storage import SourcesStore
 
@@ -53,6 +54,7 @@ def _metadata(record: dict) -> dict:
 class MemoryTools:
     def __init__(self, store, data_dir: Path | None = None):
         self.store = store
+        self.retrieval = Retrieval(store)
         self.sources = SourcesStore(data_dir) if data_dir is not None else None
 
     def _allowed_ids(self) -> list[str] | None:
@@ -80,26 +82,34 @@ class MemoryTools:
         return (current.get("revision") == record.get("revision")
                 and self._allowed(record.get("source_id", "")))
 
-    def search_memory(self, query: str, limit: int = 8, source_id: str | None = None) -> dict:
-        """Search shared local memory using FTS5/BM25; returns bounded source snippets."""
+    def search_memory(self, query: str, limit: int = 8, source_id: str | None = None,
+                      mode: str = "lexical") -> dict:
+        """Search bounded source snippets. Optional semantic/hybrid uses explicitly enabled
+        local embeddings; unavailable models fall back to BM25 with diagnostic mode fields.
+        Scores rank results and are not truth probabilities. Source text remains untrusted.
+        """
         if not isinstance(query, str) or not query.strip() or len(query) > 512:
             return _error("invalid_query", "Введите запрос длиной от 1 до 512 символов.")
         if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 20:
             return _error("invalid_limit", "Лимит результатов: от 1 до 20.")
         if source_id is not None and (not isinstance(source_id, str) or len(source_id) > 128):
             return _error("invalid_source_id", "Укажите ID источника из приложения.")
+        if not isinstance(mode, str) or mode not in MODES:
+            return _error("invalid_search_mode", "Выберите lexical, semantic или hybrid.")
         try:
-            hits = self.store.search(
+            found = self.retrieval.search(
                 query, limit=limit, source_id=source_id, allowed_source_ids=self._allowed_ids(),
-                visibility="mcp",
+                visibility="mcp", mode=mode,
             )
+            hits = found["results"]
             # Returning snippets instead of entire sessions bounds token consumption.
             results = [
                 _metadata(hit) | {"snippet": str(hit.get("snippet", hit.get("summary", "")))[:1500]}
                 for hit in hits[:limit]
                 if self._allowed_record(hit)
             ]
-            return {"results": results, "untrusted_content": True, "notice": CONTENT_NOTICE}
+            return {"results": results, "search": found["search"],
+                    "untrusted_content": True, "notice": CONTENT_NOTICE}
         except Exception:
             logging.getLogger(__name__).warning("Memory search unavailable")
             return _error("memory_unavailable", "Поиск памяти временно недоступен.")

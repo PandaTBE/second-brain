@@ -31,6 +31,17 @@ class ProviderResumeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+
+class EmbeddingSettingsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    enabled: StrictBool
+    model_id: str | None = Field(default=None, max_length=256)
+
+
+class EmbeddingIndexRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    limit: StrictInt = Field(default=8, ge=1, le=16)
+
 def create_memory_router(service) -> APIRouter:
     router = APIRouter(prefix="/api/memory")
 
@@ -39,9 +50,26 @@ def create_memory_router(service) -> APIRouter:
         return {"success": True, "data": service.status()}
 
     @router.get("/search")
-    def search(q: str = Query(default="", max_length=1000),
-               limit: int = Query(default=8, ge=1, le=8)):
-        return {"success": True, "data": service.search(q, limit)}
+    def search(q: str = Query(default="", max_length=512),
+               limit: int = Query(default=8, ge=1, le=20), mode: str = "lexical"):
+        return {"success": True, "data": service.search(q, limit, mode)}
+
+    @router.get("/embeddings")
+    def embedding_settings():
+        return {"success": True, "data": service.embedding_settings()}
+
+    @router.get("/embeddings/models")
+    def embedding_models():
+        return {"success": True, "data": service.embedding_models()}
+
+    @router.post("/embeddings")
+    def configure_embeddings(request: EmbeddingSettingsRequest):
+        return {"success": True, "data": service.configure_embeddings(
+            request.enabled, request.model_id)}
+
+    @router.post("/embeddings/index")
+    def index_embeddings(request: EmbeddingIndexRequest):
+        return {"success": True, "data": service.start_embedding_index(request.limit)}
 
     @router.get("/browse")
     def browse(

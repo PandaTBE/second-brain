@@ -23,13 +23,20 @@ agent. Connect only clients that you permit to read that memory.
 | Import Apple Notes — unreleased | With Notes already open and macOS Automation permission, text from explicitly selected folders is read through OS automation and stored locally. |
 | Connect Outlook — unreleased | Microsoft handles device-code sign-in; credentials are saved in Keychain after the source is added. Inbox content is read through Microsoft Graph and stored locally. |
 | Import Notion, GitHub, or mail | The application contacts the selected service using its saved credential. It stores the selected content locally. |
-| Search, browse, graph, and history | Retrieval uses local SQLite/FTS5. The graph uses local assets and source/keyword relationships; it does not need a model or external CDN. |
+| Lexical search, browse, graph, and history | Retrieval uses local SQLite/FTS5 without a model. The graph uses local assets and source/keyword relationships; it does not need an external CDN. |
+| Semantic/hybrid search — unreleased | After explicit opt-in, permitted materials are indexed by a separate local Ollama embedding model; a query can be sent to that model to search ready vectors. No cloud inference or automatic weight download is used. |
 | MCP retrieval | A connected client receives bounded excerpts and source metadata from local memory. That client's later handling of the data is controlled by the client and its model provider. |
 | Create cloud cards | When explicitly requested or enabled in automation, masked source text is sent to the selected cloud model API, including Qwen API. Requests can incur provider charges. |
 | Create local Ollama cards | Masked source text is sent only to the fixed local Ollama service and a downloaded local model. No cloud fallback or model API token is used; computation uses the Mac's resources. |
 | Load a catalog or check a connection | Some checks make network requests even while card generation is disabled. A public catalog response may not prove that a credential is valid. |
 
-Cloud model providers and source services have their own retention, access, pricing, residency, and account policies. Local database storage alone does not make cloud card processing local. Verify a cloud provider's policy before submitting sensitive material; the application cannot guarantee deletion from that provider after a request has been sent. Selecting local Ollama affects card generation only: remote-source imports and a connected MCP client's own model remain separate data flows.
+Cloud model providers and source services have their own retention, access,
+pricing, residency, and account policies. Local storage alone does not make cloud
+cards local. Verify a provider's policy before submitting sensitive material;
+the application cannot guarantee deletion after a request has been sent. The
+card-provider choice and unreleased embedding-model opt-in are separate.
+Remote-source imports and a connected MCP client's own model are also separate
+data flows.
 
 ## Credentials and local storage
 
@@ -38,6 +45,10 @@ Cloud model providers and source services have their own retention, access, pric
 - Settings and source configuration are separate from credentials. Do not add secrets to configuration files, MCP arguments, URLs, or shell history.
 - The data directory is created/restricted with mode `0700`; the primary SQLite database is created/restricted with mode `0600`. These filesystem permissions limit access by other ordinary OS users, not by your own account or an administrator.
 - **SQLite is not encrypted by the application.** Imported text, titles, mail headers, source paths/URLs, cards, search indexes, and synchronization state can be sensitive. SQLite WAL/SHM files and backups must be protected with the database.
+- **Unreleased embeddings:** vectors, model identity, index jobs and generations
+  also live in SQLite. Vectors are derived from private text and are not an
+  anonymization boundary. Disabling the index stops its use; it is not secure
+  erasure of stored vectors or earlier backups.
 - Secret masking uses recognizable patterns. It can miss unknown credential formats, personal information, or unusual encodings. Review what a source contains before connecting it; do not treat masking as a complete data-loss-prevention system.
 
 Protect your Mac and backups using appropriate OS and storage controls. FileVault or encrypted backups can add protection, but Second Brain does not enable or verify them. Placing a checkout or backup in a synchronized folder can share it through that folder's service independently of this application.
@@ -61,6 +72,13 @@ The native client validates that it is talking to the helper instance it started
 - Custom model APIs use public HTTPS on port 443 by default. The published `v0.1.0` ZIP rejects private destinations.
 - **Unreleased source builds:** only a custom model API can explicitly enable `allow_private_network`. The native option is off by default, belongs to the configured API, and resets when its address or provider changes. It permits RFC1918 IPv4, IPv6 ULA and CGNAT; known cloud metadata destinations remain denied, including `100.100.100.200`, `fd00:ec2::254` and `fd20:ce::254`. Loopback, link-local, unspecified, multicast and other reserved addresses remain blocked. Every DNS answer must satisfy the policy before credentials can be sent. HTTPS/443, hostname/certificate verification, address pinning, response limits and no redirects remain enforced. The policy does not broaden Notion, GitHub, mail or named cloud-provider access, and does not bypass a corporate CA trust error.
 - The named Ollama connection is a narrow exception: its client connects only to `127.0.0.1:11434`, with fixed native model-list/chat routes, no API credentials, no DNS or proxy selection, and no redirects. Installed models are checked for remote/cloud metadata; chat requests enforce local mode and do not fall back to a cloud provider. Use an up-to-date, trusted Ollama installation. These checks do not defend against malicious software replacing the local server.
+- **Unreleased local embeddings:** the same fixed-loopback boundary adds model
+  inspection and `/api/embed`, validates model digest and dimensions, and disables
+  truncation. Source indexing checks local-processing policy and runs under the
+  app's writer; MCP can embed a query but cannot build the index. Explicit
+  semantic/hybrid search can therefore make a local model call while the app is
+  closed. Fallback to BM25 has a bounded local-query deadline and a diagnostic
+  reason; no hidden paid provider call repairs missing vectors.
 - Gmail and Yandex Mail use TLS and read-only inbox selection plus `BODY.PEEK` reads. Import does not mark messages read, move them, or delete them. Existing mail connections do not silently opt into body import.
 - Small mail messages are received as bounded complete RFC822 messages. Attachment bytes can therefore exist transiently in process memory, but attachments are excluded from stored text and cards. Whole messages above 1 MiB, including large attachments, are skipped with an explicit warning. Remote images and linked files are not fetched by the mail renderer.
 - Responses, files, UID windows, MIME parsing, and import batches have bounds. Incomplete or unsupported content is reported instead of silently replacing an existing full record with a partial one.

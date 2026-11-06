@@ -55,8 +55,16 @@ public struct MemoryRecord: Decodable, Identifiable {
     public let snippet: String?
     public let summary: String?
     public let score: Double?
+    public var displaySnippet: String {
+        [summary, card?.summary, snippet].compactMap { $0 }.first {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        } ?? ""
+    }
 }
-public struct MemorySearchResponse: Decodable { public let results: [MemoryRecord] }
+public struct MemorySearchResponse: Decodable {
+    public let results: [MemoryRecord]
+    public let search: MemorySearchDiagnostics?
+}
 public struct MemoryRecordResponse: Decodable { public let record: MemoryRecord }
 public struct MemoryJob: Decodable, Identifiable {
     public let id: String
@@ -77,9 +85,12 @@ public struct MemoryJob: Decodable, Identifiable {
         if let phase { return phase == "cards" }
         return kind == "cards" || stats?["import"] != nil
     }
-    public var title: String { isCardPhase ? "Создание карточек" : "Импорт источников" }
+    public var title: String {
+        if kind == "embeddings" { return "Индексация поиска" }
+        return isCardPhase ? "Создание карточек" : "Импорт источников"
+    }
     public var progressLabel: String {
-        let unit = isCardPhase ? "материалов" : "источников"
+        let unit = isCardPhase || kind == "embeddings" ? "материалов" : "источников"
         return "\(processed ?? 0) из \(total ?? 0) \(unit)"
     }
     public var concurrencyLabel: String? {

@@ -13,7 +13,11 @@ Useful workflows include:
 - searching notes, repository documentation, and selected emails together;
 - retaining context that would otherwise stay scattered across tools.
 
-The practical advantages are shared memory across clients, local search without model calls, source and revision references, and explicit control over card-generation work. These are not benchmarks or a promise of better answers to every question. Keyword search can miss paraphrases, small models can make mistakes, and large archives take time to ingest.
+The practical advantages are shared memory across clients, lexical search without
+model calls, source and revision references, and explicit control over model work.
+Unreleased builds also offer opt-in local query embeddings. These are not a promise
+of better answers to every question. Keyword search can miss paraphrases, models
+can make mistakes, and large archives take time to ingest.
 
 This application is not cloud synchronization between computers, a backup service, or a verified user profile. Its graph shows source membership and shared keywords, not proven semantic or causal relationships. The native interface in 0.1.0 uses Russian; this guide includes the corresponding Russian control names where useful.
 
@@ -269,9 +273,61 @@ When enabled, periodic reconciliation defaults to every 15 minutes. It updates g
 
 ## 7. Search, cards, graph, and history
 
-In **Память**, choose **Материалы** (Materials), **Карточки** (Cards), **Ожидают** (Pending), or **С ошибкой** (Errors) to filter the list. Search respects that filter. Scrolling loads pages of 30 materials. Background changes offer a refresh while keeping previously loaded pages until you refresh.
+In **Память**, choose **Материалы** (Materials), **Карточки** (Cards), **Ожидают**
+(Pending), or **С ошибкой** (Errors) to filter the lexical list. Scrolling loads
+pages of 30 materials. Background changes offer a refresh while keeping previously
+loaded pages until you refresh. In unreleased builds, semantic/hybrid searches
+instead show up to 20 ranked materials; switch to **По словам** for status filters
+and paginated history.
 
-FTS5 builds the full-text index and BM25 ranks matches. This is keyword retrieval, not vector search or a model call. If a phrase is missed, try a project name, an exact term, an error message, or alternative wording. Open a result to inspect its text and card evidence.
+FTS5 builds the full-text index and BM25 ranks keyword matches without a model
+call. If a phrase is missed, try a project name, an exact term, an error message,
+or alternative wording. Open a result to inspect its text and card evidence.
+
+<a id="semantic-search"></a>
+
+### Local semantic and hybrid search — unreleased
+
+In **Память**, open the sliders button **Настройки поиска по смыслу**, or use
+**Модель и API → Настроить поиск по смыслу…**. The semantic index starts disabled.
+Install Ollama and an embedding-capable local model separately, then select
+**Обновить локальные модели**, choose an installed model, enable the index and
+save. Saving probes embedding support and vector dimensions with synthetic text;
+it does not change the card model or its provider. Second Brain does not download
+weights or substitute a cloud model. A card/chat model may lack embedding support.
+
+Once enabled, the running app indexes permitted materials in bounded background
+batches. **Индексировать следующий пакет** also starts one batch. Indexing observes
+the global synchronization pause and each source's local-processing permission.
+MCP never builds the index; existing vectors can be read while the app is closed.
+Changing the model/digest, dimensions or text-preparation version creates a new
+generation, and changed document revisions are not served using old vectors.
+
+Choose **По словам** (`lexical`, the default), **По смыслу** (`semantic`), or
+**Гибридный** (`hybrid`) beside the query. Semantic/hybrid queries may send the query
+to the explicitly enabled local embedding model. Hybrid independently retrieves
+keyword and vector candidates and combines ranks with RRF. The displayed mode and
+ready/eligible counts report what was actually used. A disabled/empty index or an
+unavailable model falls back to BM25 with a reason; local query work has a bounded
+timeout. No paid inference is triggered by reading memory.
+
+An incomplete semantic index searches only ready vectors; hybrid also retains
+keyword candidates from the remaining permitted materials. A missing semantic
+match does not prove absence from memory. Prepared input is the title, a newline
+and saved text: above 12,000 characters it receives an indexing error instead of
+silent truncation. The original material remains available to BM25. Ranking
+scores, including RRF, do not measure whether a statement is true.
+
+If indexing stops with model errors, restart Ollama and save the selected
+embedding model again. A successful capability check requeues failed jobs for
+that generation while preserving its ready vectors; a failed check leaves the
+queue unchanged. Then index the next batch or let the background worker continue.
+This recovery does not reset paid card retry budgets.
+
+The real-model quality target and cold-start/query-embedding timings remain
+unverified because no installed Ollama model was available for that evaluation.
+The separately measured 10,000-vector scan uses synthetic precomputed vectors;
+it does not demonstrate semantic quality or total user-visible search latency.
 
 **Граф и история** (Graph and history) opens a local browser page. The native settings screens do not use a WebView. The graph connects materials to their sources and shared card keywords, with search, filters, and zoom. Its snapshot includes at most 2000 materials and explicitly reports truncation; history is paginated. The app must remain running. History shows dates and current revisions, not a complete log of every older text revision.
 
@@ -280,6 +336,13 @@ FTS5 builds the full-text index and BM25 ranks matches. This is keyword retrieva
 ## 8. Shared memory through MCP
 
 MCP exposes four tools: `search_memory`, `get_record`, `get_context_brief`, and `get_sync_status`. This server reads local memory; it does not start imports, generate cards, or delete sources. Once separately launched by a client, MCP also works without the application window or application process.
+
+In unreleased builds, `search_memory(query, mode="hybrid")` or `mode="semantic"`
+uses the separately enabled local embedding index. The default remains `lexical`.
+Responses add `search` diagnostics with `requested_mode`, `used_mode`,
+`fallback_reason`, and `ready`/`eligible`/`partial` coverage. A local query embedding
+can run without the app; indexing still requires its background writer. The other
+three tools retain their existing call signatures.
 
 In **Подключение MCP** (MCP connection), copy the Codex or Claude Desktop configuration into the corresponding client. This screen generates configuration; it does not automatically install a global connection or inspect another application's connection state. Confirm success inside the AI client.
 
@@ -351,6 +414,7 @@ Removing a source in the app removes its local materials from search/MCP, relate
 | Gmail/Yandex login fails | Full address, app password, provider settings, and organization restrictions. New Yandex passwords may not activate immediately. |
 | Some emails are missing | INBOX only, selected date window, oversized-message warnings, and deferred work requiring more passes. |
 | MCP sees no memory | Reconnect MCP; verify its generated command, shared data directory, client trust and imported content. Source builds also need their `.venv`. |
+| Semantic index has errors — unreleased | Start Ollama, verify an embedding-capable installed model, then save it again in search settings to requeue failed embedding jobs. Oversized materials remain lexical-only until their input changes. |
 | App no longer starts after a move | For the portable release, restore the intact bundle and update MCP paths. Source builds also need the original checkout/`.venv` or a rebuild. Review macOS launch and folder permissions. |
 | Graph does not open | The app's local service must be running; a standalone MCP process does not serve the graph page. |
 
