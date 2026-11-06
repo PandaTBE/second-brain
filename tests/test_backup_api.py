@@ -8,6 +8,7 @@ from brain_settings.app import create_app
 
 def test_local_backup_api_lists_and_deletes_only_explicit_copies(tmp_path):
     app = create_app(data_dir=tmp_path, vault=MemoryVault(), transport=FakeTransport())
+    app.state.backup_service.legacy_handles = lambda: ()
     with TestClient(app, base_url=ORIGIN) as client:
         csrf = client.get("/api/bootstrap").json()["data"]["csrf_token"]
         headers = {"Origin": ORIGIN, "X-Brain-CSRF": csrf}
