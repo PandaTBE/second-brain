@@ -11,6 +11,7 @@ import hashlib
 import json
 import marshal
 import re
+import struct
 import types
 import zipfile
 import zlib
@@ -48,9 +49,80 @@ def finding(location, category):
     return Scan(findings=((identifier, category),))
 
 
-def scan_bytes(raw, location, markers):
+def _native_section(raw, offset, endian, segment):
+    section = struct.unpack_from(endian + "16s16sQQIIIIIIII", raw, offset)
+    name, parent, address, size, file_offset, _, reloc_offset, reloc_count, flags, *_ = section
+    seg_name, vm_address, vm_size, seg_offset, seg_size, _, protection, *_ = segment
+    if not vm_address <= address <= address + size <= vm_address + vm_size:
+        return False, False
+    file_backed = flags & 0xFF not in (1, 0xC, 0x12)
+    if file_backed:  # Zero-fill sections have no file payload.
+        if not seg_offset <= file_offset <= file_offset + size <= seg_offset + seg_size:
+            return False, False
+    if reloc_count and reloc_offset + reloc_count * 8 > len(raw):
+        return False, False
+    instructions = (file_backed and seg_name.rstrip(b"\0") == b"__TEXT"
+                    and parent.rstrip(b"\0") == b"__TEXT"
+                    and name.rstrip(b"\0") == b"__text" and size >= 4
+                    and bool(protection & 4) and bool(flags & 0x80000400))
+    return True, instructions
+
+
+def _native_segment(raw, offset, command_size, endian):
+    if command_size < 72:
+        return False, False
+    segment = struct.unpack_from(endian + "16sQQQQIIII", raw, offset + 8)
+    _, vm_address, vm_size, file_offset, file_size, maximum, protection, count, _ = segment
+    if (command_size != 72 + count * 80 or file_offset + file_size > len(raw)
+            or file_size > vm_size or vm_address + vm_size >= 1 << 64
+            or maximum & ~7 or protection & ~maximum):
+        return False, False
+    meaningful = False
+    for index in range(count):
+        valid, instructions = _native_section(raw, offset + 72 + index * 80, endian, segment)
+        if not valid:
+            return False, False
+        meaningful |= instructions
+    return True, meaningful
+
+
+def _native_macho(raw):
+    """Recognize bounded thin 64-bit native images without executing scanned code."""
+    endian = {b"\xcf\xfa\xed\xfe": "<", b"\xfe\xed\xfa\xcf": ">"}.get(raw[:4])
+    if endian is None or len(raw) < 32:
+        return False
+    _, cpu, _, kind, count, size, _, reserved = struct.unpack_from(endian + "8I", raw)
+    if (cpu not in (0x1000007, 0x100000C) or kind not in (2, 6, 8) or reserved
+            or not 1 <= count <= 4096 or size < count * 8 or size % 8 or 32 + size > len(raw)):
+        return False
+    position, end, meaningful = 32, 32 + size, False
+    for _ in range(count):
+        if position + 8 > end:
+            return False
+        command, command_size = struct.unpack_from(endian + "II", raw, position)
+        if command_size < 8 or command_size % 8 or command_size > end - position:
+            return False
+        if command == 0x19:  # LC_SEGMENT_64: validate all mapped sections.
+            valid, instructions = _native_segment(raw, position, command_size, endian)
+            if not valid:
+                return False
+            meaningful |= instructions
+        position += command_size
+    return position == end and meaningful
+
+
+def _unsafe_private_key(raw, native):
+    for match in PRIVATE_KEY.finditer(raw):
+        matching_end = match.group().replace(b"-----BEGIN ", b"-----END ", 1)
+        if not native or (raw[match.end():match.end() + 1] != b"\0"
+                          and not raw.startswith(matching_end, match.end())):
+            return True
+    return False
+
+
+def scan_bytes(raw, location, markers, *, native=False):
     result = Scan()
-    if TOKEN.search(raw) or PRIVATE_KEY.search(raw):
+    if TOKEN.search(raw) or _unsafe_private_key(raw, native):
         result = result.add(finding(location, "credential_shape"))
     if (any(match[1] not in PLACEHOLDERS for match in PERSONAL_PATH.finditer(raw))
             or b"/private/var/folders/" in raw):
@@ -182,7 +254,7 @@ def scan_file(path, relative, markers):
         raw = path.read_bytes()
     except OSError:
         return result.add(unreadable(location))
-    result = result.add(scan_bytes(raw, location, markers))
+    result = result.add(scan_bytes(raw, location, markers, native=_native_macho(raw)))
     if path.name == "SecondBrainHelper":
         result = result.add(scan_carchive(path, location, markers))
     elif path.suffix == ".zip":

@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import marshal
+import struct
 import sys
 import zipfile
 from pathlib import Path
@@ -220,3 +221,130 @@ def test_cli_safe_report_is_written_outside_scanned_app(tmp_path):
     assert json.loads(report.read_text())["unreadable_count"] == 0
     with pytest.raises(ValueError):
         guard.main(["--app", str(app), "--report", str(app / "report.json")])
+
+
+def macho_fixture(payload):
+    """A thin arm64 image with mapped __text/__cstring, LC_MAIN and build version."""
+    header_size, segment_size = 32, 72 + 2 * 80
+    command_size = segment_size + 24 + 24
+    code_offset = header_size + command_size
+    string_offset = code_offset + 4
+    file_size = string_offset + len(payload)
+    vm_address = 0x100000000
+    vm_size = (file_size + 4095) & ~4095
+    header = struct.pack("<IIIIIIII", 0xFEEDFACF, 0x100000C, 0, 2, 3,
+                         command_size, 0x200005, 0)
+    segment = struct.pack("<II16sQQQQIIII", 0x19, segment_size, b"__TEXT",
+                          vm_address, vm_size, 0, file_size, 5, 5, 2, 0)
+    text = struct.pack("<16s16sQQIIIIIIII", b"__text", b"__TEXT",
+                       vm_address + code_offset, 4, code_offset, 2, 0, 0, 0x80000400, 0, 0, 0)
+    strings = struct.pack("<16s16sQQIIIIIIII", b"__cstring", b"__TEXT",
+                          vm_address + string_offset, len(payload), string_offset,
+                          0, 0, 0, 2, 0, 0, 0)
+    entry = struct.pack("<IIQQ", 0x80000028, 24, code_offset, 0)
+    version = struct.pack("<IIIIII", 0x32, 24, 1, 14 << 16, 14 << 16, 0)
+    return header + segment + text + strings + entry + version + b"\x1f\x20\x03\xd5" + payload
+
+
+@pytest.mark.parametrize("marker", [
+    b"-----BEGIN RSA PRIVATE KEY-----\0",
+    b"-----BEGIN OPENSSH PRIVATE KEY----------END OPENSSH PRIVATE KEY-----",
+])
+def test_native_macho_parser_delimiters_without_payload_are_not_credentials(tmp_path, marker):
+    app = app_tree(tmp_path)
+    (app / "Contents/Resources/parser.so").write_bytes(macho_fixture(marker))
+    assert guard.scan_bundle(app)["passed"]
+
+
+@pytest.mark.parametrize("context", ["text", "pyc", "zip_text", "filename"])
+@pytest.mark.parametrize("marker", [
+    b"-----BEGIN RSA PRIVATE KEY-----\0",
+    b"-----BEGIN OPENSSH PRIVATE KEY----------END OPENSSH PRIVATE KEY-----",
+])
+def test_native_parser_delimiters_stay_unsafe_in_other_contexts(tmp_path, context, marker):
+    app = app_tree(tmp_path)
+    resources = app / "Contents/Resources"
+    if context == "text":
+        (resources / "parser.txt").write_bytes(marker)
+    elif context == "pyc":
+        code = compile("value = " + repr(marker), "public_fixture.py", "exec")
+        (resources / "parser.pyc").write_bytes(b"\0" * 16 + marshal.dumps(code))
+    elif context == "zip_text":
+        with zipfile.ZipFile(resources / "parser.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("parser.txt", marker)
+    else:
+        name = marker.split(b"\0", 1)[0].decode()
+        (resources / name).write_bytes(macho_fixture(marker))
+    report = guard.scan_bundle(app)
+    assert "credential_shape" in categories(report)
+    assert "PRIVATE KEY" not in json.dumps(report)
+
+
+@pytest.mark.parametrize("payload", [
+    b"-----BEGIN RSA PRIVATE KEY-----\n" + b"A" * 64 + b"\n-----END RSA PRIVATE KEY-----",
+    b"-----BEGIN RSA PRIVATE KEY-----\r\n" + b"A" * 64 + b"\r\n-----END RSA PRIVATE KEY-----",
+    b"-----BEGIN RSA PRIVATE KEY-----" + b"A" * 64 + b"-----END RSA PRIVATE KEY-----",
+    b"-----BEGIN RSA PRIVATE KEY-----\0" + b"sk-" + b"synthetic" * 4,
+    b"-----BEGIN RSA PRIVATE KEY-----\0-----BEGIN PRIVATE KEY-----payload",
+])
+def test_native_macho_unsafe_private_key_or_token_still_fails(tmp_path, payload):
+    app = app_tree(tmp_path)
+    (app / "Contents/Resources/parser.so").write_bytes(macho_fixture(payload))
+    report = guard.scan_bundle(app)
+    assert "credential_shape" in categories(report)
+    assert "PRIVATE KEY" not in json.dumps(report) and "synthetic" not in json.dumps(report)
+
+
+@pytest.mark.parametrize("damage", [
+    "magic_only", "truncated_header", "truncated_commands", "oversized_command", "zero_command",
+    "zero_commands", "wrong_table_size", "no_instructions", "section_bounds", "segment_bounds",
+    "section_count", "unknown_architecture", "relocation_bounds", "zero_fill_instructions",
+])
+def test_malformed_or_magic_only_macho_never_gets_parser_delimiter_exception(tmp_path, damage):
+    marker = b"-----BEGIN RSA PRIVATE KEY-----\0"
+    image = bytearray(macho_fixture(marker))
+    if damage == "magic_only":
+        image = image[:4] + marker
+    elif damage == "truncated_header":
+        image = image[:24] + marker
+    elif damage == "truncated_commands":
+        image = image[:104] + marker
+    elif damage == "oversized_command":
+        struct.pack_into("<I", image, 36, len(image) + 8)
+    elif damage == "zero_command":
+        struct.pack_into("<I", image, 36, 0)
+    elif damage == "zero_commands":
+        struct.pack_into("<I", image, 16, 0)
+    elif damage == "wrong_table_size":
+        struct.pack_into("<I", image, 20, 8)
+    elif damage == "no_instructions":
+        image[104:120] = b"__const".ljust(16, b"\0")
+        struct.pack_into("<I", image, 104 + 64, 0)
+    elif damage == "section_bounds":
+        struct.pack_into("<I", image, 104 + 48, len(image) + 1)
+    elif damage == "segment_bounds":
+        struct.pack_into("<Q", image, 32 + 48, len(image) + 1)
+    elif damage == "section_count":
+        struct.pack_into("<I", image, 32 + 64, 3)
+    elif damage == "unknown_architecture":
+        struct.pack_into("<I", image, 4, 0)
+    elif damage == "zero_fill_instructions":
+        struct.pack_into("<I", image, 104 + 64, 0x80000401)
+    else:
+        struct.pack_into("<II", image, 104 + 56, len(image) + 1, 1)
+    app = app_tree(tmp_path)
+    (app / "Contents/Resources/parser.so").write_bytes(image)
+    assert "credential_shape" in categories(guard.scan_bundle(app))
+
+
+@pytest.mark.parametrize("container", ["pyc", "zip_text"])
+def test_nested_macho_bytes_cannot_enable_a_native_exception_in_container_data(tmp_path, container):
+    app = app_tree(tmp_path)
+    image = macho_fixture(b"-----BEGIN RSA PRIVATE KEY-----\0")
+    if container == "pyc":
+        code = compile("value = " + repr(image), "public_fixture.py", "exec")
+        (app / "Contents/Resources/parser.pyc").write_bytes(b"\0" * 16 + marshal.dumps(code))
+    else:
+        with zipfile.ZipFile(app / "Contents/Resources/parser.zip", "w") as archive:
+            archive.writestr("parser.txt", image)
+    assert "credential_shape" in categories(guard.scan_bundle(app))
