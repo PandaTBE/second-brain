@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import SecondBrainCore
 
 private struct StateFailure: Error { let message: String }
@@ -95,6 +96,24 @@ enum NativeRestoreStateChecks {
             try await checkRestore(outcome)
         }
         try await checkInspectionLifecycle()
+        try checkPassphraseBinding()
+    }
+
+    @MainActor private static func checkPassphraseBinding() throws {
+        let composed = "synthetic-caf\u{e9}"
+        let decomposed = "synthetic-cafe\u{301}"
+        var value = BackupPassphraseValue(decomposed)
+        let state = Binding(get: { value }, set: { value = $0 })
+        let text = state.backupPassphraseText
+        text.wrappedValue = composed
+        try requireState(value.text.utf8.elementsEqual(composed.utf8), "A text binding must replace decomposed with composed bytes")
+        try requireState(BackupPassphrase.exportRequest(path: "/synthetic/archive.age", passphrase: BackupPassphraseValue(composed), confirmation: value) != nil, "Replacing a mismatched confirmation must enable a valid action")
+        text.wrappedValue = decomposed
+        try requireState(value.text.utf8.elementsEqual(decomposed.utf8), "A text binding must replace composed with decomposed bytes")
+        try requireState(BackupPassphrase.exportRequest(path: "/synthetic/archive.age", passphrase: BackupPassphraseValue(composed), confirmation: value) == nil, "Replacing an exact confirmation must revoke export admission immediately")
+        value = BackupPassphraseValue()
+        try requireState(text.wrappedValue.isEmpty, "Programmatic clearing must empty the SecureField binding")
+        print("PASS: Actual password binding preserves both Unicode replacement directions and action-time rejection")
     }
 
     @MainActor private static func checkInspectionLifecycle() async throws {

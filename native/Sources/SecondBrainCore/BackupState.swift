@@ -1,9 +1,22 @@
 import Foundation
 
+/// Transient view state must observe byte changes that String's canonical equality ignores.
+public struct BackupPassphraseValue: Equatable {
+    private let bytes: [UInt8]
+    public init(_ text: String = "") { bytes = Array(text.utf8) }
+    public var text: String { String(decoding: bytes, as: UTF8.self) }
+}
+
 /// age derives its key from exact password bytes, without Unicode normalization.
 public enum BackupPassphrase {
     public static func matchesConfirmation(_ passphrase: String, _ confirmation: String) -> Bool {
         passphrase.utf8.elementsEqual(confirmation.utf8)
+    }
+
+    public static func exportRequest(path: String, passphrase: BackupPassphraseValue,
+                                     confirmation: BackupPassphraseValue) -> BackupExportRequest? {
+        guard !path.isEmpty, (8...1024).contains(passphrase.text.count), passphrase == confirmation else { return nil }
+        return BackupExportRequest(path: path, passphrase: passphrase.text)
     }
 }
 

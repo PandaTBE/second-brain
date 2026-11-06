@@ -7,6 +7,17 @@ private func backupRequire(_ condition: @autoclosure () -> Bool, _ message: Stri
 }
 
 extension CoreChecks {
+    static func backupPassphraseViewState() throws {
+        let composed = BackupPassphraseValue("synthetic-caf\u{e9}")
+        let decomposed = BackupPassphraseValue("synthetic-cafe\u{301}")
+        try backupRequire(composed.text == decomposed.text && composed != decomposed, "View state must distinguish canonically equal password bytes")
+        try backupRequire(BackupPassphrase.exportRequest(path: "/synthetic/archive.age", passphrase: composed, confirmation: decomposed) == nil, "An action must reject a byte-distinct confirmation even if the UI was enabled earlier")
+        let request = BackupPassphrase.exportRequest(path: "/synthetic/archive.age", passphrase: decomposed, confirmation: decomposed)
+        try backupRequire(request?.passphrase.utf8.elementsEqual(decomposed.text.utf8) == true, "Matching state must export exact bytes without normalization")
+        try backupRequire(BackupPassphrase.exportRequest(path: "", passphrase: composed, confirmation: composed) == nil, "Export still requires a chosen destination")
+        try backupRequire(BackupPassphraseValue().text.isEmpty && BackupPassphraseValue() != composed, "Clearing must replace secret view state with empty bytes")
+    }
+
     static func backupPassphraseConfirmation() throws {
         let composed = "synthetic-caf\u{e9}"
         let decomposed = "synthetic-cafe\u{301}"

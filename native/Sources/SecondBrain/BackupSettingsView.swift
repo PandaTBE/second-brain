@@ -2,20 +2,28 @@ import SwiftUI
 import AppKit
 import SecondBrainCore
 
+extension Binding where Value == BackupPassphraseValue {
+    var backupPassphraseText: Binding<String> {
+        Binding<String>(get: { wrappedValue.text }, set: {
+            let updated = BackupPassphraseValue($0)
+            if updated != wrappedValue { wrappedValue = updated }
+        })
+    }
+}
+
 struct BackupSettingsView: View {
     @ObservedObject var store: AppStore
     @ObservedObject private var backups: BackupViewModel
     @ViewState private var exportPath = ""
-    @ViewState private var exportPassword = ""
-    @ViewState private var confirmation = ""
+    @ViewState private var exportPassword = BackupPassphraseValue()
+    @ViewState private var confirmation = BackupPassphraseValue()
     @ViewState private var inspectPath = ""
-    @ViewState private var inspectPassword = ""
+    @ViewState private var inspectPassword = BackupPassphraseValue()
     @ViewState private var deleteCandidate: ManagedBackup?
     @ViewState private var confirmingRestore = false
     init(store: AppStore) { self.store = store; self.backups = store.backups }
     private var canExport: Bool {
-        !exportPath.isEmpty && (8...1024).contains(exportPassword.count)
-            && BackupPassphrase.matchesConfirmation(exportPassword, confirmation)
+        BackupPassphrase.exportRequest(path: exportPath, passphrase: exportPassword, confirmation: confirmation) != nil
     }
     var body: some View {
         Form {
@@ -39,7 +47,7 @@ struct BackupSettingsView: View {
         .disabled(backups.busy)
         .toolbar { Button("Обновить") { Task { await backups.refresh() } }.disabled(backups.busy || backups.loading) }
         .task { await backups.refresh() }
-        .onDisappear { exportPassword = ""; confirmation = ""; inspectPassword = ""; backups.invalidateInspection() }
+        .onDisappear { exportPassword = BackupPassphraseValue(); confirmation = BackupPassphraseValue(); inspectPassword = BackupPassphraseValue(); backups.invalidateInspection() }
         .alert("Удалить выбранную локальную копию?", isPresented: Binding(get: { deleteCandidate != nil }, set: { if !$0 { deleteCandidate = nil } })) {
             Button("Отмена", role: .cancel) { deleteCandidate = nil }
             Button("Удалить копию", role: .destructive) {
@@ -109,13 +117,13 @@ struct BackupSettingsView: View {
                     if panel.runModal() == .OK { exportPath = panel.url?.path ?? "" }
                 }
             }
-            SecureField("Пароль архива: от 8 символов", text: $exportPassword).textContentType(.newPassword)
-            SecureField("Повторите пароль", text: $confirmation).textContentType(.newPassword)
+            SecureField("Пароль архива: от 8 символов", text: $exportPassword.backupPassphraseText).textContentType(.newPassword)
+            SecureField("Повторите пароль", text: $confirmation.backupPassphraseText).textContentType(.newPassword)
             Text("Для переноса используется шифрованный архив age. Пароль не сохраняется в настройках или Связке ключей; сохраните его самостоятельно. Существующий файл не перезаписывается.").font(.caption).foregroundStyle(.secondary)
             Button("Создать зашифрованный архив") {
-                let password = exportPassword
-                exportPassword = ""; confirmation = ""
-                Task { await backups.export(path: exportPath, passphrase: password) }
+                guard let request = BackupPassphrase.exportRequest(path: exportPath, passphrase: exportPassword, confirmation: confirmation) else { return }
+                exportPassword = BackupPassphraseValue(); confirmation = BackupPassphraseValue()
+                Task { await backups.export(path: request.path, passphrase: request.passphrase) }
             }.disabled(!canExport)
         } header: { Text("Зашифрованный архив для переноса") }
     }
@@ -127,14 +135,14 @@ struct BackupSettingsView: View {
                 Spacer()
                 Button("Выбрать архив…") {
                     let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
-                    if panel.runModal() == .OK { backups.invalidateInspection(); inspectPath = panel.url?.path ?? ""; inspectPassword = "" }
+                    if panel.runModal() == .OK { backups.invalidateInspection(); inspectPath = panel.url?.path ?? ""; inspectPassword = BackupPassphraseValue() }
                 }
             }
-            SecureField("Пароль для age; для локальной копии оставьте пустым", text: Binding(get: { inspectPassword }, set: {
-                if backups.changeInspectionPassword(from: inspectPassword, to: $0) { inspectPassword = $0 }
+            SecureField("Пароль для age; для локальной копии оставьте пустым", text: Binding(get: { inspectPassword.text }, set: {
+                if backups.changeInspectionPassword(from: inspectPassword.text, to: $0) { inspectPassword = BackupPassphraseValue($0) }
             }))
             Button("Проверить и показать содержимое") {
-                let password = inspectPassword; inspectPassword = ""
+                let password = inspectPassword.text; inspectPassword = BackupPassphraseValue()
                 Task { await backups.inspect(path: inspectPath, passphrase: password.isEmpty ? nil : password) }
             }.disabled(inspectPath.isEmpty)
             if let preview = backups.inspection.inspection {

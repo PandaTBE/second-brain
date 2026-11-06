@@ -34,6 +34,7 @@ enum CoreChecks {
             ("Source policies preserve legacy defaults and independent permissions", sourcePolicyContract),
             ("Backups preserve explicit scheduling, retention and bounded requests", backupSettingsContract),
             ("Backup password confirmation preserves exact Unicode bytes", backupPassphraseConfirmation),
+            ("Backup secret view state and action validation preserve exact bytes", backupPassphraseViewState),
             ("Restore authority is bound to a fresh reviewed inspection", backupInspectionContract),
             ("Restored sources require explicit relocation or reauthentication", sourceRecoveryContract),
             ("Original opening uses a fresh fail-closed server target after restore", restoreOpeningContract),
