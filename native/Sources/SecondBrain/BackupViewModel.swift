@@ -21,6 +21,12 @@ final class BackupViewModel: ObservableObject {
         statusRevision += 1; status = nil; inspection.invalidate()
     }
     func invalidateInspection() { inspection.invalidate() }
+    func changeInspectionPassword(from previous: String, to updated: String) -> Bool {
+        // SecureField can echo the programmatic clear after inspection has begun.
+        guard !BackupPassphrase.matchesConfirmation(previous, updated) else { return false }
+        invalidateInspection()
+        return true
+    }
 
     func refresh(resetDraft: Bool = false) async {
         guard let operations else { return }

@@ -130,7 +130,9 @@ struct BackupSettingsView: View {
                     if panel.runModal() == .OK { backups.invalidateInspection(); inspectPath = panel.url?.path ?? ""; inspectPassword = "" }
                 }
             }
-            SecureField("Пароль для age; для локальной копии оставьте пустым", text: Binding(get: { inspectPassword }, set: { inspectPassword = $0; backups.invalidateInspection() }))
+            SecureField("Пароль для age; для локальной копии оставьте пустым", text: Binding(get: { inspectPassword }, set: {
+                if backups.changeInspectionPassword(from: inspectPassword, to: $0) { inspectPassword = $0 }
+            }))
             Button("Проверить и показать содержимое") {
                 let password = inspectPassword; inspectPassword = ""
                 Task { await backups.inspect(path: inspectPath, passphrase: password.isEmpty ? nil : password) }

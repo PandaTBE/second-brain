@@ -94,6 +94,49 @@ enum NativeRestoreStateChecks {
         for outcome in [Outcome.bootstrapFailure, .timeout, .rejected, .success] {
             try await checkRestore(outcome)
         }
+        try await checkInspectionLifecycle()
+    }
+
+    @MainActor private static func checkInspectionLifecycle() async throws {
+        RestoreProtocol.reset()
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [RestoreProtocol.self]
+        let session = URLSession(configuration: config)
+        defer { session.invalidateAndCancel() }
+        let client = APIClient(baseURL: URL(string: "http://127.0.0.1:50321")!, csrf: "synthetic", session: session)
+        let backups = BackupViewModel(); backups.configure(client)
+        let preview: [String: Any] = [
+            "inspection_id": "synthetic-ticket", "expires_at": ISO8601DateFormatter().string(from: Date().addingTimeInterval(300)),
+            "created_at": "2026-01-01T00:00:00Z", "app_version": "0.1.0", "documents": 1, "sources": 1,
+            "foreign_installation": false, "requires_relocation": [], "requires_reauthentication": [], "warnings": []
+        ]
+        // Replay the observed SecureField lifecycle: button clears first, then an empty binding echo arrives after begin.
+        for correct in [false, true] {
+            var password = correct ? "synthetic-caf\u{e9}" : "synthetic-wrong"
+            let submitted = password; password = ""
+            let inspection = Task { await backups.inspect(path: "/synthetic/archive.age", passphrase: submitted) }
+            try await waitFor { RestoreProtocol.count("/api/backups/inspect") == 1 }
+            if backups.changeInspectionPassword(from: password, to: "") { password = "" }
+            try requireState(password.isEmpty, "Inspection must clear its displayed password before awaiting a reply")
+            try RestoreProtocol.respond("/api/backups/inspect", data: preview, failed: !correct)
+            await inspection.value
+            if correct {
+                try requireState(backups.inspection.restoreRequest() != nil && backups.error == nil, "The empty binding echo must not discard a successful encrypted preview")
+                _ = backups.changeInspectionPassword(from: "", to: "")
+                try requireState(backups.inspection.restoreRequest() != nil, "A repeated unchanged empty callback must preserve the reviewed preview")
+            } else {
+                try requireState(backups.error != nil && backups.inspection.inspection == nil, "The empty binding echo must not swallow a wrong-password error")
+            }
+        }
+        try requireState(backups.changeInspectionPassword(from: "", to: "synthetic-new"), "A real password change must be reported")
+        try requireState(backups.inspection.restoreRequest() == nil, "A real password edit must revoke the previous restore preview")
+        let pending = Task { await backups.inspect(path: "/synthetic/archive.age", passphrase: "synthetic-input") }
+        try await waitFor { RestoreProtocol.count("/api/backups/inspect") == 1 }
+        try requireState(backups.changeInspectionPassword(from: "synthetic-caf\u{e9}", to: "synthetic-cafe\u{301}"), "Canonically equal but byte-distinct password edits must invalidate")
+        try RestoreProtocol.respond("/api/backups/inspect", data: preview)
+        await pending.value
+        try requireState(backups.inspection.restoreRequest() == nil, "A reply for a genuinely edited password must remain stale")
+        print("PASS: Actual inspection preserves password-clear echoes, visible failures and real-edit invalidation")
     }
 
     @MainActor private static func checkRestore(_ outcome: Outcome) async throws {
