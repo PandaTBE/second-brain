@@ -2,15 +2,6 @@ import SwiftUI
 import AppKit
 import SecondBrainCore
 
-extension Binding where Value == BackupPassphraseValue {
-    var backupPassphraseText: Binding<String> {
-        Binding<String>(get: { wrappedValue.text }, set: {
-            let updated = BackupPassphraseValue($0)
-            if updated != wrappedValue { wrappedValue = updated }
-        })
-    }
-}
-
 struct BackupSettingsView: View {
     @ObservedObject var store: AppStore
     @ObservedObject private var backups: BackupViewModel
@@ -117,8 +108,10 @@ struct BackupSettingsView: View {
                     if panel.runModal() == .OK { exportPath = panel.url?.path ?? "" }
                 }
             }
-            SecureField("Пароль архива: от 8 символов", text: $exportPassword.backupPassphraseText).textContentType(.newPassword)
-            SecureField("Повторите пароль", text: $confirmation.backupPassphraseText).textContentType(.newPassword)
+            BackupSecureField("Пароль архива: от 8 символов", value: $exportPassword, newPassword: true)
+                .frame(minHeight: 22)
+            BackupSecureField("Повторите пароль", value: $confirmation, newPassword: true)
+                .frame(minHeight: 22)
             Text("Для переноса используется шифрованный архив age. Пароль не сохраняется в настройках или Связке ключей; сохраните его самостоятельно. Существующий файл не перезаписывается.").font(.caption).foregroundStyle(.secondary)
             Button("Создать зашифрованный архив") {
                 guard let request = BackupPassphrase.exportRequest(path: exportPath, passphrase: exportPassword, confirmation: confirmation) else { return }
@@ -138,9 +131,9 @@ struct BackupSettingsView: View {
                     if panel.runModal() == .OK { backups.invalidateInspection(); inspectPath = panel.url?.path ?? ""; inspectPassword = BackupPassphraseValue() }
                 }
             }
-            SecureField("Пароль для age; для локальной копии оставьте пустым", text: Binding(get: { inspectPassword.text }, set: {
-                if backups.changeInspectionPassword(from: inspectPassword.text, to: $0) { inspectPassword = BackupPassphraseValue($0) }
-            }))
+            BackupSecureField("Пароль для age; для локальной копии оставьте пустым", value: $inspectPassword, changed: {
+                _ = backups.changeInspectionPassword(from: $0.text, to: $1.text)
+            }).frame(minHeight: 22)
             Button("Проверить и показать содержимое") {
                 let password = inspectPassword.text; inspectPassword = BackupPassphraseValue()
                 Task { await backups.inspect(path: inspectPath, passphrase: password.isEmpty ? nil : password) }

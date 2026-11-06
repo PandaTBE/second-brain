@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import AppKit
 import SecondBrainCore
 
 private struct StateFailure: Error { let message: String }
@@ -96,24 +97,41 @@ enum NativeRestoreStateChecks {
             try await checkRestore(outcome)
         }
         try await checkInspectionLifecycle()
-        try checkPassphraseBinding()
+        try checkPassphraseControl()
     }
 
-    @MainActor private static func checkPassphraseBinding() throws {
+    @MainActor private static func checkPassphraseControl() throws {
         let composed = "synthetic-caf\u{e9}"
         let decomposed = "synthetic-cafe\u{301}"
         var value = BackupPassphraseValue(decomposed)
         let state = Binding(get: { value }, set: { value = $0 })
-        let text = state.backupPassphraseText
-        text.wrappedValue = composed
-        try requireState(value.text.utf8.elementsEqual(composed.utf8), "A text binding must replace decomposed with composed bytes")
+        var changes = 0
+        let adapter = BackupSecureField("Synthetic archive password", value: state, changed: { _, _ in changes += 1 })
+        let coordinator = adapter.makeCoordinator()
+        let field = coordinator.makeField()
+        func edit(_ text: String) {
+            field.stringValue = text
+            coordinator.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: field))
+        }
+        edit(composed)
+        try requireState(value.text.utf8.elementsEqual(composed.utf8) && changes == 1, "The native secure delegate must replace decomposed with composed bytes")
         try requireState(BackupPassphrase.exportRequest(path: "/synthetic/archive.age", passphrase: BackupPassphraseValue(composed), confirmation: value) != nil, "Replacing a mismatched confirmation must enable a valid action")
-        text.wrappedValue = decomposed
-        try requireState(value.text.utf8.elementsEqual(decomposed.utf8), "A text binding must replace composed with decomposed bytes")
+        edit(decomposed)
+        try requireState(value.text.utf8.elementsEqual(decomposed.utf8) && changes == 2, "The native secure delegate must replace composed with decomposed bytes")
         try requireState(BackupPassphrase.exportRequest(path: "/synthetic/archive.age", passphrase: BackupPassphraseValue(composed), confirmation: value) == nil, "Replacing an exact confirmation must revoke export admission immediately")
+        value = BackupPassphraseValue(composed)
+        coordinator.synchronize(field, enabled: true)
+        try requireState(field.stringValue.utf8.elementsEqual(composed.utf8), "Native view updates must replace canonically equal but byte-distinct text")
         value = BackupPassphraseValue()
-        try requireState(text.wrappedValue.isEmpty, "Programmatic clearing must empty the SecureField binding")
-        print("PASS: Actual password binding preserves both Unicode replacement directions and action-time rejection")
+        coordinator.synchronize(field, enabled: true)
+        try requireState(field.stringValue.isEmpty, "Programmatic clearing must immediately empty the native secure control")
+        edit("")
+        try requireState(changes == 2, "A programmatic empty echo must not trigger input invalidation")
+        coordinator.synchronize(field, enabled: false)
+        edit(composed)
+        try requireState(!field.isEnabled && value.text.isEmpty && changes == 2, "A disabled secure control must not admit a delayed edit callback")
+        try requireState(field.accessibilityLabel() == "Synthetic archive password", "Native secure controls must preserve their accessibility label")
+        print("PASS: Native secure adapter preserves exact Unicode transitions, clearing, disabled state and action-time rejection")
     }
 
     @MainActor private static func checkInspectionLifecycle() async throws {
