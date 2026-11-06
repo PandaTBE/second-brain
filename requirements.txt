@@ -83,6 +83,8 @@ pydantic-core==2.50.2
     # via pydantic
 pyjwt==2.15.1
     # via mcp
+pyrage==1.4.0
+    # via second-brain-settings
 python-multipart==0.0.33
     # via mcp
 pywin32==312 ; sys_platform == 'win32'

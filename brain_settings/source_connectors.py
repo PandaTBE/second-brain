@@ -109,6 +109,7 @@ class ConnectedSourceSupport:
             raise AppError("outlook_auth_expired", "Вход Microsoft отменён или истёк.", 409)
 
     def _read_outlook(self, source):
+        self.owner._require_authenticated(source)
         raw = vault_operation(self.owner.vault, "get", self.credential_scope(source))
         return raw, self._decode_credentials(raw, source)
 

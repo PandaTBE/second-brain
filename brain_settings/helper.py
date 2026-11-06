@@ -29,7 +29,16 @@ def main(argv: list[str] | None = None) -> None:
     serve.add_argument("--data-dir", type=Path)
     mcp = commands.add_parser("mcp", help="Run the read-only MCP stdio server")
     mcp.add_argument("--data-dir", type=Path)
+    crypto = commands.add_parser("backup-crypto", help="Run the bounded archive crypto worker")
+    crypto.add_argument("operation", choices=("encrypt", "decrypt"))
+    crypto.add_argument("source", type=Path)
+    crypto.add_argument("destination", type=Path)
     arguments = parser.parse_args(argv)
+    if arguments.mode == "backup-crypto":
+        from brain_settings.backup_crypto import worker_main
+
+        worker_main(arguments.operation, arguments.source, arguments.destination)
+        return
     directory = data_directory(arguments.data_dir)
     if arguments.mode == "serve":
         import uvicorn

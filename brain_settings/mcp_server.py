@@ -13,6 +13,7 @@ from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
 
 from brain_settings.errors import AppError
+from brain_settings.maintenance import guarded_memory_tool
 from brain_settings.memory_store import MemoryStore
 from brain_settings.retrieval import MODES, Retrieval
 from brain_settings.runtime import data_directory
@@ -82,6 +83,7 @@ class MemoryTools:
         return (current.get("revision") == record.get("revision")
                 and self._allowed(record.get("source_id", "")))
 
+    @guarded_memory_tool
     def search_memory(self, query: str, limit: int = 8, source_id: str | None = None,
                       mode: str = "lexical") -> dict:
         """Search bounded source snippets. Optional semantic/hybrid uses explicitly enabled
@@ -114,6 +116,7 @@ class MemoryTools:
             logging.getLogger(__name__).warning("Memory search unavailable")
             return _error("memory_unavailable", "Поиск памяти временно недоступен.")
 
+    @guarded_memory_tool
     def get_evidence_bundle(self, query: str, source_id: str | None = None,
                             project: str | None = None, date_from: str | None = None,
                             date_to: str | None = None, budget_chars: int = 12000,
@@ -140,6 +143,7 @@ class MemoryTools:
             logging.getLogger(__name__).warning("Evidence bundle unavailable")
             return _error("memory_unavailable", "Доказательства памяти временно недоступны.")
 
+    @guarded_memory_tool
     def get_facts(self, query: str = "", limit: int = 20, source_id: str | None = None,
                   include_history: bool = False) -> dict:
         """Read grouped exact card facts/decisions with permitted evidence; no generation.
@@ -158,6 +162,7 @@ class MemoryTools:
             logging.getLogger(__name__).warning("Memory facts unavailable")
             return _error("memory_unavailable", "Факты памяти временно недоступны.")
 
+    @guarded_memory_tool
     def get_fact_history(self, fact_id: str, limit: int = 50, before: str | None = None) -> dict:
         """Read paginated exact revision proofs since feature enable; no inferred past timeline.
 
@@ -173,6 +178,7 @@ class MemoryTools:
             logging.getLogger(__name__).warning("Memory fact history unavailable")
             return _error("memory_unavailable", "История факта временно недоступна.")
 
+    @guarded_memory_tool
     def get_record(self, record_id: str, offset: int = 0, max_chars: int = 6000) -> dict:
         """Read a source-backed memory record by search ID, with bounded text pagination."""
         if not isinstance(record_id, str) or not record_id or len(record_id) > 128:
@@ -205,6 +211,7 @@ class MemoryTools:
         except Exception:
             return _error("record_unavailable", "Запись не найдена или источник отключён.")
 
+    @guarded_memory_tool
     def get_context_brief(self) -> dict:
         """Read a bounded context briefing with provenance, not an inferred user profile."""
         try:
@@ -239,6 +246,7 @@ class MemoryTools:
         }
         return counts | {"by_source": groups, "last_updated_at": status.get("last_updated_at")}
 
+    @guarded_memory_tool
     def get_sync_status(self) -> dict:
         """Read memory counts; this MCP tool never starts import or paid inference."""
         try:

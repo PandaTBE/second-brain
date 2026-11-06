@@ -25,6 +25,7 @@ from .github_import import import_github
 from .importers import import_source, redact_text
 from .llm_cards import LLMCardGenerator, validate_card
 from .mail_import import import_mail
+from .maintenance import guarded_service
 from .memory_store import MemoryStore
 from .notion_import import import_notion
 from .outlook_import import import_outlook
@@ -114,12 +115,15 @@ class MemoryService(FactsServiceMixin):
     def _import_sources(self) -> list[dict]:
         return [source for source in self._sources()
                 if self.store.source_policy(source["id"]).import_enabled
+                and not source.get("requires_relocation", False)
+                and not source.get("requires_reauthentication", False)
                 and (source["kind"] not in ("imap", "outlook")
                      or source.get("mail_import_enabled", False))]
 
     def _allowed(self) -> frozenset[str]:
         return frozenset(source["id"] for source in self._sources())
 
+    @guarded_service
     def status(self) -> dict:
         allowed = self._allowed()
         counts = self.store.status(allowed_source_ids=allowed)
@@ -149,6 +153,7 @@ class MemoryService(FactsServiceMixin):
                 "last_updated_at": counts.get("last_updated_at"),
             }
 
+    @guarded_service
     def search(self, query: str, limit: int = 8, mode: str = "lexical") -> dict:
         allowed = self._allowed()
         result = self.retrieval.search(query, limit=limit, allowed_source_ids=allowed, mode=mode)
@@ -156,6 +161,7 @@ class MemoryService(FactsServiceMixin):
             record for record in result["results"] if record["source_id"] in self._allowed()
         ]}
 
+    @guarded_service
     def evidence(self, query: str, *, source_id=None, project=None, date_from=None, date_to=None,
                  budget_chars=12000, mode="hybrid", record_id=None) -> dict:
         from .evidence import EvidenceService
@@ -166,13 +172,16 @@ class MemoryService(FactsServiceMixin):
             allowed_provider=self._allowed, record_id=record_id,
         )
 
+    @guarded_service
     def embedding_settings(self):
         return self.embeddings.vectors.settings()
 
+    @guarded_service
     def embedding_models(self):
         return {"models": self.embeddings.client.embedding_catalog(),
                 "message": "Установите embedding-модель отдельно в Ollama, затем обновите список."}
 
+    @guarded_service
     def configure_embeddings(self, enabled, model_id=None):
         return self.embeddings.configure(enabled=enabled, model_id=model_id)
 
@@ -181,6 +190,7 @@ class MemoryService(FactsServiceMixin):
         if self.schedule_store.load().paused:
             raise AppError("sync_paused", "Синхронизация приостановлена.", 409)
 
+    @guarded_service
     def start_embedding_index(self, limit=8):
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 16:
             raise AppError("invalid_batch", "Размер пакета embeddings должен быть от 1 до 16.")
@@ -193,6 +203,7 @@ class MemoryService(FactsServiceMixin):
                          total=stats["processed"], stats=stats)
         return self._begin("embeddings", run)
 
+    @guarded_service
     def browse(self, query="", card_status="all", limit=30, cursor=None) -> dict:
         page = self.store.browse(
             query, card_status, limit, cursor, allowed_source_ids=self._allowed()
@@ -203,6 +214,7 @@ class MemoryService(FactsServiceMixin):
             "results": [record for record in page["results"] if record["source_id"] in allowed],
         }
 
+    @guarded_service
     def atlas(self) -> dict:
         snapshot = self.store.atlas(allowed_source_ids=self._allowed())
         sources = [source for source in self._sources()
@@ -221,12 +233,14 @@ class MemoryService(FactsServiceMixin):
                          "kind": source["kind"]} for source in sources],
         }
 
+    @guarded_service
     def record(self, record_id: str) -> dict:
         record = self.store.get_record(record_id, allowed_source_ids=self._allowed())
         if not record or record["source_id"] not in self._allowed():
             raise AppError("record_not_found", "Запись памяти не найдена.", 404)
         return {"record": record}
 
+    @guarded_service
     def job(self, job_id: str) -> dict:
         with self._lock:
             job = self._jobs.get(job_id)
@@ -234,6 +248,7 @@ class MemoryService(FactsServiceMixin):
                 raise AppError("job_not_found", "Операция памяти не найдена.", 404)
             return {"job": job}
 
+    @guarded_service
     def update_schedule(self, config: ScheduleConfig) -> dict:
         with self._lock:
             current = self.schedule_store.load()
@@ -245,6 +260,7 @@ class MemoryService(FactsServiceMixin):
             self._background_error = None
         return {"scheduler": {**config.model_dump(), "poll_seconds": 30, "quiet_seconds": 90}}
 
+    @guarded_service
     def set_sync_paused(self, paused: bool) -> dict:
         if not isinstance(paused, bool):
             raise AppError("invalid_sync_pause", "Укажите состояние паузы синхронизации.", 422)
@@ -266,6 +282,7 @@ class MemoryService(FactsServiceMixin):
                     "execution_mode": "local"}
         return {**status, "execution_mode": "cloud"}
 
+    @guarded_service
     def resume_provider(self) -> dict:
         with self._lock:
             self.provider_backoff.resume(self._provider_scope())
@@ -352,6 +369,7 @@ class MemoryService(FactsServiceMixin):
         if automatic and self.schedule_store.load().paused:
             raise AppError("sync_paused", "Синхронизация приостановлена пользователем.", 409)
 
+    @guarded_service
     def start_import(
         self,
         source_id: str | None = None,
@@ -500,6 +518,7 @@ class MemoryService(FactsServiceMixin):
             self._cards(job_id, batch_limit, retry_errors=False, import_stats=stats,
                         automatic_retries=True)
 
+    @guarded_service
     def retry_all_card_errors(self) -> dict:
         with self._lock:
             if self._stop.is_set():
@@ -539,6 +558,7 @@ class MemoryService(FactsServiceMixin):
             return "waiting_provider"
         return "started"
 
+    @guarded_service
     def start_cards(self, limit: int = 10, retry_errors: bool = False, *, automatic=False) -> dict:
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 50:
             raise AppError("invalid_batch", "Размер пакета должен быть от 1 до 50.")
@@ -687,6 +707,7 @@ class MemoryService(FactsServiceMixin):
             return None
         return current
 
+    @guarded_service
     def disconnect_source(self, source_id: str) -> dict:
         with self.source_service._lock:
             self.source_service._find(self.source_service.store.load(), source_id)
@@ -708,6 +729,16 @@ class MemoryService(FactsServiceMixin):
             cleanup()
         if self._stop.is_set():
             return
+        backup = getattr(self, "backup_service", None)
+        if backup is not None:
+            try:
+                backup.tick(now=now)
+            except AppError as error:
+                self._background_error = error.message
+        self._tick_memory(now)
+
+    @guarded_service
+    def _tick_memory(self, now=None):
         config = self.schedule_store.load()
         if config.paused:
             return

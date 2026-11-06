@@ -12,6 +12,7 @@ from typing import Protocol
 from pydantic import ValidationError
 
 from .errors import AppError
+from .maintenance import guarded_store
 from .providers import Settings, normalize_endpoint
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,7 @@ class SettingsStore:
         self.directory = directory
         self.path = directory / "settings.json"
 
+    @guarded_store
     def load(self) -> Settings:
         if not self.path.exists():
             return Settings()
@@ -91,6 +93,7 @@ class SettingsStore:
             raise AppError("settings_unreadable", "Не удалось прочитать настройки. "
                            "Выберите подключение заново и сохраните его.", 503) from exc
 
+    @guarded_store
     def save(self, settings: Settings) -> None:
         temporary = None
         try:
@@ -99,8 +102,8 @@ class SettingsStore:
             descriptor, filename = tempfile.mkstemp(prefix=".settings-", dir=self.directory)
             temporary = Path(filename)
             with os.fdopen(descriptor, "w", encoding="utf-8") as output:
-                excluded = ({"allow_private_network"}
-                            if not settings.allow_private_network else set())
+                excluded = {key for key in ("allow_private_network", "requires_reauthentication")
+                            if not getattr(settings, key)}
                 json.dump(settings.model_dump(exclude=excluded), output,
                           ensure_ascii=False, indent=2)
                 output.write("\n")

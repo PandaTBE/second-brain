@@ -461,6 +461,7 @@ Recall@5 на переформулированных запросах лучше
   Eager layout растёт с числом явно загруженных страниц; автоматической загрузки
   всей истории нет. QA-приложение/helper закрыты, флаги сброшены, пауза сохранена,
   generator_calls=0; личная память не менялась.
+  Исправление AX-прокрутки: `fce8aa9`.
 
 ### Этап 5 — реализован; GUI-приёмка в работе (2026-11-06)
 
@@ -493,19 +494,43 @@ Recall@5 на переформулированных запросах лучше
   code/AX review и CoreChecks не подменяют эти сценарии. Настройки пользователя
   и реальный буфер обмена при разработке к этому checkpoint не менялись.
 
-### Этап 6 — в работе
+### Этап 6 — backend завершён; native/GUI в работе
 
 - RED checkpoint: `6e8a74b`; 45 синтетических проверок backup/maintenance:
   до реализации 17 failed, 26 errors (модули отсутствуют), 2 passed (--help/--version).
-- Согласованы штатный SQLite Backup API, поддерживаемый age-формат через pyrage,
-  ограничение размера, interprocess maintenance, проверка manifest/схемы и откат,
-  явное переподключение перенесённых источников. Production-код в работе;
-  шифрование, восстановление и portable runtime пока не объявлены проверенными.
+- Реализованы SQLite Backup API, manifest с контрольными суммами и конфигурацией,
+  штатный age через pyrage, предел 128 МиБ, необязательное расписание/retention,
+  staged inspection с TTL 600 секунд, in-place restore с rollback/recovery и
+  interprocess maintenance. Keychain не экспортируется; после переноса действуют
+  реальные reauth/relocation gates. Импорт/карточки/embeddings автоматически
+  не возобновляются. Прежние пути остаются provenance, открытие требует проверки.
 - Отдельный crypto-сегмент: pyrage 1.4.0, 18 проверок с реальным age roundtrip.
   Найденная гонка очистки закрыта private staging + exclusive publish; чужой файл
   сохраняется при обеих проверенных гонках. Malformed Unicode пароля даёт AppError.
-  Security delta — APPROVE. Полное восстановление/portable пока ожидают проверки.
+  Security delta — APPROVE.
   Аудит pinned runtime dependencies: известных уязвимостей не найдено.
+- Финальный backend-прогон: `COVERAGE_FILE=.coverage.stage6-worker-final-admission
+  uv run --frozen pytest --cov=brain_settings --cov-report=term:skip-covered`:
+  1557 passed, покрытие 90,23%. Global Ruff/diff/index public guard — PASS;
+  code/Python/security — APPROVE. JSON покрытия: ignored
+  `outputs/verification/coverage-stage6-final-admission.json`.
+- Найденные security P1 закрыты и независимо воспроизведены: отзыв local policy
+  блокирует open-target; Sources JSON и SQL читаются внутри целого maintenance
+  request scope; ошибка WAL-finalization после durable commit возвращает успех
+  с warning. Journal атомарно retired+fsync перед очисткой; частичная очистка не
+  мешает следующему запуску. Удаление managed-копии проверяет quarantine ownership.
+  Целые read→Vault→save и configure/admission workflows держат SH до writer lease;
+  backup EX выполняется вне guarded memory tick. Никаких завершений чужих процессов.
+- Native: первые 51 CoreChecks/build PASS; Swift review требует синхронного сброса
+  кешей/модельных черновиков до первого await после restore и отклонения старых
+  mutation responses/defers по session epoch. Исправление в работе, одобрения пока нет.
+- Финальный frozen arm64 helper v2: реальные age roundtrip/ошибки пароля/header,
+  семь MCP-инструментов, два отдельных читателя с maintenance pause/resume и
+  обновлением политик — PASS. Семь Mach-O arm64, pyrage и ресурсы проверены.
+  Хеши входного Python-кода совпали до/после сборки; late security fixes включены.
+  Отчёт: ignored `outputs/verification/portable-plan-final/backend-final-v2/summary.json`.
+  Portable app/GUI 6 ещё не приняты. Исходный ZIP/тег v0.1.0 совпадают с сохранёнными
+  хешами. Физический второй Mac и настоящая embedding-модель не проверены.
 
 ## Первичные источники для реализации
 

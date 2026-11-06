@@ -565,7 +565,7 @@ def test_crypto_worker_receives_secret_only_on_stdin(tmp_path, monkeypatch):
 
     def worker(command, **kwargs):
         calls.append((command, kwargs))
-        destination.write_bytes(b"synthetic decrypted result")
+        Path(command[-1]).write_bytes(b"synthetic decrypted result")
         return subprocess.CompletedProcess(command, 0, stdout=b"", stderr=b"")
 
     monkeypatch.setattr(subprocess, "run", worker)
@@ -586,7 +586,7 @@ def test_crypto_worker_rejects_generated_archive_above_accepted_work_cap(tmp_pat
     source.write_bytes(b"synthetic plaintext")
 
     def worker(command, **kwargs):
-        destination.write_bytes(
+        Path(command[-1]).write_bytes(
             b"age-encryption.org/v1\n-> scrypt AAAAAAAAAAAAAAAAAAAAAA 30\n"
             b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n"
             b"--- AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nsynthetic"
@@ -684,7 +684,7 @@ def test_retention_failure_is_visible_and_preserves_existing_copy(seeded, monkey
     original = Path.unlink
 
     def denied(path, *args, **kwargs):
-        if path == first_path:
+        if path.name == first_path.name:
             raise PermissionError("Synthetic retention refusal")
         return original(path, *args, **kwargs)
 

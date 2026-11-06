@@ -184,6 +184,7 @@ class Settings(BaseModel):
     allow_private_network: StrictBool = False
     model_id: str = ""
     model_name: str = ""
+    requires_reauthentication: StrictBool = False
 
     @model_validator(mode="after")
     def private_network_requires_custom(self):

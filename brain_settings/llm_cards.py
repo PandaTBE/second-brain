@@ -115,6 +115,10 @@ class LLMCardGenerator:
 
     def _configuration(self):
         settings = self.settings_service.store.load()
+        if settings.requires_reauthentication:
+            raise AppError("model_reauthentication_required",
+                           "После переноса сохраните новый токен "
+                           "или выберите локальную модель.", 409)
         if not settings.model_id:
             raise AppError("model_required", "Сначала выберите и сохраните модель для карточек.")
         base_url = normalize_endpoint(settings.provider, settings.base_url,

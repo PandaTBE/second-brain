@@ -13,6 +13,8 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
+from .backup import BackupService
+from .backup_routes import create_backup_router
 from .connected_source_routes import create_connected_source_router
 from .errors import AppError, error_content
 from .github_models import GitHubRepositoriesRequest
@@ -24,6 +26,7 @@ from .runtime import asset_directory, data_directory
 from .security import LocalSecurityMiddleware
 from .service import SettingsService
 from .source_policy_routes import create_source_policy_router
+from .source_recovery_routes import create_source_recovery_router
 from .source_storage import MailImportRequest, SourceCreate
 from .sources import SourceService
 
@@ -55,10 +58,15 @@ def create_app(data_dir: Path | None = None, vault=None, transport=None,
                                    outlook_auth=outlook_auth)
     memory_service = MemoryService(service.store.directory, source_service, service,
                                    generator=memory_llm)
+    backup_service = BackupService(service.store.directory, store=memory_service.store)
+    memory_service.backup_service = backup_service
+    application.state.backup_service = backup_service
+    application.include_router(create_backup_router(backup_service, memory_service, source_service))
     application.state.memory_service = memory_service
     application.include_router(create_memory_router(memory_service))
     application.include_router(create_connected_source_router(source_service))
     application.include_router(create_source_policy_router(memory_service))
+    application.include_router(create_source_recovery_router(source_service))
     instance_id = os.environ.get("SECOND_BRAIN_INSTANCE_ID")
     try:
         UUID(instance_id or "")
@@ -76,6 +84,8 @@ def create_app(data_dir: Path | None = None, vault=None, transport=None,
         if request.url.path.startswith("/api/sources"):
             message = ("Проверьте название источника, путь, настройки почты "
                        "или выбранные материалы и подключение Apple Заметок/Outlook/Notion/GitHub.")
+        elif request.url.path.startswith("/api/backups"):
+            message = "Проверьте путь, параметры копии и выбранный архив."
         elif request.url.path.startswith("/api/memory"):
             message = "Проверьте источник, размер пакета и параметры расписания памяти."
         error = AppError("validation_error", message, 422)

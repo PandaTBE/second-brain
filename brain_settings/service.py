@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .errors import AppError
+from .maintenance import guarded_service
 from .providers import (
     EndpointRequest,
     SaveRequest,
@@ -31,15 +32,20 @@ class SettingsService:
         self._request_times = ()
         self._local_client = local_client
 
+    @guarded_service
     def bootstrap(self, csrf_token: str) -> dict:
         warning = None
         try:
             settings = self.store.load()
         except AppError as error:
+            if error.code in ("memory_maintenance", "restore_recovery_required",
+                              "maintenance_unavailable"):
+                raise
             settings = Settings()
             warning = error.message
         token_saved = False
-        if settings.provider != "ollama" and self.vault.available:
+        if (settings.provider != "ollama" and not settings.requires_reauthentication
+                and self.vault.available):
             try:
                 token_saved = bool(vault_operation(self.vault, "get", credential_scope(
                     settings.provider, settings.base_url)))
@@ -63,9 +69,14 @@ class SettingsService:
                            "Удалите токен из запроса.")
         return base_url, credential_scope(request.provider, base_url)
 
+    @guarded_service
     def _token(self, request: SelectionRequest, scope: str) -> str:
         if request.token is not None:
             return request.token.get_secret_value()
+        if self.store.load().requires_reauthentication:
+            raise AppError("model_reauthentication_required",
+                           "После переноса сохраните новый токен "
+                           "или выберите локальную модель.", 409)
         token = vault_operation(self.vault, "get", scope)
         if not token:
             raise AppError("token_required", "Вставьте API-токен выбранного провайдера.")
@@ -101,12 +112,16 @@ class SettingsService:
             raise AppError("network_error", "Не удалось получить ответ провайдера. "
                            "Проверьте подключение и повторите.", 502) from exc
 
+    @guarded_service
     def credential_status(self, request: EndpointRequest) -> dict:
+        if self.store.load().requires_reauthentication:
+            return {"token_saved": False}
         _, scope = self._endpoint(request)
         if request.provider == "ollama":
             return {"token_saved": False}
         return {"token_saved": bool(vault_operation(self.vault, "get", scope))}
 
+    @guarded_service
     def models(self, request: SelectionRequest) -> dict:
         base_url, scope = self._endpoint(request)
         if request.provider == "ollama":
@@ -128,6 +143,7 @@ class SettingsService:
                 "fetched_at": datetime.now(UTC).isoformat(), "currency": currency,
                 "price_unit": currency + " / 1M tokens"}
 
+    @guarded_service
     def test_connection(self, request: SelectionRequest) -> dict:
         base_url, scope = self._endpoint(request)
         if request.provider == "ollama":
@@ -180,6 +196,7 @@ class SettingsService:
                 "message": message, "checked_at": datetime.now(UTC).isoformat(),
                 "model_available": available}
 
+    @guarded_service
     def save(self, request: SaveRequest) -> dict:
         base_url, scope = self._endpoint(request)
         if request.provider == "ollama":
@@ -191,7 +208,11 @@ class SettingsService:
                 self.store.save(settings)
             return {"settings": settings.model_dump(), "token_saved": False}
         with self._lock:
-            previous = vault_operation(self.vault, "get", scope)
+            restored = self.store.load().requires_reauthentication
+            if restored and request.token is None:
+                raise AppError("model_reauthentication_required",
+                               "После переноса введите новый API-токен.", 409)
+            previous = None if restored else vault_operation(self.vault, "get", scope)
             token = request.token.get_secret_value() if request.token is not None else previous
             if not token:
                 raise AppError("token_required", "Вставьте API-токен выбранного провайдера.")
@@ -205,7 +226,7 @@ class SettingsService:
             try:
                 self.store.save(settings)
             except AppError:
-                if replaced:
+                if replaced and not restored:
                     try:
                         if previous is None:
                             vault_operation(self.vault, "delete", scope)
@@ -216,6 +237,7 @@ class SettingsService:
                 raise
         return {"settings": settings.model_dump(), "token_saved": True}
 
+    @guarded_service
     def delete_token(self, request: EndpointRequest) -> dict:
         _, scope = self._endpoint(request)
         if request.provider == "ollama":

@@ -94,34 +94,34 @@ def _safe_object_key(value: str) -> str:
 
 class MemoryStore:
     def __init__(self, data_dir: Path):
-        self.directory = Path(data_dir)
+        from .maintenance import operation, recover_pending
+
+        self.directory = Path(data_dir).resolve()
         self.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.directory.chmod(0o700)
+        recover_pending(self.directory)
         self.path = self.directory / "memory.sqlite3"
-        descriptor = os.open(self.path, os.O_CREAT | os.O_WRONLY, 0o600)
-        os.close(descriptor)
-        self.path.chmod(0o600)
-        with schema_lock(self.directory), self._connection() as connection:
-            connection.execute("PRAGMA journal_mode=WAL")
-            connection.executescript(SCHEMA)
-            from .card_retries import migrate
+        with operation(self.directory):
+            descriptor = os.open(self.path, os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+            os.close(descriptor)
+            self.path.chmod(0o600)
+            with schema_lock(self.directory), self._connection() as connection:
+                connection.execute("PRAGMA journal_mode=WAL")
+                connection.executescript(SCHEMA)
+                from .card_retries import migrate
+                from .embedding_store import migrate as migrate_embeddings
+                from .fact_schema import migrate as migrate_facts
+                from .source_dates import migrate as migrate_dates
+                from .source_policy import migrate as migrate_policy
 
-            migrate(connection)
-            from .source_policy import migrate as migrate_policy
-
-            migrate_policy(connection)
-            from .embedding_store import migrate as migrate_embeddings
-
-            migrate_embeddings(connection)
-            from .source_dates import migrate as migrate_dates
-
-            migrate_dates(connection)
-            from .fact_schema import migrate as migrate_facts
-
-            migrate_facts(connection)
+                migrate(connection)
+                migrate_policy(connection)
+                migrate_embeddings(connection)
+                migrate_dates(connection)
+                migrate_facts(connection)
 
     @contextmanager
-    def _connection(self, write=False):
+    def _database_connection(self, write=False):
         connection = None
         try:
             connection = sqlite3.connect(self.path, timeout=5, isolation_level=None)
@@ -143,6 +143,13 @@ class MemoryStore:
         finally:
             if connection is not None:
                 connection.close()
+
+    @contextmanager
+    def _connection(self, write=False):
+        from .maintenance import operation
+
+        with operation(self.directory), self._database_connection(write) as connection:
+            yield connection
 
     @staticmethod
     def _index(connection, row):

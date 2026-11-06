@@ -15,6 +15,7 @@ from .local_scan import scan_local, validate_local_path
 from .mail import MailTester
 from .mail_client import MailClient
 from .mail_presets import mail_access_error, mail_connection
+from .maintenance import guarded_service
 from .notion_client import NotionClient
 from .notion_models import NotionSearchRequest
 from .outlook_auth import OutlookAuthManager
@@ -53,8 +54,27 @@ class SourceService:
                              else OutlookAuthManager(oauth, self.outlook_client))
         self.connected = ConnectedSourceSupport(self, source_credential_scope)
 
+    @guarded_service
     def outlook_credentials(self, source_id: str) -> dict:
         return self.connected.outlook_credentials(source_id)
+
+    @guarded_service
+    def relocate(self, source_id, request):
+        from .source_relocation import relocate
+
+        return relocate(self, source_id, request)
+
+    @guarded_service
+    def reauthenticate(self, source_id, request):
+        from .source_relocation import reauthenticate
+
+        return reauthenticate(self, source_id, request)
+
+    @guarded_service
+    def open_target(self, record):
+        from .source_relocation import open_target
+
+        return open_target(self, record)
 
     def cleanup_auth(self) -> None:
         self.connected.cleanup()
@@ -74,7 +94,15 @@ class SourceService:
             result = {**result, "policy": memory.source_policy(source.id).model_dump(mode="json")}
         return result
 
+    @staticmethod
+    def _require_authenticated(source):
+        if source.requires_reauthentication:
+            raise AppError("source_reauthentication_required",
+                           "После переноса выполните новый вход в источник.", 409)
+
     def _source_public(self, source: Source) -> dict:
+        if source.requires_reauthentication:
+            return source.model_copy(update={"credential_saved": False}).model_dump()
         if source.kind not in ("imap", "notion", "github", "outlook"):
             return source.model_dump()
         try:
@@ -84,22 +112,27 @@ class SourceService:
             return source.model_copy(update={"credential_saved": False, "status": "error",
                                              "message": error.message}).model_dump()
 
+    @guarded_service
     def list_sources(self) -> dict:
         with self._lock:
             return {"sources": [self._public(source) for source in self.store.load()]}
 
+    @guarded_service
     def notion_pages(self, request: NotionSearchRequest) -> dict:
         return self.notion_client.search_pages(
             request.token.get_secret_value(), query=request.query, cursor=request.cursor
         )
 
+    @guarded_service
     def github_repositories(self, request: GitHubRepositoriesRequest) -> dict:
         return self.github_client.list_repositories(request.token.get_secret_value(),
                                                     page=request.page)
 
+    @guarded_service
     def github_token(self, source_id: str) -> str:
         with self._lock:
             source = self._find(self.store.load(), source_id)
+            self._require_authenticated(source)
             if source.kind != "github" or not source.enabled:
                 raise AppError("github_source_unavailable", "Источник GitHub отключён.", 404)
             token = vault_operation(self.vault, "get", source_credential_scope(source))
@@ -135,9 +168,11 @@ class SourceService:
             raise error
         return {"source": self._public(checked)}
 
+    @guarded_service
     def notion_token(self, source_id: str) -> str:
         with self._lock:
             source = self._find(self.store.load(), source_id)
+            self._require_authenticated(source)
             if source.kind != "notion" or not source.enabled:
                 raise AppError("notion_source_unavailable", "Источник Notion отключён.", 404)
             token = vault_operation(self.vault, "get", source_credential_scope(source))
@@ -173,6 +208,7 @@ class SourceService:
             raise error
         return {"source": self._public(checked)}
 
+    @guarded_service
     def add(self, request: SourceCreate) -> dict:
         if request.kind == "apple_notes":
             return self.connected.add_notes(request)
@@ -248,9 +284,11 @@ class SourceService:
             raise AppError("mail_check_failed", "Не удалось проверить почту. "
                            "Проверьте подключение и настройки сервера.", 502) from exc
 
+    @guarded_service
     def mail_password(self, source_id: str) -> str:
         with self._lock:
             source = self._find(self.store.load(), source_id)
+            self._require_authenticated(source)
             if source.kind != "imap" or not source.enabled:
                 raise AppError("mail_source_unavailable", "Почтовый источник отключён.", 404)
             password = vault_operation(self.vault, "get", source_credential_scope(source))
@@ -259,6 +297,7 @@ class SourceService:
                            "Удалите подключение и добавьте его заново.")
         return password
 
+    @guarded_service
     def set_mail_import(self, source_id: str, enabled: bool) -> dict:
         if not isinstance(enabled, bool):
             raise AppError("invalid_mail_import", "Укажите состояние импорта писем.", 422)
@@ -291,9 +330,13 @@ class SourceService:
             raise error
         return {"source": self._public(checked)}
 
+    @guarded_service
     def test(self, source_id: str) -> dict:
         with self._lock:
             source = self._find(self.store.load(), source_id)
+        if source.requires_relocation:
+            raise AppError("source_relocation_required",
+                           "После переноса выберите локальную папку заново.", 409)
         if source.kind in ("apple_notes", "outlook"):
             return self.connected.test(source)
         if source.kind == "notion":
@@ -331,19 +374,22 @@ class SourceService:
         except AppError:
             logger.error("Source credential rollback failed; credential stays in Keychain")
 
+    @guarded_service
     def delete(self, source_id: str) -> dict:
         with self._lock:
             current = self.store.load()
             source = self._find(current, source_id)
             previous = None
-            if source.kind in ("imap", "notion", "github", "outlook"):
+            if (source.kind in ("imap", "notion", "github", "outlook")
+                    and not source.requires_reauthentication):
                 scope = source_credential_scope(source)
                 previous = vault_operation(self.vault, "get", scope)
                 vault_operation(self.vault, "delete", scope)
             try:
                 self.store.save(tuple(item for item in current if item.id != source_id))
             except AppError:
-                if source.kind in ("imap", "notion", "github", "outlook"):
+                if (source.kind in ("imap", "notion", "github", "outlook")
+                        and not source.requires_reauthentication):
                     self._rollback_credential(source, previous)
                 raise
         self.connected.discard_source(source_id)

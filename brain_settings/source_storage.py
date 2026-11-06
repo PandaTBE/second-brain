@@ -20,6 +20,7 @@ from pydantic import (
 
 from .errors import AppError
 from .github_models import normalize_repository
+from .maintenance import guarded_store
 from .notion_models import normalize_page_id, validate_notion_token
 
 logger = logging.getLogger(__name__)
@@ -120,6 +121,8 @@ class Source(BaseModel):
     mail_import_enabled: StrictBool = False
     mail_lookback_days: int = Field(default=30, strict=True, ge=0, le=365)
     enabled: bool = True
+    requires_relocation: StrictBool = False
+    requires_reauthentication: StrictBool = False
     credential_saved: bool = False
     notes_folder_ids: tuple[str, ...] = Field(default=(), max_length=50)
     outlook_client_id: str | None = Field(default=None, max_length=36)
@@ -161,6 +164,7 @@ class SourcesStore:
         self.directory = directory
         self.path = directory / "sources.json"
 
+    @guarded_store
     def load(self) -> tuple[Source, ...]:
         if not self.path.exists():
             return ()
@@ -179,6 +183,7 @@ class SourcesStore:
             raise AppError("sources_unreadable", "Не удалось прочитать настройки источников. "
                            "Проверьте файл sources.json в папке данных приложения.", 503) from exc
 
+    @guarded_store
     def save(self, sources: tuple[Source, ...]) -> None:
         temporary = None
         try:
@@ -188,7 +193,8 @@ class SourcesStore:
             temporary = Path(filename)
             with os.fdopen(descriptor, "w", encoding="utf-8") as output:
                 json.dump({"sources": [source.model_dump(exclude={
-                    key for key in ("notes_folder_ids", "outlook_client_id", "outlook_account_id")
+                    key for key in ("notes_folder_ids", "outlook_client_id", "outlook_account_id",
+                                    "requires_relocation", "requires_reauthentication")
                     if not getattr(source, key)
                 }) for source in sources]}, output,
                           ensure_ascii=False, indent=2)

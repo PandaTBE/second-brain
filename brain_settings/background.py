@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, Valida
 
 from .errors import AppError
 from .local_scan import _open_directory
+from .maintenance import guarded_store
 from .qwen_sessions import is_qwen_session
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,7 @@ class ScheduleStore:
     def __init__(self, directory: Path):
         self.path = directory / "memory_schedule.json"
 
+    @guarded_store
     def load(self) -> ScheduleConfig:
         if not self.path.exists():
             return ScheduleConfig()
@@ -79,6 +81,7 @@ class ScheduleStore:
                 "schedule_unreadable", "Не удалось прочитать расписание памяти.", 503
             ) from exc
 
+    @guarded_store
     def save(self, config: ScheduleConfig) -> None:
         temporary = None
         try:
