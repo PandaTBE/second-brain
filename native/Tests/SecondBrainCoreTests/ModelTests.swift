@@ -62,8 +62,13 @@ enum CoreChecks {
             ("Fact history preserves observed snapshots and scoped pagination", memoryFactHistoryContract),
             ("Fact source actions refresh policy-scoped claims before use", memoryFactActionScopes),
         ]
+        #if SECOND_BRAIN_STAGE5_CHECKS
+        let optionalChecks = stage5Checks
+        #else
+        let optionalChecks: [(String, () throws -> Void)] = []
+        #endif
         var failures: [String] = []
-        for (name, check) in checks {
+        for (name, check) in checks + optionalChecks {
             do {
                 try check()
                 print("PASS: \(name)")
@@ -84,7 +89,7 @@ enum CoreChecks {
         if !failures.isEmpty {
             throw CheckFailure(description: failures.joined(separator: "\n"))
         }
-        print("\(checks.count + 2) core checks passed.")
+        print("\(checks.count + optionalChecks.count + 2) core checks passed.")
     }
 
 
