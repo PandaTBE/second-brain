@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard !quitting else { return .terminateLater }
         quitting = true
+        store?.quickSearch.stop()
         Task {
             await store?.service.stop()
             sender.reply(toApplicationShouldTerminate: true)
@@ -36,6 +37,10 @@ struct SecondBrainApp: App {
         }
         .defaultSize(width: 1120, height: 780)
         .commands {
+            CommandMenu("Память") {
+                Button("Быстрый поиск…") { store.quickSearch.show() }
+                Button("Сочетание быстрого поиска…") { store.quickSearch.showSettings() }
+            }
             CommandGroup(replacing: .appSettings) {
                 Button("Настройки…") { store.section = .model; delegate.showMainWindow?() }
                     .keyboardShortcut(",", modifiers: .command)
@@ -78,6 +83,8 @@ struct StatusMenu: View {
         .disabled(memory.status == nil || !memory.action.isEmpty || !service.isRunning)
         .help("Останавливает автоимпорт и обработку карточек. Уже начатые запросы модели могут завершиться; поиск через MCP останется доступен.")
         Divider()
+        Button("Быстрый поиск…") { store.quickSearch.show() }
+        Button("Сочетание быстрого поиска…") { store.quickSearch.showSettings() }
         Button("Открыть Second Brain") { openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
             .keyboardShortcut("o")
         Button("Модель и API…") { store.section = .model; openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
@@ -140,6 +147,11 @@ struct MainView: View {
         .onAppear {
             delegate.store = store
             delegate.showMainWindow = { openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
+            store.quickSearch.configure { record in
+                store.section = .memory
+                openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true)
+                Task { await store.memory.selectRecord(record.id) }
+            }
             if !store.ready && !store.starting { Task { await store.start() } }
         }
     }

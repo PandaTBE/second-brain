@@ -157,13 +157,13 @@ class MemoryService(FactsServiceMixin):
         ]}
 
     def evidence(self, query: str, *, source_id=None, project=None, date_from=None, date_to=None,
-                 budget_chars=12000, mode="hybrid") -> dict:
+                 budget_chars=12000, mode="hybrid", record_id=None) -> dict:
         from .evidence import EvidenceService
 
         return EvidenceService(self.store, retrieval=self.retrieval).bundle(
             query, source_id=source_id, project=project, date_from=date_from, date_to=date_to,
             budget_chars=budget_chars, mode=mode, allowed_source_ids=self._allowed(),
-            allowed_provider=self._allowed,
+            allowed_provider=self._allowed, record_id=record_id,
         )
 
     def embedding_settings(self):

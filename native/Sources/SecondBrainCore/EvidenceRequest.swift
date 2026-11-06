@@ -3,13 +3,14 @@ import Foundation
 public struct EvidenceRequest: Equatable {
     public let query: String
     public let sourceId: String?
+    public let recordId: String?
     public let project: String?
     public let dateFrom: String?
     public let dateTo: String?
     public let budgetChars: Int
     public let mode: MemorySearchMode
 
-    public init(query: String, sourceId: String? = nil, project: String? = nil,
+    public init(query: String, sourceId: String? = nil, recordId: String? = nil, project: String? = nil,
                 dateFrom: String? = nil, dateTo: String? = nil,
                 budgetChars: Int = 12000, mode: MemorySearchMode = .hybrid) throws {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -36,14 +37,14 @@ public struct EvidenceRequest: Equatable {
         }
         let start = try date(from), end = try date(to)
         if let start, let end, start > end { throw ServiceError("Начало периода должно быть не позже его окончания.") }
-        self.query = query; self.sourceId = try optional(sourceId, max: 128)
+        self.query = query; self.sourceId = try optional(sourceId, max: 128); self.recordId = try optional(recordId, max: 128)
         self.project = try optional(project, max: 256); self.dateFrom = from; self.dateTo = to
         self.budgetChars = budgetChars; self.mode = mode
     }
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.budgetChars == rhs.budgetChars && lhs.mode == rhs.mode
             && ExactSourceText.equal(lhs.query, rhs.query) && ExactSourceText.equal(lhs.sourceId, rhs.sourceId)
-            && ExactSourceText.equal(lhs.project, rhs.project) && ExactSourceText.equal(lhs.dateFrom, rhs.dateFrom)
+            && ExactSourceText.equal(lhs.recordId, rhs.recordId) && ExactSourceText.equal(lhs.project, rhs.project) && ExactSourceText.equal(lhs.dateFrom, rhs.dateFrom)
             && ExactSourceText.equal(lhs.dateTo, rhs.dateTo)
     }
     public static func dayString(_ date: Date) -> String { EvidenceDateCodec.dayString(date) }
@@ -51,7 +52,7 @@ public struct EvidenceRequest: Equatable {
         var result = [URLQueryItem(name: "q", value: query),
                       URLQueryItem(name: "budget_chars", value: String(budgetChars)),
                       URLQueryItem(name: "mode", value: mode.rawValue)]
-        for (name, value) in [("source_id", sourceId), ("project", project), ("date_from", dateFrom), ("date_to", dateTo)] {
+        for (name, value) in [("source_id", sourceId), ("record_id", recordId), ("project", project), ("date_from", dateFrom), ("date_to", dateTo)] {
             if let value { result += [URLQueryItem(name: name, value: value)] }
         }
         return result
@@ -86,7 +87,8 @@ public struct EvidenceState {
         guard active == request else { return false }
         guard ExactSourceText.equal(bundle.query, request.parameters.query), bundle.budgetChars == request.parameters.budgetChars,
               bundle.search?.requestedMode == nil || bundle.search?.requestedMode == request.parameters.mode,
-              request.parameters.sourceId == nil || bundle.citations.allSatisfy({ $0.sourceId == request.parameters.sourceId }) else {
+              request.parameters.sourceId == nil || bundle.citations.allSatisfy({ $0.sourceId == request.parameters.sourceId }),
+              request.parameters.recordId == nil || bundle.citations.allSatisfy({ $0.recordId == request.parameters.recordId }) else {
             throw ServiceError("Пакет не соответствует запросу. Повторите поиск доказательств.")
         }
         self.bundle = bundle; active = nil; isLoading = false; error = nil

@@ -171,3 +171,56 @@ def test_selected_http_and_mcp_packets_match_with_only_selected_material(selecte
             budget_chars=6000,
         )
         assert {item["record_id"] for item in packet["citations"]} == {saved["id"]}
+
+
+@pytest.mark.parametrize("change", ["revision", "revoke", "delete"])
+def test_selection_rechecks_revision_and_policy_after_extracting_quotes(
+    selected, monkeypatch, change
+):
+    from brain_settings import evidence
+
+    store, saved, _ = selected
+    original = evidence._extract
+
+    def change_after_extraction(records, query):
+        result = original(records, query)
+        if change == "revision":
+            store.upsert_document(
+                source_id=SOURCE,
+                source_kind="folder",
+                source_object_id="selected.md::chunk:000000",
+                title="Retention",
+                text="Delete logs after sixty days.",
+                source_uri="file:///synthetic/selected.md",
+            )
+        elif change == "revoke":
+            store.set_source_policy(SOURCE, SourcePolicy(mcp_enabled=False))
+        else:
+            store.delete_source(SOURCE)
+        return result
+
+    monkeypatch.setattr(evidence, "_extract", change_after_extraction)
+    packet = selected_bundle(store, saved["id"], visibility="mcp")
+    assert packet["citations"] == []
+    assert "source_changed" in packet["reasons"]
+    assert packet["search"]["eligible"] == (1 if change == "revision" else 0)
+    assert packet["search"]["ready"] == 0
+
+
+def test_selected_id_http_and_mcp_boundaries_are_strict(selected):
+    store, _, _ = selected
+    tools = MemoryTools(store, store.directory)
+    for invalid in ("", "  ", "x" * 129, "\0", "\ud800", True):
+        assert tools.get_evidence_bundle("retry", record_id=invalid)["error"]["code"] == (
+            "invalid_record_id"
+        )
+    app = create_app(data_dir=store.directory, vault=MemoryVault(), transport=FakeTransport())
+    with TestClient(app, base_url="http://127.0.0.1:8765") as client:
+        for invalid in ("", "x" * 129):
+            response = client.get(
+                "/api/memory/evidence", params={"q": "retry", "record_id": invalid}
+            )
+            assert response.status_code == 422
+        response = client.get("/api/memory/evidence", params={"q": "retry", "record_id": "  "})
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "invalid_record_id"

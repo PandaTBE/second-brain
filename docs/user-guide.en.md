@@ -271,6 +271,43 @@ The global stop button pauses automatic imports and automatic cards. Search, MCP
 
 When enabled, periodic reconciliation defaults to every 15 minutes. It updates generic folders and enabled remote imports, and can generate a bounded card batch when configured. The current native control calls this a full reconciliation of local sources, but it also services connected remote sources.
 
+<a id="quick-search"></a>
+
+### Quick search from another app — unreleased
+
+While Second Brain is running, use **Быстрый поиск…** in its menu bar menu or press
+**Command–Option–Shift–Space**. The native **Быстрый поиск памяти** panel focuses
+**Поиск в памяти** and shows up to eight imported materials, with source, known
+date, revision and snippet. Choose lexical, semantic or hybrid mode; the same
+native source policies and fallback diagnostics apply. Empty, loading and service
+error states are shown explicitly. Search waits 300 ms after input and cancels
+superseded work, so old results cannot replace a newer query.
+
+Use **↑/↓** to select, **Return** for **Открыть выбранный материал**, **Esc** to
+close, or **Command–Shift–C** for **Скопировать контекст выбранного материала**.
+Opening shows the selected current material in the main memory window. Copying
+rechecks the permitted record/revision and requests only its evidence through
+`record_id`, with a 6,000-character compact JSON budget. It does not substitute
+another matching record or create a query embedding for that selection. No text
+is copied merely by opening, typing or selecting. Changed/hidden records, failed
+requests and stale/closed panels cancel the action. Input-method composition is
+left to the text field; labelled native controls and status announcements are
+provided for assistive technologies.
+
+To change the shortcut, use **Сочетание быстрого поиска…** in the menu or
+**Настройки сочетания** in the panel. Click **Записать сочетание**, press the new
+combination, then **Сохранить сочетание**. Use at least two modifiers including
+Command or Control; reserved combinations and the Control–Option pair are rejected.
+Esc cancels recording; Tab moves focus. The app registers a replacement before
+releasing the working shortcut, so a registration conflict leaves the old one
+available; the menu action remains usable. **По умолчанию** selects the default,
+which is applied when saved. Only successful explicit saves update app preferences.
+
+The Carbon global shortcut requires neither Accessibility nor Input Monitoring
+permission and does not monitor global keystrokes. Closing the main window keeps
+the app and shortcut running; quitting stops them. The panel has its own requests
+and selection, separate from the main memory list.
+
 ## 7. Search, cards, graph, and history
 
 In **Память**, choose **Материалы** (Materials), **Карточки** (Cards), **Ожидают**
@@ -361,11 +398,18 @@ this is controlled by that client and provider.
 Ask the agent to call `get_evidence_bundle(query, budget_chars=12000)` before
 writing an answer, then cite the returned `citation_id` values. The required
 argument is `query`; optional arguments are `source_id`, `project`, `date_from`,
-`date_to`, `budget_chars`, and `mode` (default `hybrid`). The four original tools
+`date_to`, `budget_chars`, `mode` (default `hybrid`), and `record_id`. The four original tools
 keep their required arguments; `get_context_brief()` still needs no query.
 Evidence extraction reuses saved text/cards and the selected retrieval mode,
 without a generation call. Hybrid may use the separately enabled local query
 embedding model. Source instructions remain untrusted data.
+
+Optional `record_id` restricts context to that one current permitted material,
+without ranking or query embeddings. Source/project/date filters still apply;
+a missing or hidden selection returns no replacement material. Diagnostics use
+`used_mode="record"`; the request mode values remain lexical/semantic/hybrid.
+The query is still required to select a useful passage. Without a localized
+match, an exact excerpt can be returned as uncertain/incomplete.
 
 Use **Память → Доказательства из памяти** (the quote button) to inspect the same
 packet with native source permissions. Enter a query, optionally choose a source,

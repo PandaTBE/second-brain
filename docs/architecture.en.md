@@ -29,6 +29,7 @@ The window and background process have different lifecycles: closing the window 
 | Area | Main files | Responsibility |
 | --- | --- | --- |
 | Native UI | `native/Sources/SecondBrain/`, `native/Sources/SecondBrainCore/` | Screens, request models, helper lifecycle, indicators, and user operations. |
+| Quick search — unreleased | Native `QuickSearch*`, `QuickShortcutSettings`, core `QuickSearchState`/`QuickSearchShortcut` | Independent panel requests/actions, Carbon shortcut registration and explicit selected-record context. |
 | HTTP application | `brain_settings/app.py`, `security.py`, `memory_routes.py` | Application factory, local HTTP boundary, settings and memory endpoints. |
 | Settings and secrets | `storage.py`, `source_storage.py`, `sources.py`, `service.py` | Atomic JSON persistence, Keychain, source configuration and access checks. |
 | Source policy — unreleased | `source_policy.py`, `source_policy_routes.py` | SQLite permissions and exclusions, preview, and policy predicates shared by import, retrieval and model processing. |
@@ -146,6 +147,13 @@ modification, source creation; undated records do not satisfy date filters, and
 import time is excluded. Current citations and coverage are revalidated against
 one read snapshot of revision, metadata and source policy.
 
+Optional `record_id` selects one authorized current material directly before
+ranking or embedding, preserving other filters. Its output diagnostic is
+`used_mode="record"`, with null query/vector timings and generation; permitted
+coverage and support are scoped to that selection. An unavailable selected
+record never triggers a wider fallback search. Query-based extraction without
+`record_id` keeps its existing behavior and default budget.
+
 Extractive windows and saved-card evidence produce exact code-point ranges and
 stable citation IDs. The packer rotates sources, combines identical quotes with
 bounded additional support, and caps the canonical compact JSON packet at
@@ -164,6 +172,26 @@ local files are revealed in Finder; opaque Notes IDs remain identifiers.
 Passages without localized query evidence and ambiguous card passages carry
 `quote_relevance="uncertain"` plus explicit incompleteness reasons. The native
 view shows human-readable labels while preserving raw diagnostics in JSON.
+
+## Native quick search in unreleased builds
+
+The menu bar and Command–Option–Shift–Space open an AppKit panel with native
+search/list controls. Its own request/action identities isolate it from the main
+memory window. A 300 ms debounce, task cancellation and generation checks prevent
+late results or closed/changed selections from updating, announcing or exporting.
+Up to eight results use the shared HTTP retrieval modes and local-search policy.
+Opening rereads the current permitted record and selects it in the main window;
+explicit copy requests only its `record_id` evidence, at 6,000 canonical JSON
+characters, without a query embedding for that selection.
+
+`RegisterEventHotKey` uses Carbon exclusive registration, not a global event tap.
+Known reserved shortcuts are rejected; a new registration succeeds before the old
+one is released. Successful explicit changes persist in app preferences
+(`quickSearch.shortcut.v1`); startup reads the saved/default value without writing
+a new preference. A registration failure leaves the menu action available.
+Accessibility labels/status announcements and IME-aware plain arrow/Return/Esc
+commands are native; no Accessibility or Input Monitoring authorization is needed.
+Closing the main window keeps the app/hotkey alive; quitting unregisters it.
 
 ## Facts and decision history in unreleased builds
 

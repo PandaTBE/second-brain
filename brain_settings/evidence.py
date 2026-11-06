@@ -52,15 +52,40 @@ def _validate(query: str, source_id: str | None, budget_chars: int, visibility: 
         raise AppError("invalid_evidence_scope", "Недопустимая область доказательств.")
 
 
+def _validate_record_id(record_id: str | None) -> None:
+    if record_id is None:
+        return
+    if (
+        not isinstance(record_id, str)
+        or not record_id.strip()
+        or len(record_id) > 128
+        or any(ord(character) < 32 for character in record_id)
+    ):
+        raise AppError("invalid_record_id", "Укажите ID записи из результата поиска.")
+    try:
+        record_id.encode("utf-8")
+    except UnicodeError:
+        raise AppError(
+            "invalid_record_id", "ID записи должен содержать корректный Unicode."
+        ) from None
+
+
 def _packet(
-    query: str, source_id: str | None, filters: SearchFilters, search: dict, budget: int
+    query: str,
+    source_id: str | None,
+    filters: SearchFilters,
+    search: dict,
+    budget: int,
+    record_id: str | None = None,
 ) -> dict:
     return {
         "schema_version": 1,
         "query": query,
         "citations": [],
         "search": search,
-        "filters": filters.public() | {"source_id": source_id},
+        "filters": filters.public()
+        | {"source_id": source_id}
+        | ({"record_id": record_id} if record_id is not None else {}),
         "incomplete": False,
         "reasons": [],
         "budget_chars": budget,
@@ -97,7 +122,7 @@ def _reasons(
         reasons = [*reasons, "source_changed"]
     if not records:
         reasons = [*reasons, "no_matches"]
-    if search.get("partial") and search.get("used_mode") != "lexical":
+    if search.get("partial") and search.get("used_mode") in ("semantic", "hybrid"):
         reasons = [*reasons, "partial_index"]
     if search.get("fallback_reason"):
         reasons = [*reasons, "search_fallback"]
@@ -110,6 +135,33 @@ class EvidenceService:
     def __init__(self, store, retrieval=None):
         self.store = store
         self.retrieval = retrieval if retrieval is not None else Retrieval(store)
+
+    def _selected(self, record_id, source_id, filters, allowed, visibility, mode) -> dict:
+        try:
+            record = self.store.get_record(
+                record_id, allowed_source_ids=allowed, visibility=visibility
+            )
+        except AppError as error:
+            if error.code != "record_not_found":
+                raise
+            record = None
+        matches = (
+            record is not None
+            and filters.matches(record)
+            and (source_id is None or record["source_id"] == source_id)
+        )
+        return {
+            "results": [record] if matches else [],
+            "search": {
+                "requested_mode": mode,
+                "used_mode": "record",
+                "selection": "record_id",
+                "fallback_reason": None,
+                "generation": None,
+                "query_embedding_ms": None,
+                "vector_search_ms": None,
+            },
+        }
 
     def _current(self, citation, record, filters):
         return (
@@ -124,8 +176,14 @@ class EvidenceService:
             and citation["dates"] == {name: record.get(name) for name in DATE_FIELDS}
         )
 
-    def _fresh(self, candidates, filters, allowed, visibility, source_id):
-        identifiers = tuple(dict.fromkeys(item["record_id"] for item in candidates))
+    def _fresh(self, candidates, filters, allowed, visibility, source_id, record_id=None):
+        identifiers = tuple(
+            dict.fromkeys(
+                item["record_id"]
+                for item in candidates
+                if record_id is None or item["record_id"] == record_id
+            )
+        )
         scope, source_ids = _allowed_clause(allowed, "d.source_id")
         clause, arguments = filters.clause()
         # One read transaction gives quotes and aggregate counts the same policy snapshot.
@@ -151,6 +209,7 @@ class EvidenceService:
                 project=filters.project,
                 date_from=filters.date_from,
                 date_to=filters.date_to,
+                record_id=record_id,
                 _connection=connection,
             )
         current = {row["id"]: _row(row) for row in rows}
@@ -176,31 +235,48 @@ class EvidenceService:
         visibility: str = "local",
         allowed_source_ids=None,
         allowed_provider=None,
+        record_id: str | None = None,
     ) -> dict:
+        _validate_record_id(record_id)
         _validate(query, source_id, budget_chars, visibility)
         if not isinstance(mode, str) or mode not in MODES:
             raise AppError("invalid_search_mode", "Выберите lexical, semantic или hybrid.")
         filters = SearchFilters(project, date_from, date_to)
         if (
-            encoded_size({"query": query, "filters": filters.public() | {"source_id": source_id}})
+            encoded_size(
+                {
+                    "query": query,
+                    "filters": filters.public()
+                    | {"source_id": source_id}
+                    | ({"record_id": record_id} if record_id is not None else {}),
+                }
+            )
             > budget_chars - 1000
         ):
             raise AppError("invalid_evidence_budget", "Увеличьте бюджет для метаданных запроса.")
-        result = self.retrieval.search(
-            query,
-            limit=50,
-            source_id=source_id,
-            project=project,
-            date_from=date_from,
-            date_to=date_to,
-            mode=mode,
-            visibility=visibility,
-            allowed_source_ids=allowed_source_ids,
+        result = (
+            self._selected(record_id, source_id, filters, allowed_source_ids, visibility, mode)
+            if record_id is not None
+            else self.retrieval.search(
+                query,
+                limit=50,
+                source_id=source_id,
+                project=project,
+                date_from=date_from,
+                date_to=date_to,
+                mode=mode,
+                visibility=visibility,
+                allowed_source_ids=allowed_source_ids,
+            )
         )
         candidates, reasons = _extract(result["results"], query)
         allowed = allowed_provider() if allowed_provider is not None else allowed_source_ids
-        current, coverage = self._fresh(candidates, filters, allowed, visibility, source_id)
-        packet = _packet(query, source_id, filters, result["search"] | coverage, budget_chars)
+        current, coverage = self._fresh(
+            candidates, filters, allowed, visibility, source_id, record_id
+        )
+        packet = _packet(
+            query, source_id, filters, result["search"] | coverage, budget_chars, record_id
+        )
         if sized(packet)["used_chars"] > budget_chars - 200:
             raise AppError("invalid_evidence_budget", "Увеличьте бюджет для метаданных запроса.")
         reasons = [*reasons, *_reasons(packet["search"], result["results"], candidates, current)]

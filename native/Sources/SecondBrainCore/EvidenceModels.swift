@@ -98,6 +98,29 @@ public struct EvidenceBundle: Decodable {
         }
     }
 
+    /// The quick panel never exports another record's supplemental proof metadata.
+    public func copySelectedContext(record: MemoryRecord) throws -> String {
+        guard !citations.isEmpty, citations.allSatisfy({ $0.matches(record: record) }),
+              selectedMetadataOnly(packet, record: record) else {
+            throw ServiceError("Контекст выбранного материала изменился или недоступен. Повторите поиск.")
+        }
+        return try copyContext()
+    }
+    private func selectedMetadataOnly(_ value: EvidenceJSON, record: MemoryRecord) -> Bool {
+        switch value {
+        case .object(let object):
+            if let id = object["record_id"] {
+                guard case .string(let identifier) = id, ExactSourceText.equal(identifier, record.id) else { return false }
+            }
+            if let revision = object["revision"] {
+                guard case .integer(let number) = revision, number == Int64(record.revision ?? 0) else { return false }
+            }
+            return object.values.allSatisfy { selectedMetadataOnly($0, record: record) }
+        case .array(let array): return array.allSatisfy { selectedMetadataOnly($0, record: record) }
+        default: return true
+        }
+    }
+
     /// A compact structured packet keeps citations and trust metadata together.
     /// Clipboard writes are performed only by the native button action.
     public func copyContext() throws -> String {

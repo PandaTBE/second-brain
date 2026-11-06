@@ -68,6 +68,16 @@ These controls reduce browser-origin attacks. **They are not user authentication
 
 The native client validates that it is talking to the helper instance it started. The application does not need administrator privileges or automatic Full Disk Access. Grant access to source folders through the system's normal permission flow.
 
+**Unreleased quick search** registers an exclusive Carbon hotkey; it does not
+monitor global keyboard events or require Accessibility/Input Monitoring
+permission. Shortcut recording receives keys only in its focused native control;
+successful explicit saves affect app preferences, not global macOS key mappings.
+The panel copies nothing on open/input/selection. Explicit context copy rereads
+the permitted record and a bounded packet restricted to its `record_id`, without
+ranking, query embedding or substitute records. Cancellation/generation checks
+block stale or closed-panel export. Existing source privacy and untrusted-content
+boundaries also apply to the quick panel.
+
 ## Outbound connections and source access
 
 - HTTPS connections verify TLS certificates. Destination addresses are checked against the applicable network policy and pinned for the connection while TLS still verifies the original hostname. Redirects are not followed.

@@ -9,6 +9,13 @@ listed in the release notes; preparing local artifacts does not publish a releas
 
 ### Added
 
+- Native menu-bar quick search and configurable Command–Option–Shift–Space
+  shortcut through exclusive Carbon registration, without Accessibility/Input
+  Monitoring permission. Independent debounced requests show up to eight results
+  with keyboard selection, current-material opening and explicit 6,000-character
+  selected-record context copying. Optional evidence `record_id` selects only that
+  authorized material without query embeddings; existing default requests remain
+  compatible. Conflicting registration preserves the working shortcut/menu access.
 - Local exact-wording facts/decisions with multiple source quotations and observed
   revision history from feature enablement. Read-only `get_facts` and
   `get_fact_history` bring MCP to seven compatible read tools; HTTP/native views
@@ -134,6 +141,13 @@ shared local memory server for AI assistants.
 
 ### Ещё не выпущено
 
+- Нативный быстрый поиск из строки меню и настраиваемое сочетание
+  Command–Option–Shift–Пробел через Carbon exclusive без Accessibility/отслеживания
+  ввода. До восьми результатов с отдельными debounced-запросами, стрелками,
+  открытием текущего материала и явным копированием его контекста в 6 000 символов.
+  `record_id` ограничивает доказательства выбранной разрешённой записью без
+  embedding-запроса; прежние вызовы совместимы. Конфликт не снимает рабочую клавишу,
+  пункт меню остаётся доступен.
 - Факты/решения по одинаковым формулировкам с несколькими цитатами и историей
   наблюдаемых ревизий с момента включения. `get_facts` и `get_fact_history`
   расширяют MCP до семи совместимых инструментов чтения; HTTP/нативные окна

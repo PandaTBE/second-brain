@@ -62,11 +62,7 @@ enum CoreChecks {
             ("Fact history preserves observed snapshots and scoped pagination", memoryFactHistoryContract),
             ("Fact source actions refresh policy-scoped claims before use", memoryFactActionScopes),
         ]
-        #if SECOND_BRAIN_STAGE5_CHECKS
         let optionalChecks = stage5Checks
-        #else
-        let optionalChecks: [(String, () throws -> Void)] = []
-        #endif
         var failures: [String] = []
         for (name, check) in checks + optionalChecks {
             do {

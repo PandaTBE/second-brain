@@ -11,6 +11,7 @@ enum AppSection: String, CaseIterable, Identifiable {
 final class AppStore: ObservableObject {
     let service = BackendService()
     let memory = MemoryViewModel()
+    lazy var quickSearch = QuickSearchController(memory: memory)
     @Published var section: AppSection = .overview
     @Published var ready = false
     @Published var starting = false

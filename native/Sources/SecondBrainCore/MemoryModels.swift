@@ -44,6 +44,10 @@ public struct MemoryRecord: Decodable, Identifiable {
     public let sourceUri: String?
     public let createdAt: String?
     public let updatedAt: String?
+    public let messageAt: String?
+    public let sourceCreatedAt: String?
+    public let sourceModifiedAt: String?
+    public let importedAt: String?
     public let cardStatus: String?
     public let card: MemoryCard?
     public let cardError: String?

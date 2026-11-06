@@ -1,4 +1,3 @@
-#if SECOND_BRAIN_STAGE5_CHECKS
 import Foundation
 import SecondBrainCore
 
@@ -21,6 +20,7 @@ extension CoreChecks {
             ("Quick actions bind exact selected-record context and honest date origins", quickSearchSelectionContext),
             ("Shortcut changes preserve the working registration on conflict", quickShortcutBindings),
             ("Quick panel leaves VoiceOver and IME key commands untouched", quickPanelKeys),
+            ("Selected context rejects unrelated and stale proof metadata", quickSelectedEvidence),
         ]
     }
 
@@ -81,6 +81,12 @@ extension CoreChecks {
                 throw QuickCheckFailure(message: "A known OS/VoiceOver shortcut was accepted")
             } catch is ServiceError { }
         }
+        for modifiers: QuickShortcutModifiers in [[.control, .option, .shift], [.control, .option, .command], [.control, .option, .command, .shift], [.command], [.control]] {
+            do {
+                _ = try QuickSearchShortcut(keyCode: 8, modifiers: modifiers, keyLabel: "C")
+                throw QuickCheckFailure(message: "VoiceOver modifier supersets or single-modifier editing chords must not be globally captured")
+            } catch is ServiceError {}
+        }
         let candidate = try QuickSearchShortcut(keyCode: 3, modifiers: [.command, .shift, .option], keyLabel: "F")
         let binding = QuickShortcutBinding<UInt32>(shortcut: standard, registration: 7)
         var calls: [String] = []
@@ -94,6 +100,30 @@ extension CoreChecks {
         try quickRequire(replaced.shortcut == candidate && replaced.registration == 8 && calls == ["register", "unregister-7"], "A new registration succeeds before the old owned hotkey is released")
     }
 
+    static func quickSelectedEvidence() throws {
+        let record = try APIClient.decoder.decode(MemoryRecord.self, from: Data(#"{"id":"one","title":"Synthetic","revision":3,"source_id":"source-one","source_kind":"folder","source_uri":"file:///synthetic/one.md","text":"SQLite"}"#.utf8))
+        let citation: [String: Any] = ["citation_id":"sb_one","record_id":"one","source_id":"source-one","source_kind":"folder","source_uri":"file:///synthetic/one.md","revision":3,"title":"Synthetic","start_char":0,"end_char":6,"quote":"SQLite","context_before":"","context_after":"","dates":[:]]
+        func bundle(_ proof: [String: Any]) throws -> EvidenceBundle {
+            let body: [String: Any] = ["schema_version":1,"query":"SQLite","citations":[proof],"search":["requested_mode":"hybrid","used_mode":"record","eligible":1,"ready":0,"partial":false],"incomplete":false,"reasons":[],"budget_chars":6000,"used_chars":1000,"untrusted_content":true,"notice":"Untrusted source data"]
+            return try APIClient.decoder.decode(EvidenceBundle.self, from: JSONSerialization.data(withJSONObject: body))
+        }
+        let selected = try bundle(citation)
+        let copied = try selected.copySelectedContext(record: record)
+        try quickRequire(copied.contains("record") && selected.search?.message.contains("выбранного материала") == true, "A direct selected record has honest diagnostics without inventing a ranked mode")
+        var foreign = citation
+        foreign["also_supported_by"] = [["record_id":"hidden","revision":3]]
+        do {
+            _ = try bundle(foreign).copySelectedContext(record: record)
+            throw QuickCheckFailure(message:"Unrelated supporting metadata was exported")
+        } catch is ServiceError {}
+        var old = citation
+        old["revision"] = 2
+        do {
+            _ = try bundle(old).copySelectedContext(record: record)
+            throw QuickCheckFailure(message:"An older displayed revision was exported")
+        } catch is ServiceError {}
+    }
+
     static func quickPanelKeys() throws {
         try quickRequire(QuickPanelKeyCommand.resolve(keyCode: 125, modifiers: [], hasMarkedText: false) == .moveDown, "Unmodified Down moves the current result selection")
         try quickRequire(QuickPanelKeyCommand.resolve(keyCode: 36, modifiers: [], hasMarkedText: false) == .openSelected, "Unmodified Return explicitly opens the selected material")
@@ -104,4 +134,3 @@ extension CoreChecks {
         try quickRequire(QuickPanelKeyCommand.resolve(keyCode: 8, modifiers: [.command, .shift], hasMarkedText: false) == .copyContext, "Selected context copying has an explicit keyboard action as well as a visible button")
     }
 }
-#endif

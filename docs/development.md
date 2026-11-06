@@ -24,6 +24,7 @@ No environment file or real provider token is required for tests. Application cr
 | --- | --- |
 | `native/Sources/SecondBrain/` | SwiftUI views and app lifecycle |
 | `native/Sources/SecondBrainCore/` | Shared models, service startup, API client, and state helpers |
+| Native `QuickSearch*` / `QuickShortcutSettings` | Unreleased independent panel requests, explicit selected-record actions and exclusive Carbon shortcut registration |
 | `native/Tests/SecondBrainCoreTests/` | Executable CoreChecks target |
 | `brain_settings/app.py` | FastAPI factory; importing it must not create the personal database |
 | `brain_settings/memory_service.py` | Bounded import/card jobs and automation |
@@ -121,6 +122,18 @@ Exercise `include_history`, past-only badges, stable event IDs/cursor progress a
 synthetic suites include `test_memory_facts.py`, `test_fact_cards.py`,
 `test_fact_projection.py` and `test_facts_mcp.py`; native checks cover stale sheets
 and active versus historical material actions.
+
+Quick-search checks must cover independent query/action generations, the
+300 ms debounce, eight-result bound, IME composition and ordinary navigation keys.
+Use a fake registrar/preferences domain for shortcut conflicts; the replacement
+must register before the old binding is removed. Do not modify real user
+shortcuts/preferences during development. Native QA should invoke the panel from
+another app, select/open/copy explicitly, close with Esc, and verify stale requests
+and changed source permissions cannot export. Selected context uses evidence
+`record_id` with a 6,000-character budget, not a wider query or embedding call.
+AX labels/announcement code alone do not prove full live VoiceOver speech; record
+the actual accessibility checks performed. The feature needs no global event tap
+or extra Accessibility/Input Monitoring permission.
 
 The native UI is currently Russian. The public README and user guides are bilingual; documentation translation does not imply that every native view is localized into English.
 

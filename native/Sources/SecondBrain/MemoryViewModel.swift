@@ -159,6 +159,14 @@ final class MemoryViewModel: ObservableObject {
         return response.job
     }
 
+    func quickSearch(query: String, mode: MemorySearchMode) async throws -> MemorySearchResponse {
+        guard let client else { throw ServiceError("Локальный сервис не запущен. Откройте Second Brain и дождитесь запуска.") }
+        return try await client.get("/api/memory/search", query: [
+            URLQueryItem(name: "q", value: query), URLQueryItem(name: "mode", value: mode.rawValue),
+            URLQueryItem(name: "limit", value: "8")
+        ])
+    }
+
     func evidenceBundle(_ request: EvidenceRequest) async throws -> EvidenceBundle {
         guard let client else { throw ServiceError("Локальный сервис не запущен.") }
         return try await client.get("/api/memory/evidence", query: request.queryItems)

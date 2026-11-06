@@ -107,9 +107,21 @@ public enum MemorySearchMode: String, CaseIterable, Identifiable, Decodable {
     }
 }
 
+public enum MemorySearchExecutionMode: String, Decodable {
+    case lexical, semantic, hybrid, record
+    public var title: String {
+        switch self {
+        case .lexical: "По словам"
+        case .semantic: "По смыслу"
+        case .hybrid: "Гибридный"
+        case .record: "Контекст выбранного материала"
+        }
+    }
+}
+
 public struct MemorySearchDiagnostics: Decodable {
     public let requestedMode: MemorySearchMode
-    public let usedMode: MemorySearchMode
+    public let usedMode: MemorySearchExecutionMode
     public let fallbackReason: String?
     public let generation: String?
     public let queryEmbeddingMs: Double?
@@ -119,7 +131,7 @@ public struct MemorySearchDiagnostics: Decodable {
     public let partial: Bool
     public var message: String {
         var result = "Использован режим: \(usedMode.title.lowercased())."
-        if requestedMode != usedMode { result += " Запрошен: \(requestedMode.title.lowercased())." }
+        if usedMode != .record && requestedMode.rawValue != usedMode.rawValue { result += " Запрошен: \(requestedMode.title.lowercased())." }
         if partial { result += " Индекс готов частично: \(ready) из \(eligible)." }
         return result
     }

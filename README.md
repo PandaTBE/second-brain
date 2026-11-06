@@ -71,6 +71,12 @@ model call, while creating cards uses the configured model and its normal budget
 An agent may still spend its own input tokens on retrieved context. See
 [facts and history](docs/user-guide.en.md#facts-history).
 
+**Unreleased quick search:** open a native panel from the menu bar or
+Command–Option–Shift–Space while Second Brain is running. Choose among up to eight
+results with the keyboard, open a material or explicitly copy its source-backed
+context. The shortcut is configurable and requires no Accessibility or Input
+Monitoring permission. See [quick search](docs/user-guide.en.md#quick-search).
+
 ### Sources
 
 | Source | Imported content | Scope |
@@ -315,6 +321,12 @@ JSON-контекста. Codex или Claude составляет ответ п�
 Агент отдельно расходует свои входные токены на полученный контекст. Добавлены
 `get_facts` и `get_fact_history` — всего семь MCP-инструментов. Подробнее —
 [факты и история](docs/user-guide.ru.md#facts-history).
+
+**Быстрый поиск — ещё не выпущено:** нативная панель вызывается из строки меню
+или Command–Option–Shift–Пробел, пока Second Brain работает. Клавиатурой выберите
+один из восьми результатов, откройте материал или явно скопируйте его контекст
+с цитатами. Сочетание настраивается без разрешений Accessibility и отслеживания
+ввода. См. [быстрый поиск](docs/user-guide.ru.md#quick-search).
 
 ### Источники
 

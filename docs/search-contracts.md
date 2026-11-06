@@ -124,11 +124,29 @@ lexical.
 
 Read-only MCP `get_evidence_bundle` requires `query` (1–512 characters) and accepts
 `source_id=None`, `project=None`, `date_from=None`, `date_to=None`,
-`budget_chars=12000`, and `mode="hybrid"`. The shared `EvidenceService` also backs
+`budget_chars=12000`, `mode="hybrid"`, and optional `record_id=None`. The shared `EvidenceService` also backs
 `GET /api/memory/evidence`, where the query parameter is `q`; other parameter names
 are identical. Native HTTP retrieval uses local-search permission; MCP uses MCP
 permission. The four original tools remain compatible, including a query-free
 `get_context_brief()`.
+
+Unreleased selected-record context uses `record_id` (a nonblank valid-Unicode ID
+of 1–128 characters, without control characters). It directly reads only that
+current authorized material before any ranking or query embedding, then applies
+the same source/project/date filters and final revision/policy snapshot. The
+required `query` remains; it helps choose a passage but need not lexically match
+the selected record. No other record or duplicate support is substituted when the
+selection is missing, hidden, excluded or filtered out.
+
+Selected responses add `filters.record_id`, `search.selection="record_id"` and
+`search.used_mode="record"`; `requested_mode` retains the caller's valid
+`lexical`/`semantic`/`hybrid` choice. `record` is a diagnostic, not a new accepted
+request mode. Query/vector timings and generation are null because this branch
+does not invoke embeddings. Coverage counts are restricted to the selected record,
+not other materials. An unlocalized source excerpt remains uncertain/incomplete;
+partial vector coverage alone does not make a direct record read a semantic-index
+failure. The API default of 12,000 characters and range 2,000–32,000 are unchanged;
+the quick-panel copy requests 6,000 characters explicitly.
 
 `SearchFilters` applies before candidate retrieval/ranking in BM25 and vector
 paths. `project` exactly matches bounded explicit stored metadata (up to 256

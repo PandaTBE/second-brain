@@ -57,7 +57,7 @@ def normalized(vector, dimension=None):
 
 
 def _where(visibility="local", allowed_source_ids=None, source_id=None,
-           project=None, date_from=None, date_to=None):
+           project=None, date_from=None, date_to=None, record_id=None):
     from .retrieval_filters import SearchFilters
 
     filters = SearchFilters(project, date_from, date_to)
@@ -72,6 +72,9 @@ def _where(visibility="local", allowed_source_ids=None, source_id=None,
             return "0=1", ()
         sql += " AND d.source_id IN (" + ",".join("?" for _ in allowed) + ")"
         args += allowed
+    if record_id is not None:
+        sql += " AND d.id=?"
+        args += (record_id,)
     clause, values = filters.clause()
     return sql + clause, (*args, *values)
 
@@ -88,14 +91,15 @@ class VectorStore:
         return dict(row) | {"enabled": bool(row["enabled"])}
 
     def coverage(self, *, visibility="local", allowed_source_ids=None, source_id=None,
-                 project=None, date_from=None, date_to=None, _connection=None):
+                 project=None, date_from=None, date_to=None, record_id=None, _connection=None):
         if _connection is None:
             with self.store._connection() as connection:
                 return self.coverage(visibility=visibility, allowed_source_ids=allowed_source_ids,
                                      source_id=source_id, project=project, date_from=date_from,
-                                     date_to=date_to, _connection=connection)
+                                     date_to=date_to, record_id=record_id, _connection=connection)
         state = _connection.execute("SELECT * FROM embedding_settings WHERE singleton=1").fetchone()
-        where, args = _where(visibility, allowed_source_ids, source_id, project, date_from, date_to)
+        where, args = _where(visibility, allowed_source_ids, source_id, project, date_from,
+                             date_to, record_id)
         row = _connection.execute(
             "SELECT COUNT(*) AS eligible,COUNT(v.record_id) AS ready FROM documents d "
             "LEFT JOIN embedding_vectors v ON v.record_id=d.id AND v.revision=d.revision "

@@ -83,10 +83,11 @@ def create_memory_router(service) -> APIRouter:
                  date_from: str | None = Query(default=None, max_length=64),
                  date_to: str | None = Query(default=None, max_length=64),
                  budget_chars: int = Query(default=12000, ge=2000, le=32000),
-                 mode: str = "hybrid"):
+                 mode: str = "hybrid",
+                 record_id: str | None = Query(default=None, min_length=1, max_length=128)):
         return {"success": True, "data": service.evidence(
             q, source_id=source_id, project=project, date_from=date_from, date_to=date_to,
-            budget_chars=budget_chars, mode=mode,
+            budget_chars=budget_chars, mode=mode, record_id=record_id,
         )}
 
     @router.get("/facts")
