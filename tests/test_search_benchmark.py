@@ -54,7 +54,7 @@ def test_negatives_are_measured_separately_without_dividing_by_zero():
     result = summarize([negative, false_positive, positive])
     assert result["recall_at_5"] == 0
     assert result["mrr_at_10"] == 0
-    assert result["negative_queries"] == 2
+    assert result["negative_evaluations"] == 2
     assert result["negative_false_positive_rate"] == 0.5
     assert result["p50_ms"] == 2
     assert result["p95_ms"] == 3

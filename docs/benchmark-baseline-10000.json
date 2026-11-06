@@ -1,0 +1,1054 @@
+{
+  "schema_version": 1,
+  "mode": "lexical",
+  "implementation": "MemoryStore.search: FTS5 BM25 + existing freshness weighting",
+  "as_of": "2026-11-06T12:00:00+00:00",
+  "dataset": {
+    "fixture": "tests/fixtures/search_corpus.json",
+    "fixture_sha256": "28200e16785a1a72d2639f3d5d853081e84d92163cb95b18e65f10bec4e7d500",
+    "documents": 10000,
+    "queries": 46,
+    "repeats": 3,
+    "personal_data": false
+  },
+  "machine": {
+    "os": "Darwin",
+    "os_version": "27.0.0",
+    "architecture": "arm64",
+    "python": "3.12.13",
+    "sqlite": "3.53.1",
+    "cpu": "Apple M5",
+    "hardware_model": "Mac17,2",
+    "physical_memory_bytes": 25769803776
+  },
+  "overall": {
+    "evaluations": 138,
+    "recall_at_5": 0.8095238095238095,
+    "mrr_at_10": 0.7653061224489796,
+    "duplicate_fraction_at_5": 0.06666666666666667,
+    "negative_false_positive_rate": 0.25,
+    "p50_ms": 0.5382919916883111,
+    "p95_ms": 4.305874987039715,
+    "positive_evaluations": 126,
+    "negative_evaluations": 12
+  },
+  "groups": {
+    "conflict": {
+      "evaluations": 12,
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.25,
+      "negative_false_positive_rate": null,
+      "p50_ms": 0.5382919916883111,
+      "p95_ms": 0.6463330355472863,
+      "positive_evaluations": 12,
+      "negative_evaluations": 0
+    },
+    "date": {
+      "evaluations": 12,
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive_rate": null,
+      "p50_ms": 4.279125016182661,
+      "p95_ms": 4.39241697313264,
+      "positive_evaluations": 12,
+      "negative_evaluations": 0
+    },
+    "exact": {
+      "evaluations": 36,
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.05555555555555555,
+      "negative_false_positive_rate": null,
+      "p50_ms": 0.4838329623453319,
+      "p95_ms": 0.6259169895201921,
+      "positive_evaluations": 36,
+      "negative_evaluations": 0
+    },
+    "negative": {
+      "evaluations": 12,
+      "recall_at_5": null,
+      "mrr_at_10": null,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive_rate": 0.25,
+      "p50_ms": 0.4434160073287785,
+      "p95_ms": 0.5215829587541521,
+      "positive_evaluations": 0,
+      "negative_evaluations": 12
+    },
+    "paraphrase": {
+      "evaluations": 54,
+      "recall_at_5": 0.5555555555555556,
+      "mrr_at_10": 0.45238095238095233,
+      "duplicate_fraction_at_5": 0.07777777777777778,
+      "negative_false_positive_rate": null,
+      "p50_ms": 0.6788329919800162,
+      "p95_ms": 7.374666980467737,
+      "positive_evaluations": 54,
+      "negative_evaluations": 0
+    },
+    "source": {
+      "evaluations": 12,
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive_rate": null,
+      "p50_ms": 0.4823750350624323,
+      "p95_ms": 0.6394999800249934,
+      "positive_evaluations": 12,
+      "negative_evaluations": 0
+    }
+  },
+  "languages": {
+    "ru": {
+      "evaluations": 63,
+      "recall_at_5": 0.7894736842105263,
+      "mrr_at_10": 0.7631578947368421,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive_rate": 0.5,
+      "p50_ms": 0.522291986271739,
+      "p95_ms": 4.39241697313264,
+      "positive_evaluations": 57,
+      "negative_evaluations": 6
+    },
+    "en": {
+      "evaluations": 75,
+      "recall_at_5": 0.8260869565217391,
+      "mrr_at_10": 0.767080745341615,
+      "duplicate_fraction_at_5": 0.12266666666666666,
+      "negative_false_positive_rate": 0.0,
+      "p50_ms": 0.5689579993486404,
+      "p95_ms": 4.280166991520673,
+      "positive_evaluations": 69,
+      "negative_evaluations": 6
+    }
+  },
+  "timing": {
+    "seed_seconds": 10.273018958978355,
+    "lexical_search": "p50/p95 measure SQL + ranking after seeding; first and repeated queries",
+    "query_embedding_ms": null,
+    "model_cold_start_ms": null,
+    "precomputed_vector_search_ms": null,
+    "embedding_status": "not measured: Stage 0 has no embedding model or vector index",
+    "unmeasured_warmup_queries": 0,
+    "tracing_enabled": true
+  },
+  "memory": {
+    "peak_rss_bytes": 47775744,
+    "tracemalloc_peak_bytes": 2510147,
+    "database_bytes": 13864960,
+    "scope": "whole benchmark process; RSS is process lifetime high-water, not search delta"
+  },
+  "results": [
+    {
+      "query_id": "e01",
+      "query": "Redis",
+      "category": "exact",
+      "language": "en",
+      "relevant": [
+        "cache-new",
+        "cache-copy",
+        "cache-notion"
+      ],
+      "retrieved": [
+        "cache-notion",
+        "cache-copy",
+        "cache-new"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.6666666666666666,
+      "negative_false_positive": null,
+      "latency_ms": 0.6092920084483922
+    },
+    {
+      "query_id": "e02",
+      "query": "SQLite primary",
+      "category": "exact",
+      "language": "en",
+      "relevant": [
+        "storage"
+      ],
+      "retrieved": [
+        "storage",
+        "backup",
+        "writer"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.5305830272845924
+    },
+    {
+      "query_id": "e03",
+      "query": "Резервное копирование",
+      "category": "exact",
+      "language": "ru",
+      "relevant": [
+        "backup"
+      ],
+      "retrieved": [
+        "backup"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.5239169695414603
+    },
+    {
+      "query_id": "e04",
+      "query": "Mail.Read OAuth",
+      "category": "exact",
+      "language": "en",
+      "relevant": [
+        "oauth"
+      ],
+      "retrieved": [
+        "oauth",
+        "mail",
+        "writer",
+        "meeting"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.5874999915249646
+    },
+    {
+      "query_id": "e05",
+      "query": "FastAPI bearer",
+      "category": "exact",
+      "language": "en",
+      "relevant": [
+        "loopback"
+      ],
+      "retrieved": [
+        "loopback"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.47558400547131896
+    },
+    {
+      "query_id": "e06",
+      "query": "Ollama",
+      "category": "exact",
+      "language": "ru",
+      "relevant": [
+        "offline"
+      ],
+      "retrieved": [
+        "offline"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.47529098810628057
+    },
+    {
+      "query_id": "e07",
+      "query": "Видимость источника",
+      "category": "exact",
+      "language": "ru",
+      "relevant": [
+        "privacy"
+      ],
+      "retrieved": [
+        "privacy"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.4902079817838967
+    },
+    {
+      "query_id": "e08",
+      "query": "Embedding index generations",
+      "category": "exact",
+      "language": "en",
+      "relevant": [
+        "embeddings"
+      ],
+      "retrieved": [
+        "embeddings"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.5145840113982558
+    },
+    {
+      "query_id": "e09",
+      "query": "Qwen JSONL",
+      "category": "exact",
+      "language": "en",
+      "relevant": [
+        "qwen"
+      ],
+      "retrieved": [
+        "qwen"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.4719169810414314
+    },
+    {
+      "query_id": "e10",
+      "query": "Глобальная горячая клавиша",
+      "category": "exact",
+      "language": "ru",
+      "relevant": [
+        "hotkey"
+      ],
+      "retrieved": [
+        "hotkey"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.5208749789744616
+    },
+    {
+      "query_id": "e11",
+      "query": "exponential backoff",
+      "category": "exact",
+      "language": "en",
+      "relevant": [
+        "retry"
+      ],
+      "retrieved": [
+        "retry"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.4801669856533408
+    },
+    {
+      "query_id": "e12",
+      "query": "writer lease",
+      "category": "exact",
+      "language": "en",
+      "relevant": [
+        "writer"
+      ],
+      "retrieved": [
+        "writer"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.5199169972911477
+    },
+    {
+      "query_id": "p01",
+      "query": "Where do we keep information on disk?",
+      "category": "paraphrase",
+      "language": "en",
+      "relevant": [
+        "storage"
+      ],
+      "retrieved": [
+        "meeting",
+        "citations"
+      ],
+      "recall_at_5": 0.0,
+      "mrr_at_10": 0.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.5924999713897705
+    },
+    {
+      "query_id": "p02",
+      "query": "Как перенести хранилище после поломки ноутбука?",
+      "category": "paraphrase",
+      "language": "ru",
+      "relevant": [
+        "backup"
+      ],
+      "retrieved": [],
+      "recall_at_5": 0.0,
+      "mrr_at_10": 0.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.45945896999910474
+    },
+    {
+      "query_id": "p03",
+      "query": "Где лежат учётные данные электронной почты?",
+      "category": "paraphrase",
+      "language": "ru",
+      "relevant": [
+        "oauth"
+      ],
+      "retrieved": [
+        "oauth"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.573708035517484
+    },
+    {
+      "query_id": "p04",
+      "query": "Can another computer connect to the backend?",
+      "category": "paraphrase",
+      "language": "en",
+      "relevant": [
+        "loopback"
+      ],
+      "retrieved": [
+        "writer",
+        "loopback",
+        "meeting",
+        "retry",
+        "cache-notion",
+        "cache-copy",
+        "cache-new",
+        "mail",
+        "storage",
+        "cache-old"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 0.5,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 1.0935419704765081
+    },
+    {
+      "query_id": "p05",
+      "query": "Будут ли списания за обычный просмотр сохранённых сведений?",
+      "category": "paraphrase",
+      "language": "ru",
+      "relevant": [
+        "offline",
+        "writer"
+      ],
+      "retrieved": [],
+      "recall_at_5": 0.0,
+      "mrr_at_10": 0.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.4331670352257788
+    },
+    {
+      "query_id": "p06",
+      "query": "Можно ли запретить помощнику видеть часть записей?",
+      "category": "paraphrase",
+      "language": "ru",
+      "relevant": [
+        "privacy"
+      ],
+      "retrieved": [
+        "hotkey"
+      ],
+      "recall_at_5": 0.0,
+      "mrr_at_10": 0.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.5485409637913108
+    },
+    {
+      "query_id": "p07",
+      "query": "Do semantic representations need rebuilding after a model change?",
+      "category": "paraphrase",
+      "language": "en",
+      "relevant": [
+        "embeddings"
+      ],
+      "retrieved": [
+        "embeddings",
+        "retry",
+        "citations",
+        "tombstone",
+        "storage",
+        "loopback",
+        "writer"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.772416009567678
+    },
+    {
+      "query_id": "p08",
+      "query": "How are conversations from the coding assistant ingested?",
+      "category": "paraphrase",
+      "language": "en",
+      "relevant": [
+        "qwen"
+      ],
+      "retrieved": [
+        "qwen",
+        "mail",
+        "cache-notion",
+        "cache-copy",
+        "cache-new",
+        "loopback",
+        "embeddings",
+        "meeting",
+        "storage",
+        "cache-old"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.4,
+      "negative_false_positive": null,
+      "latency_ms": 0.9141669725067914
+    },
+    {
+      "query_id": "p09",
+      "query": "Как вызвать окно находок не переключая приложение?",
+      "category": "paraphrase",
+      "language": "ru",
+      "relevant": [
+        "hotkey"
+      ],
+      "retrieved": [
+        "oauth",
+        "hotkey",
+        "offline",
+        "backup",
+        "privacy"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 0.5,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.6135829607956111
+    },
+    {
+      "query_id": "p10",
+      "query": "С какой периодичностью загружаются новые материалы?",
+      "category": "paraphrase",
+      "language": "ru",
+      "relevant": [
+        "schedule"
+      ],
+      "retrieved": [
+        "schedule",
+        "oauth"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.5556250107474625
+    },
+    {
+      "query_id": "p11",
+      "query": "What happens when the provider throttles requests?",
+      "category": "paraphrase",
+      "language": "en",
+      "relevant": [
+        "retry"
+      ],
+      "retrieved": [
+        "loopback",
+        "meeting",
+        "cache-notion",
+        "cache-copy",
+        "cache-new",
+        "mail",
+        "storage",
+        "cache-old",
+        "tombstone",
+        "qwen"
+      ],
+      "recall_at_5": 0.0,
+      "mrr_at_10": 0.0,
+      "duplicate_fraction_at_5": 0.4,
+      "negative_false_positive": null,
+      "latency_ms": 0.8886249852366745
+    },
+    {
+      "query_id": "p12",
+      "query": "Can an already running task resurrect removed content?",
+      "category": "paraphrase",
+      "language": "en",
+      "relevant": [
+        "tombstone"
+      ],
+      "retrieved": [
+        "retry",
+        "embeddings",
+        "citations"
+      ],
+      "recall_at_5": 0.0,
+      "mrr_at_10": 0.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.5539159756153822
+    },
+    {
+      "query_id": "p13",
+      "query": "How can an assistant prove where a statement came from?",
+      "category": "paraphrase",
+      "language": "en",
+      "relevant": [
+        "citations"
+      ],
+      "retrieved": [
+        "qwen",
+        "citations",
+        "retry",
+        "embeddings",
+        "tombstone",
+        "cache-notion",
+        "cache-copy",
+        "cache-new",
+        "storage",
+        "loopback"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 0.5,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.9536669822409749
+    },
+    {
+      "query_id": "p14",
+      "query": "Как объединить смысловую и словарную выдачу?",
+      "category": "paraphrase",
+      "language": "ru",
+      "relevant": [
+        "fts"
+      ],
+      "retrieved": [
+        "fts",
+        "oauth",
+        "filler-000000",
+        "filler-000001",
+        "filler-000002",
+        "filler-000003",
+        "filler-000004",
+        "filler-000005",
+        "filler-000006",
+        "filler-000007"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 7.576667005196214
+    },
+    {
+      "query_id": "p15",
+      "query": "Можно открыть исходник по ссылке на заметку?",
+      "category": "paraphrase",
+      "language": "ru",
+      "relevant": [
+        "notes-id"
+      ],
+      "retrieved": [
+        "notes-id",
+        "release-april",
+        "release-march",
+        "privacy",
+        "hotkey"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.7041670032776892
+    },
+    {
+      "query_id": "p16",
+      "query": "Are attached files downloaded from my inbox?",
+      "category": "paraphrase",
+      "language": "en",
+      "relevant": [
+        "mail"
+      ],
+      "retrieved": [
+        "qwen",
+        "mail",
+        "loopback",
+        "cache-notion",
+        "cache-copy",
+        "cache-new",
+        "embeddings",
+        "citations"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 0.5,
+      "duplicate_fraction_at_5": 0.2,
+      "negative_false_positive": null,
+      "latency_ms": 0.7671249913983047
+    },
+    {
+      "query_id": "p17",
+      "query": "What prevents two import workers from colliding?",
+      "category": "paraphrase",
+      "language": "en",
+      "relevant": [
+        "writer"
+      ],
+      "retrieved": [
+        "qwen",
+        "mail",
+        "cache-notion",
+        "cache-copy",
+        "cache-new",
+        "tombstone",
+        "writer",
+        "meeting",
+        "embeddings",
+        "citations"
+      ],
+      "recall_at_5": 0.0,
+      "mrr_at_10": 0.14285714285714285,
+      "duplicate_fraction_at_5": 0.4,
+      "negative_false_positive": null,
+      "latency_ms": 0.8736669551581144
+    },
+    {
+      "query_id": "p18",
+      "query": "Какое решение приняли для кэширования ответов?",
+      "category": "paraphrase",
+      "language": "ru",
+      "relevant": [
+        "cache-new",
+        "cache-copy",
+        "cache-notion",
+        "cache-old"
+      ],
+      "retrieved": [
+        "release-march"
+      ],
+      "recall_at_5": 0.0,
+      "mrr_at_10": 0.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.4789999802596867
+    },
+    {
+      "query_id": "n01",
+      "query": "квантовый телескоп Юпитера",
+      "category": "negative",
+      "language": "ru",
+      "relevant": [],
+      "retrieved": [],
+      "recall_at_5": null,
+      "mrr_at_10": null,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": false,
+      "latency_ms": 0.4544169642031193
+    },
+    {
+      "query_id": "n02",
+      "query": "sourdough fermentation hydration",
+      "category": "negative",
+      "language": "en",
+      "relevant": [],
+      "retrieved": [],
+      "recall_at_5": null,
+      "mrr_at_10": null,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": false,
+      "latency_ms": 0.4319589934311807
+    },
+    {
+      "query_id": "n03",
+      "query": "безопасность пароля роутера",
+      "category": "negative",
+      "language": "ru",
+      "relevant": [],
+      "retrieved": [
+        "backup"
+      ],
+      "recall_at_5": null,
+      "mrr_at_10": null,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": true,
+      "latency_ms": 0.5112499929964542
+    },
+    {
+      "query_id": "n04",
+      "query": "zebra migration savannah",
+      "category": "negative",
+      "language": "en",
+      "relevant": [],
+      "retrieved": [],
+      "recall_at_5": null,
+      "mrr_at_10": null,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": false,
+      "latency_ms": 0.49237499479204416
+    },
+    {
+      "query_id": "c01",
+      "query": "cache architecture decision",
+      "category": "conflict",
+      "language": "en",
+      "relevant": [
+        "cache-new",
+        "cache-copy",
+        "cache-notion",
+        "cache-old"
+      ],
+      "retrieved": [
+        "cache-old",
+        "cache-new",
+        "cache-notion",
+        "cache-copy"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.5,
+      "negative_false_positive": null,
+      "latency_ms": 0.5495409714058042
+    },
+    {
+      "query_id": "c02",
+      "query": "Memcached March",
+      "category": "conflict",
+      "language": "en",
+      "relevant": [
+        "cache-new",
+        "cache-copy",
+        "cache-notion",
+        "cache-old"
+      ],
+      "retrieved": [
+        "cache-old",
+        "cache-notion",
+        "cache-copy",
+        "cache-new"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.5,
+      "negative_false_positive": null,
+      "latency_ms": 0.6115839933045208
+    },
+    {
+      "query_id": "c03",
+      "query": "Aurora дата выпуска",
+      "category": "conflict",
+      "language": "ru",
+      "relevant": [
+        "release-march",
+        "release-april"
+      ],
+      "retrieved": [
+        "release-april",
+        "release-march"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.5683749914169312
+    },
+    {
+      "query_id": "c04",
+      "query": "перенесён заменяет марта",
+      "category": "conflict",
+      "language": "ru",
+      "relevant": [
+        "release-april"
+      ],
+      "retrieved": [
+        "release-april",
+        "release-march"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.5382919916883111
+    },
+    {
+      "query_id": "d01",
+      "query": "Aurora 8 апреля",
+      "category": "date",
+      "language": "ru",
+      "relevant": [
+        "release-april"
+      ],
+      "retrieved": [
+        "release-april",
+        "release-march",
+        "filler-000008",
+        "filler-003015",
+        "filler-006022",
+        "filler-009029",
+        "filler-000039",
+        "filler-000070",
+        "filler-000101",
+        "filler-000105"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 4.39241697313264
+    },
+    {
+      "query_id": "d02",
+      "query": "Aurora 12 марта",
+      "category": "date",
+      "language": "ru",
+      "relevant": [
+        "release-march",
+        "release-april"
+      ],
+      "retrieved": [
+        "release-march",
+        "release-april",
+        "filler-000012",
+        "filler-003019",
+        "filler-006026",
+        "filler-009033",
+        "filler-000043",
+        "filler-000074",
+        "filler-000105",
+        "filler-000109"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 4.212583997286856
+    },
+    {
+      "query_id": "d03",
+      "query": "Orion 21 May",
+      "category": "date",
+      "language": "en",
+      "relevant": [
+        "meeting"
+      ],
+      "retrieved": [
+        "meeting",
+        "filler-000021",
+        "filler-003028",
+        "filler-006035",
+        "filler-009042",
+        "filler-000052",
+        "filler-000083",
+        "filler-000114",
+        "filler-000118",
+        "filler-000145"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 4.315082973334938
+    },
+    {
+      "query_id": "d04",
+      "query": "14:00 UTC review",
+      "category": "date",
+      "language": "en",
+      "relevant": [
+        "meeting"
+      ],
+      "retrieved": [
+        "meeting",
+        "filler-000014",
+        "filler-003021",
+        "filler-006028",
+        "filler-009035",
+        "filler-000045",
+        "filler-000076",
+        "filler-000107",
+        "filler-000111",
+        "filler-000138"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 4.316875012591481
+    },
+    {
+      "query_id": "s01",
+      "query": "Redis",
+      "category": "source",
+      "language": "en",
+      "relevant": [
+        "cache-copy"
+      ],
+      "retrieved": [
+        "cache-copy"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.4272080259397626
+    },
+    {
+      "query_id": "s02",
+      "query": "Redis",
+      "category": "source",
+      "language": "en",
+      "relevant": [
+        "cache-notion"
+      ],
+      "retrieved": [
+        "cache-notion"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.45187497744336724
+    },
+    {
+      "query_id": "s03",
+      "query": "ID заметки",
+      "category": "source",
+      "language": "ru",
+      "relevant": [
+        "notes-id"
+      ],
+      "retrieved": [
+        "notes-id",
+        "privacy"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.5849169683642685
+    },
+    {
+      "query_id": "s04",
+      "query": "импорт пауза",
+      "category": "source",
+      "language": "ru",
+      "relevant": [
+        "schedule"
+      ],
+      "retrieved": [
+        "schedule"
+      ],
+      "recall_at_5": 1.0,
+      "mrr_at_10": 1.0,
+      "duplicate_fraction_at_5": 0.0,
+      "negative_false_positive": null,
+      "latency_ms": 0.4879999905824661
+    }
+  ]
+}
