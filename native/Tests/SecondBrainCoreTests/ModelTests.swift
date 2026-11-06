@@ -54,6 +54,9 @@ enum CoreChecks {
             ("Portable launch prefers bundled service and retains developer fallback", backendLaunch),
             ("Embedding settings remain explicit, local and separate from card settings", embeddingSettingsContract),
             ("Search diagnostics preserve actual modes and separate local timings", embeddingSearchContract),
+            ("Evidence requests retain filters, bounded context and distinct dates", evidenceRequestContract),
+            ("Evidence citations and copied context preserve exact Unicode scalars", evidenceUnicodeAndCopy),
+            ("Evidence originals and request generations preserve safe boundaries", evidenceOpeningAndRequests),
         ]
         var failures: [String] = []
         for (name, check) in checks {
