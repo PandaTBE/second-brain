@@ -31,6 +31,8 @@ enum CoreChecks {
             ("Catalog pagination warnings remain optional and explicit", catalogPagination),
             ("Requests stay on the owned loopback origin and carry CSRF", requests),
             ("Source counts describe files or messages instead of imported knowledge", sources),
+            ("Source policies preserve legacy defaults and independent permissions", sourcePolicyContract),
+            ("Policy exclusions require a current preview and bounded relative paths", sourcePolicyPreview),
             ("Mail providers hide server settings and preserve explicit import scope", mailSources),
             ("Apple Notes require selected folders and retain source compatibility", appleNotesConnector),
             ("Outlook sign-in is scoped, cancellable and contains no raw credentials", outlookConnector),
