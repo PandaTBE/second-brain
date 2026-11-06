@@ -29,6 +29,7 @@ agent. Connect only clients that you permit to read that memory.
 | Create cloud cards | When explicitly requested or enabled in automation, masked source text is sent to the selected cloud model API, including Qwen API. Requests can incur provider charges. |
 | Create local Ollama cards | Masked source text is sent only to the fixed local Ollama service and a downloaded local model. No cloud fallback or model API token is used; computation uses the Mac's resources. |
 | Project/read facts and history — unreleased | Validated saved card atoms are grouped locally with quotation snapshots. Projection and reads call no model; new-card extraction still uses the selected provider and its normal billing/attempt budget. |
+| Backup/export/restore — unreleased | SQLite/configuration snapshots and inspection run locally. Managed copies are unencrypted; optional age export encrypts a separate archive with a transient password. No Keychain credentials or model weights are exported. |
 | Load a catalog or check a connection | Some checks make network requests even while card generation is disabled. A public catalog response may not prove that a credential is valid. |
 
 Cloud model providers and source services have their own retention, access,
@@ -56,9 +57,51 @@ data flows.
   exclusions/revocation are access restrictions rather than forensic erasure.
 - Secret masking uses recognizable patterns. It can miss unknown credential formats, personal information, or unusual encodings. Review what a source contains before connecting it; do not treat masking as a complete data-loss-prevention system.
 
-Protect your Mac and backups using appropriate OS and storage controls. FileVault or encrypted backups can add protection, but Second Brain does not enable or verify them. Placing a checkout or backup in a synchronized folder can share it through that folder's service independently of this application.
+Protect your Mac and backups using appropriate OS/storage controls. Second Brain
+does not enable or verify FileVault or an external backup system. Unreleased age
+export encrypts only its portable output, not the working database, unencrypted
+local copies or temporary plaintext staging. Placing data in a synchronized folder
+can share it through that folder's service independently of this application.
 
 Use a consistent SQLite backup method, as described in the [user guide](user-guide.en.md). Do not assume that copying only `memory.sqlite3` while writers are active captures the WAL state. Keep backups out of the public repository.
+
+**Unreleased backup boundary:** allowlisted snapshots include SQLite policies and
+nonsecret settings with a strict manifest, exact current schema and checksums.
+It copies the whole database, including hidden records and retained fact history;
+source visibility is not a backup-redaction rule.
+The plaintext ZIP and total unpacked data/manifest cap at 128 MiB; ciphertext has
+a bounded age allowance. Traversal, duplicate/unexpected entries, symlinks,
+unsupported schemas and invalid integrity checks are rejected. Standard age
+passphrase processing uses pinned `pyrage` in a bounded worker, with password via
+stdin rather than argv and no saved password/Keychain fallback. Temporary plaintext
+and process memory still require a trusted local account; cleanup is not forensic
+erasure. Losing the export password is not repaired by an API/mail credential.
+
+Inspection stages reviewed bytes for 600 seconds. Supported readers/writers use
+maintenance guards across complete settings/source credential and update workflows
+and each MCP tool response; individual storage locks alone are insufficient. Old
+open SQLite/WAL handles prevent unsafe restore and must
+be closed by their owner, never killed automatically. Restore journals the current
+SQLite/configuration state for rollback and blocks reads if pending recovery
+cannot complete. It is not permission to replace files under arbitrary live readers.
+Once journal retirement commits the restore, deferred cleanup produces
+`cleanup_warning` and records a safe backup-status warning when possible, rather
+than undoing the applied state. Native epochs/caches are invalidated synchronously
+before the restore POST; old callbacks and sheet actions are rejected. Completion
+must match the admitted UUID. A timeout, rejection or failed bootstrap keeps memory
+actions closed until a safe reconnect/reload; the UI advises restarting the app.
+Retention acts only on verified managed copies; old exported copies can retain
+data later deleted from working memory.
+
+A different installation UUID requires explicit source relocation/new login,
+disables import and leaves automatic/model work paused. Cloud credentials must be
+newly entered even if a same-name Keychain entry exists; local Ollama can be chosen
+explicitly without a cloud token. The UUID is a local installation marker, not
+proof of device/user identity. Source-aware original targets validate current
+record ID/revision, source ID/kind, object ID, stored URI and selected scope; old
+file URIs are not automatically trusted. Local files must resolve without symlinks
+under the selected root; remote targets use only the corresponding allowlisted
+GitHub/Notion/Outlook HTTPS hosts, without embedded credentials or custom ports.
 
 ## Local service protections
 

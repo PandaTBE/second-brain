@@ -48,7 +48,7 @@ cards or credentials. The native interface is currently in Russian.
 This is useful when working across many chats or projects. Compared with manual
 copying, it offers shared search, citations and incremental imports. The tradeoff
 is maintaining a local app and granting explicit source access. It does not
-replace backups or a team's access-control system. It cannot guarantee that an
+replace a team's access-control system. It cannot guarantee that an
 assistant calls MCP on every message or that a generated card is correct. The
 published release uses lexical BM25 search. **Unreleased source builds** add
 optional local semantic/hybrid retrieval through a separately selected installed
@@ -76,6 +76,14 @@ Command–Option–Shift–Space while Second Brain is running. Choose among up 
 results with the keyboard, open a material or explicitly copy its source-backed
 context. The shortcut is configurable and requires no Accessibility or Input
 Monitoring permission. See [quick search](docs/user-guide.en.md#quick-search).
+
+**Unreleased backup and transfer:** the native backup screen creates consistent
+local SQLite/configuration snapshots, optional scheduled local copies and separate
+password-encrypted age exports. Local copies remain unencrypted. Inspection
+precedes restoration; imported jobs stay paused and another installation requires
+new credentials and explicit local/Notes scope selection. The current format has
+a 128 MiB limit and requires the exact supported schema. See
+[backup and recovery](docs/user-guide.en.md#managed-backups).
 
 ### Sources
 
@@ -224,7 +232,8 @@ are built separately; see the [artifact checks](docs/releasing.md#privacy-and-ar
 
 These are specific protections, **not a guarantee of complete security**:
 
-- SQLite, its WAL and backups are not encrypted by the application.
+- Working SQLite/WAL and local copies are not encrypted by the application.
+  Unreleased age export encrypts a separate portable archive with your password.
 - Cloud cards send text to the selected provider; local Ollama cards use a
   downloaded model on this Mac. MCP results can still be transmitted by the
   AI client using them.
@@ -240,8 +249,9 @@ importing private material.
 uv sync --frozen --group dev
 uv run ruff check brain_settings tests scripts launch.py
 uv run pytest --cov=brain_settings --cov-report=term-missing
-node --test tests/test-model-utils.mjs tests/test-memory-atlas.mjs
+node --test tests/*.mjs
 swift run --package-path native SecondBrainCoreChecks
+bash scripts/check-native-restore-state.sh
 ```
 
 Tests use synthetic sources and fake credentials/transports. Swift checks use an
@@ -295,7 +305,7 @@ Community expectations: [Code of conduct](CODE_OF_CONDUCT.md).
 
 По сравнению с ручным копированием истории вы получаете общий поиск, ссылки и
 постепенный импорт. Взамен нужно поддерживать локальное приложение и осознанно
-предоставлять доступ к источникам. Это не замена резервным копиям или командной
+предоставлять доступ к источникам. Это не замена командной
 системе прав доступа. Приложение не гарантирует вызов MCP в каждом сообщении и
 безошибочность карточек. Выпущенная версия использует лексический BM25.
 **Неопубликованные исходники** добавляют локальные семантический и гибридный
@@ -327,6 +337,13 @@ JSON-контекста. Codex или Claude составляет ответ п�
 один из восьми результатов, откройте материал или явно скопируйте его контекст
 с цитатами. Сочетание настраивается без разрешений Accessibility и отслеживания
 ввода. См. [быстрый поиск](docs/user-guide.ru.md#quick-search).
+
+**Копии и перенос — ещё не выпущено:** нативный экран создаёт согласованные
+SQLite/конфигурационные снимки, локальные копии по выборочному расписанию и отдельный
+age-архив с паролем. Локальные копии не зашифрованы. Восстановлению предшествует
+проверка, задания остаются на паузе; другая установка требует нового входа и
+явного выбора локальных путей/папок Notes. Формат ограничен 128 МиБ и точной
+поддерживаемой схемой. См. [копии и восстановление](docs/user-guide.ru.md#managed-backups).
 
 ### Источники
 
@@ -447,7 +464,8 @@ CSRF. Известные форматы секретов маскируются 
 
 Границы защиты:
 
-- SQLite, WAL и резервные копии не шифруются самим приложением.
+- Рабочие SQLite/WAL и локальные копии не шифруются приложением; новый экспорт age
+  шифрует отдельный переносимый архив выбранным паролем.
 - Облачные карточки передают текст провайдеру; локальная Ollama использует
   загруженную модель на этом Mac. Найденные через MCP фрагменты могут передаваться
   ИИ-клиентом независимо от режима карточек.

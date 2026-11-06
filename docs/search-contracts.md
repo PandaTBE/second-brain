@@ -334,6 +334,129 @@ fact/history actions requery the view and validate current material before actin
 past snapshots remain labelled as historical. Previously received/displayed text
 and old backups cannot be retroactively recalled.
 
+## Backup/restore operational boundary — Stage 6, unreleased
+
+These operational endpoints use the app's HTTP API and add no MCP tools:
+
+| Endpoint | Request / result |
+| --- | --- |
+| `GET /api/backups` | Settings, managed-copy inventory, last error, archive limit and warning |
+| `PUT /api/backups/settings` | Strict `enabled`, optional absolute `directory`, `interval_hours`, `max_copies`, `max_total_bytes` |
+| `POST /api/backups/local` | Empty request; creates one managed unencrypted local copy |
+| `POST /api/backups/export` | New absolute `path`, transient `passphrase`; creates standard-age encrypted output |
+| `POST /api/backups/inspect` | Archive `path`, optional age `passphrase`; returns staged inspection and expiry |
+| `POST /api/backups/restore` | Only the reviewed `inspection_id` UUID, not a new archive path |
+| `DELETE /api/backups/{backup_id}` | Deletes only the matching managed inventory item |
+| `POST /api/sources/{source_id}/relocate` | Explicit local `path` or current `notes_folder_ids` selection |
+| `POST /api/sources/{source_id}/reauthenticate` | New `token`, `app_password` or completed `outlook_auth_id` for that source kind |
+| `GET /api/memory/records/{record_id}/open-target` | Current source-aware target and captured record reference |
+
+Scheduling defaults to disabled, 24 hours, ten copies, 1 GiB total. Strict ranges
+are 1–168 hours, 1–50 copies, 1 MiB–10 GiB. It runs while the app is alive. Retention
+uses managed UUID filenames and recorded size/hash identity; unrelated files and
+exported age archives are outside pruning. A changed managed file is refused for
+automatic deletion. Managed local archives are unencrypted.
+
+Format v1 is a flat ZIP containing **exactly** `manifest.json`, `memory.sqlite3`,
+`settings.json`, `sources.json` and `schedule.json` (mapped to live
+`memory_schedule.json`). Manifest keys are `format="second-brain-backup"`,
+`format_version=1`, `app_version`, timezone-aware `created_at`, random
+`installation_id` UUID, `schema_fingerprint` and `files`; each file metadata entry
+has exact byte size and lowercase SHA-256. Known lazy progress/provider tables are
+normalized before the SQLite Backup API snapshot/configuration capture. Only the
+current exact schema fingerprint is accepted; this is not a general migration
+loader for unknown or older database schemas. Configuration schemas, checksums
+and SQLite integrity are validated before live-state changes.
+
+The database copy includes all cached/hidden text, policies, index generations,
+vectors, cards and fact snapshots; visibility flags do not redact it. Keychain
+credentials, weights and machine-local backup preferences/inventory are excluded.
+No backup operation calls a model or transmits data to an external service.
+
+The plaintext ZIP and total uncompressed content including manifest each have a
+128 MiB hard cap. Encrypted output/input allows at most 128 MiB + 1 MiB for age
+overhead. Inputs must be regular absolute files without symlink traversal;
+duplicates, unexpected names, directories, encrypted ZIP entries, symlinks,
+oversized payloads or invalid manifest/schema/integrity are rejected. The inner
+ZIP is unencrypted even when wrapped in age.
+
+Portable encryption uses standard passphrase age through pinned `pyrage==1.4.0`,
+not a custom cryptographic format. New export passwords require 8–1,024 Unicode
+characters and at most 4,096 UTF-8 bytes. Native password confirmation compares
+exact UTF-8 bytes without Unicode normalization. A focused `NSSecureTextField`
+adapter preserves byte-distinct edits in transient state; actual password edits
+invalidate inspection, while unchanged control echoes do not. The bounded helper receives its secret
+through stdin, not argv, settings or Keychain. Header/work/output/time limits
+constrain untrusted ciphertext processing. Temporary plaintext staging/process
+memory is not encrypted by this export feature and is not an erasure guarantee.
+Existing export destinations are never overwritten.
+
+Inspection stages a private copy of the selected bytes, then returns
+`inspection_id`, `expires_at`, creation/app-version metadata, material/source
+counts, `foreign_installation`, `requires_relocation`, `requires_reauthentication`
+and warnings. The ID is process-local and expires after 600 seconds; restart or
+expiry requires reinspection. Restore consumes only those staged bytes, so
+replacing the original file after inspection cannot substitute a different archive.
+
+Shared maintenance guards cover complete settings/source read–credential–modify–write
+workflows and each of the seven MCP tool requests, including response construction;
+they are not released between a workflow's individual storage accesses.
+Snapshot/restore/recovery obtain the writer lease and exclusive boundary. Updated
+readers temporarily fail with maintenance status instead of accessing half-replaced
+configuration. Legacy
+SQLite/WAL/SHM handles are detected conservatively and isolation retains a SQLite
+exclusive lock; unsafe access requires the user to close old clients. No process
+is killed automatically. SQLite Backup API restores into the existing database
+file rather than replacing an inode under a reader. A durable pre-restore snapshot
+and fsynced journal cover SQLite/JSON rollback. Recovery runs before migrations
+and normal reads; unresolved recovery fails closed. Successful journal retirement
+precedes cleanup, so cleanup failure does not reverse a completed transaction.
+
+The successful restore response includes `documents`, `sources`,
+`foreign_installation`, `restored=true`, `paused=true`,
+`restart_recommended=false` and `cleanup_warning`. The last flag means that the
+restored state is applied but some private staging/rollback cleanup was deferred.
+A safe warning is persisted as backup-status `last_error` when possible; it is
+not a failed-restore result. The native UI refreshes that status after restoration.
+Before sending the restore POST, native app/memory epochs and caches reset
+synchronously and the inspection is invalidated. Completion is bound to the
+admitted UUID; a confirmed response then starts bootstrap/reload. Callbacks from
+earlier epochs are rejected, including failures and sheet actions. A timeout,
+rejected POST or failed bootstrap keeps memory actions closed and advises a safe
+restart/reload rather than readmitting cached state. Model preparation separately releases its
+credential lock before the final admission callback. Policy/pause checks govern
+network admission; current policy/revision checks guard result persistence.
+
+Restoration clears in-flight card claims, invalidates old browse generations,
+pauses synchronization, disables card processing and disables embeddings. It does
+not automatically resume paid/imported work. A different installation UUID clears
+selected model/private-network opt-in, requires newly entered cloud credentials
+or explicit local-model selection, marks local/session/Notes sources for explicit
+relocation and remote sources for new authentication, and disables imports.
+Matching old Keychain names do not bypass these gates. The UUID is an installation
+marker, not authenticated hardware identity. Permitted cached reads remain subject
+to restored visibility policies; repair does not itself enable import.
+
+Original opening must use the fresh `open-target` response rather than blindly
+opening stored provenance. Its `reference` contains exactly `id`, `revision`,
+`source_id`, `source_kind`, `source_object_id` and `source_uri` from the captured
+record; native callers compare that reference before opening. Local targets
+reconstruct safe relative keys under a
+currently selected non-symlink root and require regular files. Opaque legacy
+`::file:` keys return no target until reimport. Remote targets accept only HTTPS
+without credentials/nonstandard ports on `github.com`, `notion.so`/`www.notion.so`,
+or `outlook.office.com`/`outlook.live.com` for the corresponding source kind.
+IMAP/Notes identifiers are not given invented browser links. Restored old file URIs
+remain provenance, not automatically authorized destinations.
+
+This describes implemented unreleased contracts. Native GUI restoration and
+Unicode checks, API cross-checks and source-matched portable-package checks passed
+on the validation Mac. The 30 recorded quick-panel checks include user-confirmed
+physical global-hotkey activation with the main window closed. A physical
+second-Mac transfer, full CJK/VoiceOver behavior and real embedding quality remain
+outside that verified scope. Detailed checks and limits are recorded in
+[development](development.md) and the development plan.
+
 ## Offline passage regression slice
 
 ```sh

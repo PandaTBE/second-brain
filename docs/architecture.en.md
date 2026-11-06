@@ -39,6 +39,7 @@ The window and background process have different lifecycles: closing the window 
 | Local embeddings — unreleased | `embedding_store.py`, `embeddings.py`, `retrieval.py` | SQLite index generations, bounded background indexing, exact vector scans and shared retrieval/RRF. |
 | Evidence and provenance — unreleased | `evidence.py`, `evidence_pack.py`, `evidence_passages.py`, `retrieval_filters.py`, `source_dates.py`, `session_metadata.py` | Extractive citation packets, shared pre-ranking filters and explicit date/project metadata. |
 | Facts and history — unreleased | `memory_facts.py`, `fact_schema.py`, `fact_queries.py`, `fact_relations.py`, `facts_service.py` | Exact card-atom projection, revision proof snapshots, conservative relations and scoped paginated reads. |
+| Backup/recovery — unreleased | `backup*.py`, `maintenance.py`, `source_relocation.py`, `source_recovery_routes.py` | Consistent allowlisted snapshots, age worker, reviewed restore/rollback and explicit post-transfer source repair. |
 | Automation | `background.py`, `memory_service.py`, `card_parallel.py`, `card_retries.py`, `provider_backoff.py` | Watching, writer ownership, batches, concurrency, retries, and durable provider admission pauses. |
 | Model calls | `llm_cards.py`, `providers.py`, `transport.py`, `ollama.py` | Cloud provider settings, bounded public HTTPS and fixed-loopback Ollama calls, card and evidence validation. |
 | MCP | `mcp_server.py`, `mcp_config.py`, `scripts/mcp-server.command` | Four original tools, unreleased evidence/facts/history tools (seven total), and client-configuration generation. |
@@ -226,6 +227,75 @@ Packets cap compact JSON at 32,000 UTF-8 bytes, with explicit proof/relation/lis
 truncation. Native views show grouped proof, history-only badges and paginated
 observations, refresh authorization before actions, and keep historical proof
 distinct from a current-material view. See [contracts](search-contracts.md).
+
+## Backup, maintenance and transfer in unreleased builds
+
+The app's backup service acquires the writer lease and exclusive maintenance
+boundary, uses SQLite Backup API in bounded page passes, and captures configuration
+under the same boundary. Its v1 ZIP contains exactly `manifest.json`,
+`memory.sqlite3`, `settings.json`, `sources.json` and `schedule.json` (the live file
+is `memory_schedule.json`). The manifest records app/format versions, timezone-aware
+creation time, random installation UUID, exact schema fingerprint and per-file
+sizes/SHA-256. Known lazy progress tables are normalized before snapshotting;
+unknown/different schemas are rejected rather than migrated from untrusted input.
+Policies, vectors and fact snapshots live in the database. Keychain contents,
+model weights and machine-local backup preferences/inventory are not exported.
+
+Optional scheduled local copies are unencrypted, managed by filename/ID/checksum
+inventory with count/size retention; separately exported files are never pruned.
+Portable exports use standard age passphrase encryption via pinned `pyrage` 1.4.0
+in a bounded helper process. Passphrases enter through transient request/stdin,
+not argv, saved settings or Keychain. The plaintext ZIP and total unpacked payload
+including manifest each cap at 128 MiB; ciphertext has a 1 MiB envelope allowance.
+Plaintext staging remains local and is not encrypted by this feature.
+
+`BackupSecureField` bridges `NSSecureTextField` and its focused editor to transient
+`BackupPassphraseValue` state whose equality compares exact UTF-8 bytes. This
+preserves canonically equivalent but byte-distinct edits without normalizing the
+password. Actual inspection-password edits invalidate the preview; an unchanged
+native-control update does not. Password state is cleared when submitted or dismissed.
+
+Inspection copies the selected bytes into private staging, validates the flat
+allowlist, manifest/checksums/configuration/schema and SQLite integrity, then issues
+a process-local inspection ID expiring in 600 seconds. Restore consumes that staged
+copy. Cooperative operation guards isolate supported readers/writers; an open-handle
+preflight and retained SQLite exclusive lock refuse unsafe legacy access without
+terminating other processes. Restore uses Backup API into the existing database,
+with an fsynced current-state rollback snapshot/journal covering database and JSON.
+Pending recovery is handled before migrations/reads, otherwise reads fail closed.
+
+Shared maintenance guards cover complete settings/source read–credential–modify–write
+workflows and all seven MCP tool requests, including their response construction.
+Model preparation releases the credential lock before the final admission callback;
+policy/pause checks govern network admission, and current policy/revision checks
+guard result persistence. Once
+the restore journal is durably retired, later cleanup failure reports
+`cleanup_warning` without undoing the applied state; a safe backup-status
+`last_error` is recorded when possible.
+
+Before sending the restore POST, native app and memory state synchronously advance
+their restore epochs, cancel pending work and clear old caches. Completion is bound
+to that UUID; only a confirmed response can start bootstrap/reload. Epoch checks
+reject earlier success/failure callbacks and sheet actions. A timeout, rejected
+request or failed bootstrap leaves memory actions closed, with restart/reload
+guidance; cached pre-restore state is not readmitted.
+
+Restored automatic work is paused, card processing and embeddings disabled.
+Different installation UUIDs require explicit source relocation/reauthentication,
+disable imports, clear selected model/private-network opt-in and gate cloud-token
+use until a new token is saved. Local Ollama can be explicitly reselected. Cached
+memory remains subject to its saved visibility policy. Installation identity is
+not a hardware fingerprint or user-authentication boundary.
+
+Original targets are derived afresh from permitted current records and source
+scope. Local targets resolve safe relative object keys under a selected root,
+walk without symlinks and require a regular file; old opaque/hashed keys return no
+target. Remote targets allow only source-specific GitHub/Notion/Outlook HTTPS hosts,
+no credentials or nonstandard ports. Native opening additionally validates the
+six-field record reference (`id`, `revision`, `source_id`, `source_kind`,
+`source_object_id`, `source_uri`) before acting; opaque mail/Notes IDs remain
+identifiers. See
+[user workflow](user-guide.en.md#managed-backups) and [contracts](search-contracts.md).
 
 ## Source policy in unreleased builds
 

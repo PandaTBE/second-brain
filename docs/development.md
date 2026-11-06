@@ -33,6 +33,7 @@ No environment file or real provider token is required for tests. Application cr
 | `brain_settings/embedding_store.py`, `embeddings.py`, `retrieval.py` | Unreleased local index generations, background batches, bounded exact scans and shared RRF retrieval |
 | `brain_settings/evidence*.py`, `retrieval_filters.py`, `source_dates.py`, `session_metadata.py` | Unreleased extractive packets, pre-ranking filters and explicit date/project provenance |
 | `brain_settings/memory_facts.py`, `fact_schema.py`, `fact_queries.py`, `fact_relations.py`, `facts_service.py` | Unreleased exact card projection, revision snapshots, conservative relations and scoped facts/history reads |
+| `brain_settings/backup*.py`, `maintenance.py`, `source_relocation.py` | Unreleased snapshots, constrained age worker, inspected restore/rollback, operation isolation and explicit source repair |
 | `brain_settings/mcp_server.py` | Read-only stdio memory tools |
 | `brain_settings/*_client.py`, `*_import.py` | Source-specific read-only access and ingestion |
 | `static/` | Local memory atlas and optional browser settings interface |
@@ -48,14 +49,25 @@ Run from the repository root:
 uv run --frozen python scripts/check_public_release.py
 uv run --frozen ruff check brain_settings tests scripts launch.py
 uv run --frozen pytest --cov=brain_settings --cov-report=term-missing
-node --test tests/test-model-utils.mjs tests/test-memory-atlas.mjs
+node --test tests/*.mjs
 swift run --package-path native SecondBrainCoreChecks
+bash scripts/check-native-restore-state.sh
 ./scripts/build-app.sh
 ```
 
 `scripts/check_public_release.py` checks the proposed public files in the Git index. On a clone, tracked files are already indexed; for a release candidate with local changes, stage only reviewed public files first. The guard complements manual review and a secret scan; it does not inspect ignored personal data or establish that every possible secret has been removed.
 
 The coverage threshold is configured in `pyproject.toml`. Python tests use temporary directories, synthetic credentials, and fake transports. Do not replace their fakes with real accounts or a production `.data` directory. Native CoreChecks is the test command for this package; `swift test` has no XCTest target to run.
+
+`scripts/check-native-restore-state.sh` additionally compiles the real native
+`AppStore`, `MemoryViewModel` and secure-field adapter with an isolated harness
+and fake responses.
+It holds the restore POST to check synchronous admission, UUID-bound completion
+and stale callback rejection across success, timeout, rejection and bootstrap
+failure. Its other checks cover inspection success/error/echo/edit lifecycle and
+the actual focused `NSSecureTextField` adapter in both Unicode byte directions.
+These six checks use no personal database, credentials, model inference or GUI automation.
+Passing it does not establish CJK input-method or live VoiceOver behavior.
 
 `./scripts/build-app.sh` builds and replaces the generated `Second Brain.app` inside the checkout. Avoid rebuilding while relying on the running app for work. The generated bundle records this checkout's absolute path and needs its `.venv`, sources, and static files. Moving the project requires rebuilding the bundle and updating absolute MCP paths in clients.
 
@@ -134,6 +146,53 @@ and changed source permissions cannot export. Selected context uses evidence
 AX labels/announcement code alone do not prove full live VoiceOver speech; record
 the actual accessibility checks performed. The feature needs no global event tap
 or extra Accessibility/Input Monitoring permission.
+
+The 30 recorded quick-panel checks are complete, including menu/selected-record
+actions and user-confirmed physical global-hotkey activation with the main window
+closed. Full CJK composition and live VoiceOver speech require their own evidence;
+do not infer them from the build, CoreChecks or automated menu navigation.
+
+Backup tests use temporary synthetic databases/configuration and fake or explicit
+test crypto; never export a user's live data or read Keychain during development.
+Keep the v1 allowlist, exact current-schema fingerprint and 128 MiB raw/archive/
+total-unpacked limits. Invalid manifests, symlinks/traversal, corrupt SQLite,
+wrong passwords and expired inspections must fail before live-state changes.
+Inspect staged bytes, not a mutable path at restore time. Cover cooperative
+multi-process readers, retained legacy SQLite handles, interrupted journal phases,
+rollback and startup fail-closed recovery. Retention deletes only verified managed
+inventory, never arbitrary files. Foreign-installation tests must prove fresh
+credential gates, import/card/embedding pause and explicit local/Notes relocation,
+including current-record-bound original targets. Do not infer second-Mac restore,
+live native GUI or frozen-runtime success from source tests/builds; record those
+checks only when they have actually run. `pyrage==1.4.0` must be present in the
+locked/exported runtime and frozen crypto helper before packaging is verified.
+
+The full settings/source read–credential–modify–write workflow and each MCP tool
+call must retain its shared maintenance fence, not only individual file/database
+accesses. Model preparation releases the credential lock before the final
+admission callback; policy/pause checks govern the network request and current
+policy/revision checks guard result persistence. A committed restore first retires
+its journal durably; later
+staging/rollback cleanup failure returns `cleanup_warning` and records a safe
+backup-status `last_error` when possible, without reporting the completed restore
+as failed. Before the restore POST, native state resets epochs/caches synchronously,
+so old status, model, source, search and sheet callbacks cannot repopulate pre-restore
+state. Completion must match the admitted UUID; timeout/rejection/bootstrap failure
+keep memory actions closed with restart/reload guidance. The real-state harness
+above covers this ordering in four held-POST cases. Password confirmation must
+compare exact UTF-8 bytes without Unicode normalization. The native adapter keeps
+transient byte-based state rather than relying on canonical `String` equality;
+an actual byte edit invalidates inspection, while an unchanged control echo does not.
+
+The accepted `c92e4c9` candidate passed 36 native backup/restore GUI cases and five
+HTTP cross-checks, including Unicode edits/export/decryption, inspection lifecycle,
+local/encrypted foreign-installation restore/source repair and held-POST failures.
+It also passed 53 CoreChecks, the six real-native-state/control checks above,
+1,588 Python tests (90.23% coverage) and all 29 Node tests. The source-matched
+portable candidate passed signature, guard, frozen-runtime, arm64, resource and
+license checks. These checks do not establish a physical second-Mac transfer,
+full CJK/VoiceOver speech behavior or real embedding quality; the Stage 2
+15-percentage-point quality target remains unverified without a local model.
 
 The native UI is currently Russian. The public README and user guides are bilingual; documentation translation does not imply that every native view is localized into English.
 

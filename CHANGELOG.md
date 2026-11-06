@@ -9,6 +9,19 @@ listed in the release notes; preparing local artifacts does not publish a releas
 
 ### Added
 
+- Native local snapshots, optional scheduled managed retention, standard-age
+  passphrase export via pinned `pyrage` 1.4.0, archive inspection and coordinated
+  in-place restore with rollback/startup recovery. The exact-schema v1 format
+  bounds plaintext and total unpacked data/manifest to 128 MiB and never exports
+  Keychain secrets. Inspections bind staged bytes for ten minutes. Restored jobs
+  remain paused; foreign installation markers require fresh credentials and
+  explicit local/Notes relocation. Source-aware original targets reject stale
+  foreign paths. Local managed copies remain unencrypted. This source-build
+  implementation invalidates native state before the restore POST, binds completion
+  to its UUID and keeps uncertain outcomes closed. Password confirmation compares
+  exact UTF-8 bytes through a native secure-field adapter. Real native-state,
+  Unicode/restore GUI and source-matched portable-package checks passed on the
+  validation Mac; physical second-Mac transfer remains unverified.
 - Native menu-bar quick search and configurable Command–Option–Shift–Space
   shortcut through exclusive Carbon registration, without Accessibility/Input
   Monitoring permission. Independent debounced requests show up to eight results
@@ -141,6 +154,18 @@ shared local memory server for AI assistants.
 
 ### Ещё не выпущено
 
+- Нативные локальные снимки, необязательное расписание/очистка управляемых копий,
+  парольный age-экспорт через `pyrage` 1.4.0, проверка архива и восстановление на
+  месте с откатом при запуске. Формат v1 принимает точную схему и до 128 МиБ
+  открытых/распакованных данных с manifest, не экспортирует Keychain. Проверенные
+  байты фиксируются на десять минут. После восстановления задания на паузе;
+  другая установка требует нового входа и явных локальных путей/папок Notes.
+  Старые file URI не открываются автоматически, локальные копии не зашифрованы.
+  Нативное состояние сбрасывается до POST восстановления, завершение связано с UUID,
+  неопределённый исход оставляет доступ закрытым. Повтор пароля сверяется по точным
+  байтам UTF-8 через нативное защищённое поле. Проверки реального нативного состояния,
+  Unicode/GUI-восстановления и переносимого пакета с совпадающими исходниками прошли
+  на проверочном Mac; физический перенос на второй Mac не подтверждён.
 - Нативный быстрый поиск из строки меню и настраиваемое сочетание
   Command–Option–Shift–Пробел через Carbon exclusive без Accessibility/отслеживания
   ввода. До восьми результатов с отдельными debounced-запросами, стрелками,

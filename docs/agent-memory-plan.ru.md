@@ -1,8 +1,8 @@
 # План развития Second Brain для Codex и Claude
 
-Статус: этапы 0–1 и 3–5 завершены; код этапа 2 реализован и проверен, приёмка качества
-настоящих embeddings ожидает локальную модель. Backend/native этапа 6 реализованы
-и прошли review; финальная GUI-приёмка и portable app в работе.
+Статус: код всех этапов 0–6 реализован. Этапы 0–1 и 3–6 прошли приёмку;
+реализация этапа 2 проверена, измерение качества настоящих embeddings ожидает
+локальную модель. Финальный portable app и нативные GUI-проверки — PASS.
 Дата: 2026-11-06. Репозиторий: `second-brain`.
 Исходная точка на момент подготовки: ветка `codex/apple-notes-outlook`, коммит `7fe1f49`.
 
@@ -13,10 +13,10 @@
 повторяющиеся факты и изменения решений. Добавить управление приватностью,
 быстрый поиск из macOS и восстановление базы.
 
-Это план исполнения, а не описание уже доступных возможностей. В новом чате
-сначала проверить фактическое состояние Git и кода: оно могло измениться.
+Документ сохраняет исходные требования и журнал выполнения. Фактические результаты
+и ограничения указаны в журнале ниже. В новом чате сначала проверить Git и код.
 
-## Что уже существует
+## Исходное состояние перед реализацией
 
 - Нативное приложение SwiftUI/AppKit, FastAPI на loopback, SQLite с FTS5/BM25.
 - Импорт сессий Codex/Claude/Qwen, папок, Notion, GitHub, Gmail/Яндекс Почты,
@@ -502,10 +502,11 @@ Recall@5 на переформулированных запросах лучше
   generator_calls=0. Полный CJK IME и VoiceOver speech остаются непроверенными;
   code/AX и keyboard modifier проверки выполнены без новых системных разрешений.
 
-### Этап 6 — backend завершён; native/GUI в работе
+### Этап 6 — завершён (2026-11-06)
 
 - RED checkpoint: `6e8a74b`; 45 синтетических проверок backup/maintenance:
   до реализации 17 failed, 26 errors (модули отсутствуют), 2 passed (--help/--version).
+  Backend GREEN: `88e9c61`; native GREEN: `be9cef9`.
 - Реализованы SQLite Backup API, manifest с контрольными суммами и конфигурацией,
   штатный age через pyrage, предел 128 МиБ, необязательное расписание/retention,
   staged inspection с TTL 600 секунд, in-place restore с rollback/recovery и
@@ -529,24 +530,50 @@ Recall@5 на переформулированных запросах лучше
   мешает следующему запуску. Удаление managed-копии проверяет quarantine ownership.
   Целые read→Vault→save и configure/admission workflows держат SH до writer lease;
   backup EX выполняется вне guarded memory tick. Никаких завершений чужих процессов.
-- Native: 52 CoreChecks/build PASS; Swift/generic/security — APPROVE. Синхронный
+- Native: 53 CoreChecks/build PASS; Swift/generic/security — APPROVE. Синхронный
   admission barrier отзывает кеши, модели, источники, запросы, расписание и quick panel
   ДО POST восстановления. UUID/session epoch запрещает старые responses/defers;
   четыре sheet держат стабильный presentation epoch. При timeout/rejection/bootstrap
   failure состояние остаётся fail-closed без старого кеша. Подтверждение пароля
   сравнивает точные UTF-8 байты, включая composed/decomposed Unicode.
-- `bash scripts/check-native-restore-state.sh`: 4 PASS на реальных AppStore,
+- `bash scripts/check-native-restore-state.sh`: проверки реальных AppStore,
   MemoryViewModel и BackupViewModel с удержанным POST и старыми успешными ответами,
   одинаковыми ID/rev/URI; bootstrap503, timeout, rejection и успешный fresh paused
   resync. Первый RED действительно воспроизвёл отсутствие pre-POST барьера.
+  Дополнительно проверены inspect clear/echo/error и native secure-control delegate:
+  точные Unicode bytes, двусторонняя замена, явная очистка, disabled/AX/dismantle.
+  GUI-найденный inspect defect исправлен в `a2417b8`; byte state и нативные
+  NSSecureTextField — `5757e5a`/`c92e4c9`. SwiftUI SecureField сам подавлял некоторые
+  canonical-equivalent изменения; все три backup secret-поля заменены без хранения
+  секрета в VM и без нормализации. Все дельты прошли отдельные review.
 - Финальный frozen arm64 helper v2: реальные age roundtrip/ошибки пароля/header,
   семь MCP-инструментов, два отдельных читателя с maintenance pause/resume и
   обновлением политик — PASS. Семь Mach-O arm64, pyrage и ресурсы проверены.
   Хеши входного Python-кода совпали до/после сборки; late security fixes включены.
   Отчёт: ignored `outputs/verification/portable-plan-final/backend-final-v2/summary.json`.
-  Portable app/GUI 6 ещё не приняты. Bundle guard обнаружил PEM parser constants
-  pyrage (не ключи, подтверждено security); узкое исправление guard с сохранением
-  обнаружения настоящих ключей проверяется отдельно, без allowlist пакета.
+  Bundle guard: `695375b`, только две пустые parser-формы разрешены в структурно
+  проверенном Mach-O. TOKEN, настоящие PEM, text/pyc/ZIP остаются строгими;
+  allowlist пакета нет. 53 guard-теста и code/Python/security review — PASS/APPROVE.
+  Полный итоговый прогон с guard-тестами: 1588 passed, 90,23%; отчёт
+  `outputs/verification/coverage-all-final.json`. Node: все 29 проверок PASS.
+  Candidate app guard — 122 файла, 31 711 code objects, 0 findings/unreadable;
+  8 Mach-O arm64, ресурсы, лицензии и подпись PASS. Финальная сборка final-v4 из
+  `c92e4c9` принята после GUI, source/helper/guard/package хеши повторно сверены.
+- Native GUI6: 36 сценариев и API-crosschecks (7 приложенных артефактов) PASS: local copy/delete,
+  real-age preview, local/foreign encrypted restore, source-ID/quote/policy
+  сохранность, Notes/Notion/folder repair, old-URI gate, paused jobs, stale tickets,
+  delayed POST/error и закрытая память без старых действий. QA использует только
+  фейки и временные данные. После ручной разблокировки завершён native secure-control
+  retest: точный paste в обоих направлениях, matching Unicode export с проверкой
+  расшифрования по известному точному паролю, correct/wrong inspect, empty echo,
+  real edit, focus/Tab/disabled/clear. QA app/helper закрыты, preferences удалены,
+  регистрации hotkey освобождены, fault flags сброшены, generator_calls=0;
+  schedule paused, cards/import/embeddings выключены. CUA-приёмка завершена.
+  Отчёт: `outputs/agent-memory-qa/stage6-native-e2e.json`.
+- Финальная сборка: `outputs/verification/portable-plan-final/native-final-v4/app/Second Brain.app`;
+  acceptance: `native-final-v4/final-acceptance.json`. ZIP только в ignored outputs:
+  26 501 894 байта, SHA256 `a2c12ab0e326d20dc54267a0271f1b157939e19bbf08b866119ebdf8b90de373`.
+  Исходный `dist` ZIP и тег `v0.1.0` сохранены, публикации/push не было.
   Исходный ZIP/тег v0.1.0 совпадают с сохранёнными хешами. Физический второй Mac
   и настоящая embedding-модель не проверены.
 
@@ -558,17 +585,16 @@ API нужно повторно сверить с установленными �
 - [SQLite FTS5 и ранжирование BM25](https://www.sqlite.org/fts5.html#the_bm25_function).
 - [SQLite Online Backup API: согласованный снимок живой базы](https://www.sqlite.org/backup.html).
 
-## Запрос для нового чата
+## Запрос для оставшейся проверки качества
 
 ```text
 Работай в проекте second-brain. Прочитай AGENTS.md и docs/agent-memory-plan.ru.md.
-Реализуй план по этапам, начиная с проверки текущего состояния и этапа 0.
-Главный приоритет — польза Codex/Claude через MCP: политики доступа, гибридный поиск,
-контекст с проверяемыми цитатами, затем факты и история решений.
-После этого выполни быстрый нативный поиск и резервное копирование/восстановление.
-Используй существующую архитектуру и локальную Ollama для embeddings, сохрани BM25.
-Не добавляй скрытые платные вызовы при чтении памяти. Соблюдай инварианты и критерии
-готовности из плана. Тестируй на синтетических данных, сохрани личную .data и Keychain.
-Продолжай работу по плану; отмечай завершённые этапы и проверки в документе.
+Код этапов 0–6 уже реализован; не повторяй завершённую работу. Прочитай журнал,
+проверь Git и оставшиеся ограничения. Когда пользователь явно предоставит установленную
+локальную embedding-модель Ollama, выполни benchmark_semantic.py на синтетическом
+корпусе: +15 п.п. Recall@5 переформулировок без ухудшения exact MRR@10, отдельно
+query embedding и cold start. GPT/API-модель карточек не подменяет embeddings.
+Не скачивай веса автоматически, не добавляй платные вызовы чтения. Сохрани .data/Keychain.
+Зафиксируй фактические метрики и ограничения, не объявляй приёмку без измерений.
 Не публикуй изменения и не изменяй выпущенный v0.1.0 без отдельного запроса.
 ```

@@ -19,7 +19,11 @@ Unreleased builds also offer opt-in local query embeddings. These are not a prom
 of better answers to every question. Keyword search can miss paraphrases, models
 can make mistakes, and large archives take time to ingest.
 
-This application is not cloud synchronization between computers, a backup service, or a verified user profile. Its graph shows source membership and shared keywords, not proven semantic or causal relationships. The native interface in 0.1.0 uses Russian; this guide includes the corresponding Russian control names where useful.
+This application is not cloud synchronization between computers or a verified
+user profile. Unreleased source builds add local snapshots and encrypted archive
+transfer described below. Its graph shows source membership/shared keywords,
+not proven semantic or causal relationships. The native interface uses Russian;
+this guide includes the corresponding control names where useful.
 
 ## 2. Requirements and installation
 
@@ -541,7 +545,94 @@ a development source build uses `.data` beside the source. Both contain `memory.
 
 The application does not encrypt SQLite. Known secret patterns are redacted before text is stored and sent to the model, but this does not guarantee removal of all personal or sensitive information. Enabling cards sends imported text to the selected model provider. Protect your disk and backups according to your threat model; see the [security policy](../SECURITY.md).
 
-Use SQLite's backup API for a consistent database snapshot. Do not copy only an active `.sqlite3` file while ignoring its WAL. This optional example needs Python 3; Python is not required to install the prebuilt app. For a source build, change `source` to the checkout's `.data/memory.sqlite3`:
+<a id="managed-backups"></a>
+
+### Managed copies and encrypted transfer — unreleased
+
+Open **Резервные копии** in the native sidebar. **Создать локальную копию сейчас**
+uses SQLite's Backup API with a coordinated settings/policy snapshot and checksum
+manifest, not a copy of an open database file without its WAL. Choose a destination
+folder or retain the backup folder inside app data. Local managed ZIP copies are
+**unencrypted** and can contain material later removed from working memory.
+Snapshots include the whole SQLite cache, including hidden records and saved
+history; source visibility permissions do not redact a backup.
+
+**Автоматически создавать локальные копии** starts disabled. Save an interval
+of 1–168 hours, a maximum of 1–50 copies and a total limit of 1 MiB–10 GiB. Defaults
+are 24 hours, ten copies and 1 GiB. Scheduling works while the app runs; an active
+writer or maintenance operation can defer a snapshot. Retention/delete acts only
+on the app's inventory of managed copies whose identity/checksum still match.
+It does not prune unrelated files or separately exported archives. Delete unwanted
+managed copies through **Удалить…**; manage exported archives separately.
+
+For password-protected transfer, select a new file in **Зашифрованный архив для
+переноса**, enter and confirm an 8–1,024-character password, then choose
+**Создать зашифрованный архив**. The standard age passphrase format uses pinned
+`pyrage` 1.4.0; no custom encryption scheme is used. The password is transient,
+not saved in settings/Keychain, and an existing destination is not overwritten.
+Confirmation must match the exact UTF-8 password bytes; visually equivalent
+Unicode spellings are not normalized.
+Keep the password separately: Keychain API/mail/OAuth credentials never enter
+the archive and cannot unlock it. Working data, local copies and temporary
+plaintext staging remain unencrypted by this export feature.
+
+The current format accepts only its exact supported SQLite schema and allowlisted
+files. Both plaintext archive and total unpacked content, including the manifest,
+are limited to 128 MiB; encrypted output permits its bounded age overhead. Larger
+archives, damaged files, traversal/symlink entries or unknown schemas are rejected.
+This is not a general importer for arbitrary SQLite or ZIP files.
+
+### Inspect and restore — unreleased
+
+Choose **Выбрать архив…**, supply the password for age (leave it blank for a local
+ZIP copy), then select **Проверить и показать содержимое**. Review the material/source
+counts, version, warnings and sources requiring repair. Inspection copies and
+checks the selected bytes into private staging; restore uses that reviewed copy,
+not a replacement later written at the original path. The preview expires after
+ten minutes or a service restart, after which it must be inspected again.
+
+**Восстановить этот проверенный архив…** asks for explicit confirmation. The app
+coordinates supported readers/writers, snapshots the current state for rollback,
+restores SQLite in place and journals configuration replacement for recovery.
+Updated clients may receive a temporary maintenance error. Older processes with
+open SQLite/WAL handles must be closed manually if they prevent isolation;
+the app never kills them or swaps a database under unisolated readers. If recovery
+cannot finish, memory reads remain blocked until restart/recovery succeeds.
+
+After you confirm, the app clears its old search/detail/model/source state before
+sending the restore request; earlier responses and actions are discarded. A
+timeout, rejected request or failed reload leaves memory actions blocked. Restart
+Second Brain to reconnect and load the current service state before continuing.
+A completed restore
+can still report deferred cleanup (`cleanup_warning` and a backup status warning).
+That means the restored state was applied but some private temporary cleanup did
+not finish; it is distinct from a failed restore/rollback.
+
+After restoration, automatic synchronization/card work is paused, card processing
+is disabled and the embedding index is disabled. Review configuration before
+explicitly resuming. A different installation UUID marks a transfer: local/session
+folders and Notes require relocation, remote sources require fresh login, import
+permissions are off and a cloud model needs a newly entered token. A coincident
+Keychain entry does not satisfy the restored credential gate. Alternatively,
+explicitly select a local Ollama model; no cloud token is needed for that choice.
+
+In **Источники**, use **Восстановить подключение** for marked sources. Choose and
+confirm a new local folder, reload/select current Notes folders, enter a new
+Notion/GitHub token or mail app password, or complete a new Microsoft sign-in.
+Source IDs and permitted cached materials remain; repair does not automatically
+enable import. Saved old paths/Notes IDs are not activated on a new installation.
+Original opening uses a fresh source-aware target: local files must resolve as
+regular files under the explicitly chosen source root without symlinks. GitHub,
+Notion and Outlook use their permitted HTTPS hosts; mail/opaque Notes IDs are shown
+as identifiers. An unrecoverable legacy local key needs reimport rather than an
+invented file link. Old file URIs remain provenance and are not automatically opened.
+
+### Manual snapshot for published 0.1.0
+
+The published ZIP predates the native workflow above. Use SQLite's Backup API for
+a consistent manual snapshot; do not copy only an active `.sqlite3` file while
+ignoring its WAL. This optional example needs Python 3, which is not an installation
+requirement. For a source build, change `source` to `.data/memory.sqlite3`:
 
 ```sh
 python3 - <<'PY'
@@ -562,7 +653,11 @@ print(backup)
 PY
 ```
 
-For a matching database-and-settings set, quit the app before taking the snapshot and copying JSON: separate snapshots can disagree if sources are being edited. Keep the JSON settings in the same protected location. They connect records to sources; another Mac may require re-entering credentials. Before restoring, fully quit the app and MCP processes, back up the current state, and restore the database with its matching settings. Do not replace an active database.
+For this manual procedure, quit the app before the snapshot and JSON copying so
+the database/settings agree. Keep matching JSON in the same protected location.
+Before manual restoration, fully quit the app and MCP processes and back up the
+current state. Do not replace an active database. A bare manual snapshot is not a
+managed-format archive accepted by the new inspection endpoint.
 
 Removing a source in the app removes its local materials from search/MCP, related cards, connection secret, and supported source progress. It does not delete original files, pages, repositories, or emails. Disappearance of a remote or local original usually does not remove an imported copy: the database is an archive. Application deletion is not a guarantee of forensic erasure from SQLite, WAL, or older backups.
 
