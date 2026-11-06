@@ -42,6 +42,11 @@ class EmbeddingIndexRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     limit: StrictInt = Field(default=8, ge=1, le=16)
 
+class FactProjectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    limit: int = Field(default=100, ge=1, le=500, strict=True)
+
+
 def create_memory_router(service) -> APIRouter:
     router = APIRouter(prefix="/api/memory")
 
@@ -83,6 +88,22 @@ def create_memory_router(service) -> APIRouter:
             q, source_id=source_id, project=project, date_from=date_from, date_to=date_to,
             budget_chars=budget_chars, mode=mode,
         )}
+
+    @router.get("/facts")
+    def facts(q: str = Query(default="", max_length=512),
+              limit: int = Query(default=20, ge=1, le=100),
+              source_id: str | None = Query(default=None, max_length=128),
+              include_history: bool = False):
+        return {"success": True, "data": service.facts(q, limit, source_id, include_history)}
+
+    @router.get("/facts/{fact_id}/history")
+    def fact_history(fact_id: str, limit: int = Query(default=50, ge=1, le=100),
+                     before: str | None = Query(default=None, max_length=512)):
+        return {"success": True, "data": service.fact_history(fact_id, limit, before)}
+
+    @router.post("/facts/project")
+    def project_facts(request: FactProjectionRequest):
+        return {"success": True, "data": service.start_fact_projection(request.limit)}
 
     @router.get("/browse")
     def browse(

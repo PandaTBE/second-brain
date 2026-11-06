@@ -77,10 +77,14 @@ enum CoreChecks {
         } catch {
             failures.append("Cancelled startup cleanup: \(error)")
         }
+        do {
+            try await memoryFactJobEnvelope()
+            print("PASS: Fact projection polls the actual nested job response envelope")
+        } catch { failures.append("Fact projection job envelope: \(error)") }
         if !failures.isEmpty {
             throw CheckFailure(description: failures.joined(separator: "\n"))
         }
-        print("\(checks.count + 1) core checks passed.")
+        print("\(checks.count + 2) core checks passed.")
     }
 
 

@@ -37,9 +37,10 @@ The window and background process have different lifecycles: closing the window 
 | Storage and retrieval | `memory_store.py`, `memory_browse.py`, `memory_atlas.py`, `memory_text.py` | SQLite, FTS5/BM25, page cursors, graph snapshots, and redaction. |
 | Local embeddings — unreleased | `embedding_store.py`, `embeddings.py`, `retrieval.py` | SQLite index generations, bounded background indexing, exact vector scans and shared retrieval/RRF. |
 | Evidence and provenance — unreleased | `evidence.py`, `evidence_pack.py`, `evidence_passages.py`, `retrieval_filters.py`, `source_dates.py`, `session_metadata.py` | Extractive citation packets, shared pre-ranking filters and explicit date/project metadata. |
+| Facts and history — unreleased | `memory_facts.py`, `fact_schema.py`, `fact_queries.py`, `fact_relations.py`, `facts_service.py` | Exact card-atom projection, revision proof snapshots, conservative relations and scoped paginated reads. |
 | Automation | `background.py`, `memory_service.py`, `card_parallel.py`, `card_retries.py`, `provider_backoff.py` | Watching, writer ownership, batches, concurrency, retries, and durable provider admission pauses. |
 | Model calls | `llm_cards.py`, `providers.py`, `transport.py`, `ollama.py` | Cloud provider settings, bounded public HTTPS and fixed-loopback Ollama calls, card and evidence validation. |
-| MCP | `mcp_server.py`, `mcp_config.py`, `scripts/mcp-server.command` | Four original read tools, unreleased evidence tool, and client-configuration generation. |
+| MCP | `mcp_server.py`, `mcp_config.py`, `scripts/mcp-server.command` | Four original tools, unreleased evidence/facts/history tools (seven total), and client-configuration generation. |
 | Graph and compatible web UI | `static/` | Local assets without CDNs; the browser graph is separate from native settings. |
 
 ## Portable runtime and development builds
@@ -128,7 +129,7 @@ invent project membership.
 
 A source defines an import and visibility scope. A material stores a stable ID, source-object identifier, text, source/URI, timestamps, content hash, and current revision. Replacing one object's chunks is transactional. Unchanged text does not generate a new card; changed text creates a revision and resets its processing state.
 
-FTS5 indexes text and retrieval fields, with BM25 ranking. Reads use bounded snippets and paginated cursors. The graph uses a snapshot of up to 2000 materials. All source/topic relationships are retained in batched SVG paths; keyed nodes and snapshot-scoped search indexes avoid rebuilding unchanged scenes, while camera writes are coalesced to animation frames. The database retains the current revision rather than every historical text version.
+FTS5 indexes text and retrieval fields, with BM25 ranking. Reads use bounded snippets and paginated cursors. The graph uses a snapshot of up to 2000 materials. All source/topic relationships are retained in batched SVG paths; keyed nodes and snapshot-scoped search indexes avoid rebuilding unchanged scenes, while camera writes are coalesced to animation frames. Primary documents retain the current revision. Unreleased fact history separately snapshots participating proof revisions from feature enablement; it is not a complete archive of every historical source text.
 
 Card status and retry budgets are durable SQLite state. Automatic processing uses bounded claims and revision checks; concurrent API calls do not become independent, unsynchronized database writers. A writer lease prevents two import processes from owning the queue simultaneously. Deleted sources have tombstones that block late commits from work already in flight.
 
@@ -163,6 +164,40 @@ local files are revealed in Finder; opaque Notes IDs remain identifiers.
 Passages without localized query evidence and ambiguous card passages carry
 `quote_relevance="uncertain"` plus explicit incompleteness reasons. The native
 view shows human-readable labels while preserving raw diagnostics in JSON.
+
+## Facts and decision history in unreleased builds
+
+`fact_schema` adds entities, revision snapshots, evidence, relations and projection
+identities. Entity identity hashes kind and exact NFC-normalized, outer-trimmed
+wording. Projection preserves materials and each permitted proof; similar wording
+does not establish equality/conflict. New validated cards project in their save
+transaction. Existing ready cards use bounded writer-owned projection jobs:
+manual batches default to 100 (1–500) and work while automatic synchronization is
+paused; automatic projection respects the pause. MCP reads neither project cards
+nor start model work. Prompt/schema 3 adds optional relations to the existing
+card request, keeping its configured provider, queue and retry budgets.
+
+`source_supported` reports exact extractive support, not truth. Recognized
+negated/proposed/example/fenced framing remains a candidate. `possible_conflict`
+is a suggestion; `explicit_supersedes` requires narrow positive directional
+wording with both claims and validated context. A new date alone changes neither
+relation nor truth status. Revision updates revalidate exact proof and surrounding
+framing; missing support is not served as active.
+
+`get_facts`/HTTP facts use bounded case-folded substring queries on grouped wording.
+Current authorized proof is required by default. Explicit `include_history=true`
+also discovers past-only entities with inactive proof, candidate status and
+`historical_only=true`. `get_fact_history`/HTTP history returns stable `event_id`s
+and `next_cursor`/`before` pages of observations. `observed_at` and `history_since`
+are feature-observation times, separate from source dates; no unavailable older
+versions are reconstructed. Snapshot and current-record policies both apply,
+including relation-target admission before limits. Source removal deletes its
+derived proof/snapshots; hiding/exclusion blocks reads without erasing backups.
+
+Packets cap compact JSON at 32,000 UTF-8 bytes, with explicit proof/relation/list
+truncation. Native views show grouped proof, history-only badges and paginated
+observations, refresh authorization before actions, and keep historical proof
+distinct from a current-material view. See [contracts](search-contracts.md).
 
 ## Source policy in unreleased builds
 

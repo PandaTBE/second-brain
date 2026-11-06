@@ -336,8 +336,9 @@ it does not demonstrate semantic quality or total user-visible search latency.
 ## 8. Shared memory through MCP
 
 The published release exposes four tools: `search_memory`, `get_record`,
-`get_context_brief`, and `get_sync_status`. Unreleased builds add the read-only
-`get_evidence_bundle`. The server does not start imports, generate cards, or delete
+`get_context_brief`, and `get_sync_status`. Unreleased builds add read-only
+`get_evidence_bundle`, `get_facts`, and `get_fact_history` (seven tools total).
+The server does not start imports, generate cards, project saved cards, or delete
 sources. Once separately launched by a client, MCP also works without the app.
 
 In unreleased builds, `search_memory(query, mode="hybrid")` or `mode="semantic"`
@@ -346,6 +347,12 @@ Responses add `search` diagnostics with `requested_mode`, `used_mode`,
 `fallback_reason`, and `ready`/`eligible`/`partial` coverage. A local query embedding
 can run without the app; indexing still requires its background writer. The other
 three tools retain their existing call signatures.
+
+Reading saved records/cards, evidence, facts, history and original references
+does not call the configured card API or spend its model tokens. Semantic/hybrid
+query embeddings are the separate local opt-in described above. An assistant can
+still consume/bill input tokens when it includes returned text in its own context;
+this is controlled by that client and provider.
 
 <a id="evidence-bundles"></a>
 
@@ -412,6 +419,56 @@ Opaque Apple Notes identifiers are shown without an invented deep link. Refresh
 the packet if its material, metadata or permissions have changed. Copying does
 not recall text already shared with an agent.
 
+<a id="facts-history"></a>
+
+### Facts and decision history — unreleased
+
+Use the button **Факты, решения и история подтверждений** beside the memory query.
+**Факты и решения** lists up to 20 grouped statements with expandable quotations,
+source references and relations. Grouping uses identical wording after Unicode
+NFC normalization and outer whitespace trimming, separately for facts/decisions;
+similar wording is not silently merged and originals are preserved.
+
+`source_supported` (**Подтверждается источниками**) means an extractive quotation
+supports the stored wording, not that it is true. `candidate` requires review;
+recognized false/proposal/quoted-example or fenced-code framing stays a candidate.
+These checks are conservative heuristics, not an exhaustive understanding of
+language. `possible_conflict` is a proposed relation, not a proven contradiction.
+`explicit_supersedes` requires a narrow explicit positive statement connecting the
+two wordings in the correct direction and context. Later dates alone never make
+one decision replace another; proof/context is rechecked when text changes.
+
+Default results require current permitted proof. Enable **Включать прошлые
+формулировки** to discover statements with only saved past proof; they carry the
+**Только в истории** badge (`historical_only=true`, candidate, inactive proof).
+Use **История…** and **Загрузить более ранние наблюдения** for paginated saved
+observations. The observed time in Second Brain is separate from source/message
+dates. History begins at `history_since`; it cannot recover revisions absent
+before the feature was enabled. A past snapshot is not presented as current text.
+
+New validated cards project facts through the existing writer. To populate facts
+from already saved ready cards, select **Обновить факты из карточек**: one explicit
+batch handles up to 100 cards with no model request, including while automatic
+synchronization is paused. Bounded background projection respects the pause;
+reads never start projection. Normal new-card extraction uses prompt/schema
+version 3 through the existing selected provider, queue and attempt budget;
+it is not a second hidden generation pass.
+
+MCP `get_facts(query="", limit=20, source_id=None, include_history=False)` returns
+groups; `get_fact_history(fact_id, limit=50, before=None)` returns observations.
+Use each returned `next_cursor` as the next `before`, preserving stable `event_id`s.
+Both limits accept 1–100, while the native views use 20 groups/50 events per page.
+Packets are bounded to 32,000 UTF-8 bytes of compact JSON, a different unit from
+the evidence character budget. Proofs/relations may be limited, marked by
+`truncated`, `evidence_truncated` and `relations_truncated`; refine the source/query
+or continue history rather than treating a bounded page as complete.
+
+Current proof, historical snapshot and relation targets all follow current source
+permissions/exclusions. Text changes revalidate quotations; removed sources lose
+their proof and snapshots. Native history/material actions refresh access before
+showing current text. Previously displayed/copied text and old backups remain
+outside retroactive revocation.
+
 In **Подключение MCP** (MCP connection), copy the Codex or Claude Desktop configuration into the corresponding client. This screen generates configuration; it does not automatically install a global connection or inspect another application's connection state. Confirm success inside the AI client.
 
 For the prebuilt app, first move it to Applications and copy its generated
@@ -471,6 +528,7 @@ Removing a source in the app removes its local materials from search/MCP, relate
 | --- | --- |
 | Text is searchable but no cards appear | Saved model/token, card-generation setting, global pause, and whether pending materials exist. |
 | Catalog loads but generation fails | Model ID, API compatibility, generation permissions, and credits. Public catalogs do not validate tokens. |
+| DNS resolves but HTTPS/TLS fails or resets | A VPN/proxy route can fail even when DNS works. If permitted, compare connectivity to the same API hostname through the required VPN and an authorized alternative network. Check certificates separately; do not disable TLS verification or relax destination checks. |
 | Error 429 / cards are waiting for the provider | Read the provider banner. A temporary limit waits for its delay; a recognized balance or key-budget limit requires fixing the account and choosing Allow retry. Lower concurrency alone does not fix an exhausted budget. |
 | Card response or evidence error | Open the material and read the specific reason. Source text remains searchable; resolve the model/output issue before a deliberate retry. |
 | Automatic retries have stopped | The three-attempt revision budget may be exhausted. Fix the cause and allow a manual attempt. |
@@ -483,6 +541,7 @@ Removing a source in the app removes its local materials from search/MCP, relate
 | Some emails are missing | INBOX only, selected date window, oversized-message warnings, and deferred work requiring more passes. |
 | MCP sees no memory | Reconnect MCP; verify its generated command, shared data directory, client trust and imported content. Source builds also need their `.venv`. |
 | Semantic index has errors — unreleased | Start Ollama, verify an embedding-capable installed model, then save it again in search settings to requeue failed embedding jobs. Oversized materials remain lexical-only until their input changes. |
+| Facts are empty or show past-only wording — unreleased | Project saved ready cards with **Обновить факты из карточек**, check current source permissions, and use **Включать прошлые формулировки** only when exploring history. Projection makes no model request. |
 | App no longer starts after a move | For the portable release, restore the intact bundle and update MCP paths. Source builds also need the original checkout/`.venv` or a rebuild. Review macOS launch and folder permissions. |
 | Graph does not open | The app's local service must be running; a standalone MCP process does not serve the graph page. |
 

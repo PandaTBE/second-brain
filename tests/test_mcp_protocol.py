@@ -61,6 +61,8 @@ def test_legacy_handshake_and_readonly_tools(version, tmp_path):
             "get_context_brief",
             "get_sync_status",
             "get_evidence_bundle",
+            "get_facts",
+            "get_fact_history",
         }
         assert all(tool["annotations"]["readOnlyHint"] for tool in listing["result"]["tools"])
     finally:

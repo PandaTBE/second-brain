@@ -20,6 +20,7 @@ from .background import (
 from .card_parallel import run_card_window
 from .embeddings import EmbeddingManager
 from .errors import AppError
+from .facts_service import FactsServiceMixin
 from .github_import import import_github
 from .importers import import_source, redact_text
 from .llm_cards import LLMCardGenerator, validate_card
@@ -61,7 +62,7 @@ def _add_usage(stats: dict, usage: dict) -> dict:
     }
 
 
-class MemoryService:
+class MemoryService(FactsServiceMixin):
     def __init__(
         self,
         data_dir: Path,
@@ -749,6 +750,8 @@ class MemoryService:
                     )
             elif self.embeddings.vectors.pending(limit=1, allowed_source_ids=self._allowed()):
                 self.start_embedding_index(limit=8)
+            elif self.store.fact_projection_pending(allowed_source_ids=self._allowed()):
+                self.start_fact_projection(limit=100, automatic=True)
 
     def start_background(self) -> None:
         self.runner.start()

@@ -100,6 +100,8 @@ def test_real_stdio_clients_share_database_without_running_app(tmp_path):
                     "get_context_brief",
                     "get_sync_status",
                     "get_evidence_bundle",
+                    "get_facts",
+                    "get_fact_history",
                 }
                 async with stdio_client(parameters) as (read_b, write_b):
                     async with ClientSession(read_b, write_b) as client_b:

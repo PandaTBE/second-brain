@@ -69,3 +69,30 @@ def test_relation_metadata_is_strict_and_bounded(changes):
     quote = "Use Redis. supersedes Use Memcached."
     with pytest.raises(AppError):
         validate_card(card(quote, relation(quote, **changes)), quote)
+
+
+@pytest.mark.parametrize("framing", [
+    "It is false that {quote}", "If {quote}", "Earlier quote: {quote}",
+    "Rejected proposal:\n{quote}", "> {quote}", "Hypothetical example:\n{quote}",
+])
+def test_inner_positive_quote_cannot_override_negative_conditional_or_quoted_source_frame(framing):
+    quote = "Use Redis. supersedes Use Memcached."
+    with pytest.raises(AppError):
+        validate_card(card(quote, relation(quote)), framing.format(quote=quote))
+
+
+def test_literal_negative_new_claim_can_still_explicitly_replace_old_decision():
+    quote = "Do not use Redis. supersedes Use Memcached."
+    value = card(quote, relation(quote))
+    value = {**value, "atoms": [{**value["atoms"][0], "text": "Do not use Redis.",
+                                "evidence": "Do not use Redis."}]}
+    assert validate_card(value, quote)["atoms"][0]["relation"]["kind"] == "explicit_supersedes"
+
+
+@pytest.mark.parametrize("source", [
+    "```text\n{quote}\n```", "{quote}\nThis is false.",
+])
+def test_supersession_rejects_fenced_examples_and_following_rejection(source):
+    quote = "Use Redis. supersedes Use Memcached."
+    with pytest.raises(AppError):
+        validate_card(card(quote, relation(quote)), source.format(quote=quote))

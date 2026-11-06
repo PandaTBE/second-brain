@@ -101,7 +101,7 @@ def test_explicit_stop_and_legacy_missing_finish_reason_are_compatible(diagnosti
     _, chat, generator, record = diagnostic_fixture
     assert generator.generate(record)["card"] == valid_card()
     chat.response["choices"][0]["finish_reason"] = "stop"
-    assert generator.generate(record)["prompt_version"] == "2"
+    assert generator.generate(record)["prompt_version"] == "3"
 
 
 def test_prompt_targets_small_cards_and_keeps_existing_budget(diagnostic_fixture):

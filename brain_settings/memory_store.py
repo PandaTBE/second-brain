@@ -116,6 +116,9 @@ class MemoryStore:
             from .source_dates import migrate as migrate_dates
 
             migrate_dates(connection)
+            from .fact_schema import migrate as migrate_facts
+
+            migrate_facts(connection)
 
     @contextmanager
     def _connection(self, write=False):
@@ -293,6 +296,10 @@ class MemoryStore:
         save_metadata(connection, identifier, metadata, imported_at=_now())
         row = connection.execute("SELECT * FROM documents WHERE id=?", (identifier,)).fetchone()
         self._index(connection, row)
+        if previous is not None:
+            from .memory_facts import revalidate_record
+
+            revalidate_record(connection, row)
         return {"id": identifier, "revision": revision, "changed": True}
 
     def upsert_document(
@@ -545,10 +552,11 @@ class MemoryStore:
                     revision,
                 ),
             )
-            self._index(
-                connection,
-                connection.execute("SELECT * FROM documents WHERE id=?", (record_id,)).fetchone(),
-            )
+            row = connection.execute("SELECT * FROM documents WHERE id=?", (record_id,)).fetchone()
+            self._index(connection, row)
+            from .memory_facts import project_card
+
+            project_card(connection, row, clean)
             return True
 
     def record_card_error(self, record_id, revision, message, *, attempt_token=None,
@@ -639,3 +647,30 @@ class MemoryStore:
                                    visibility=visibility),
             "message": "Сведения из локальных источников. Проверяйте даты и подтверждения.",
         }
+
+    def facts(self, query="", limit=20, source_id=None, allowed_source_ids=None,
+              visibility="local", allowed_provider=None, include_history=False):
+        from .fact_queries import facts
+
+        with self._connection() as connection:
+            return facts(connection, query, limit, source_id, allowed_source_ids,
+                         visibility, allowed_provider, include_history)
+
+    def fact_history(self, fact_id, limit=50, allowed_source_ids=None, visibility="local",
+                     before=None, allowed_provider=None):
+        from .fact_queries import history
+
+        with self._connection() as connection:
+            return history(connection, fact_id, limit, allowed_source_ids, visibility,
+                           before, allowed_provider)
+
+    def project_facts(self, limit=100, allowed_source_ids=None, check=None):
+        from .memory_facts import project_batch
+
+        return project_batch(self, limit, allowed_source_ids, check)
+
+    def fact_projection_pending(self, allowed_source_ids=None):
+        from .memory_facts import pending
+
+        with self._connection() as connection:
+            return bool(pending(connection, allowed_source_ids, 1))

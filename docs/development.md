@@ -31,6 +31,7 @@ No environment file or real provider token is required for tests. Application cr
 | `brain_settings/source_policy.py`, `source_policy_routes.py` | Unreleased independent permissions/exclusions, SQLite predicates and preview API |
 | `brain_settings/embedding_store.py`, `embeddings.py`, `retrieval.py` | Unreleased local index generations, background batches, bounded exact scans and shared RRF retrieval |
 | `brain_settings/evidence*.py`, `retrieval_filters.py`, `source_dates.py`, `session_metadata.py` | Unreleased extractive packets, pre-ranking filters and explicit date/project provenance |
+| `brain_settings/memory_facts.py`, `fact_schema.py`, `fact_queries.py`, `fact_relations.py`, `facts_service.py` | Unreleased exact card projection, revision snapshots, conservative relations and scoped facts/history reads |
 | `brain_settings/mcp_server.py` | Read-only stdio memory tools |
 | `brain_settings/*_client.py`, `*_import.py` | Source-specific read-only access and ingestion |
 | `static/` | Local memory atlas and optional browser settings interface |
@@ -106,6 +107,20 @@ request generation/parameters and active sheet; verify original targets against 
 currently authorized record. Empty/error/stale results must not touch the clipboard.
 Exercise policy revocation while a packet is visible, using an isolated native
 build and synthetic sources. Already returned/rendered text is not revocable.
+
+Facts/history must remain read-only: no projection or model request on MCP reads.
+Project old ready cards through the app's existing writer with bounded jobs;
+explicit local projection remains available while automatic work is paused.
+Schema/prompt 3 extends the normal card request, not a second extraction call.
+Retain its provider selection and attempt budgets. Test exact wording grouping,
+heuristic candidate framing, directed explicit replacement, revision revalidation,
+and policy filtering of both current records and historical snapshots/targets.
+History begins at feature enablement; never synthesize missing older versions.
+Exercise `include_history`, past-only badges, stable event IDs/cursor progress and
+32,000-byte compact UTF-8 limits, including relation/metadata truncation. Relevant
+synthetic suites include `test_memory_facts.py`, `test_fact_cards.py`,
+`test_fact_projection.py` and `test_facts_mcp.py`; native checks cover stale sheets
+and active versus historical material actions.
 
 The native UI is currently Russian. The public README and user guides are bilingual; documentation translation does not imply that every native view is localized into English.
 

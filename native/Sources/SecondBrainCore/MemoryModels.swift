@@ -87,10 +87,11 @@ public struct MemoryJob: Decodable, Identifiable {
     }
     public var title: String {
         if kind == "embeddings" { return "Индексация поиска" }
+        if kind == "facts" { return "Обновление фактов" }
         return isCardPhase ? "Создание карточек" : "Импорт источников"
     }
     public var progressLabel: String {
-        let unit = isCardPhase || kind == "embeddings" ? "материалов" : "источников"
+        let unit = kind == "facts" ? "карточек" : isCardPhase || kind == "embeddings" ? "материалов" : "источников"
         return "\(processed ?? 0) из \(total ?? 0) \(unit)"
     }
     public var concurrencyLabel: String? {
@@ -168,6 +169,7 @@ public struct MemoryProviderBackoff: Decodable {
 public struct MemoryProviderResumeRequest: Encodable { public init() {} }
 public struct MemoryProviderResumeResponse: Decodable { public let providerBackoff: MemoryProviderBackoff }
 public struct MemoryJobResponse: Decodable { public let jobId: String }
+public struct MemoryJobStatusResponse: Decodable { public let job: MemoryJob }
 public struct MemoryImportRequest: Encodable {
     public let sourceId: String?
     public init(sourceId: String? = nil) { self.sourceId = sourceId }

@@ -124,6 +124,41 @@ final class MemoryViewModel: ObservableObject {
         searchTask = Task { await search() }
     }
 
+    func factPage(_ request: MemoryFactsRequest) async throws -> MemoryFactsResponse {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        return try await client.get("/api/memory/facts", query: request.queryItems)
+    }
+
+    func factHistory(_ factId: String, before: String? = nil) async throws -> MemoryFactHistoryResponse {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        guard !factId.isEmpty, factId.count <= 128, factId.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") }),
+              (before?.unicodeScalars.count ?? 0) <= 4096 else { throw ServiceError("Недопустимый идентификатор истории.") }
+        var query = [URLQueryItem(name: "limit", value: "50")]
+        if let before { query += [URLQueryItem(name: "before", value: before)] }
+        return try await client.get("/api/memory/facts/\(factId)/history", query: query)
+    }
+
+    func currentFactRecord(_ recordId: String) async throws -> MemoryRecord {
+        guard let client, !recordId.isEmpty, recordId.count <= 128,
+              recordId.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") }) else { throw ServiceError("Материал недоступен.") }
+        let response: MemoryRecordResponse = try await client.get("/api/memory/records/\(recordId)")
+        return response.record
+    }
+
+    func projectFacts() async throws -> MemoryJobResponse {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        let result: MemoryJobResponse = try await client.send("/api/memory/facts/project", body: FactsProjectionRequest())
+        await refreshStatus(); ensurePolling()
+        return result
+    }
+
+    func factProjectionJob(_ jobId: String) async throws -> MemoryJob {
+        guard let client, !jobId.isEmpty, jobId.count <= 128,
+              jobId.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }) else { throw ServiceError("Задание недоступно.") }
+        let response: MemoryJobStatusResponse = try await client.get("/api/memory/jobs/\(jobId)")
+        return response.job
+    }
+
     func evidenceBundle(_ request: EvidenceRequest) async throws -> EvidenceBundle {
         guard let client else { throw ServiceError("Локальный сервис не запущен.") }
         return try await client.get("/api/memory/evidence", query: request.queryItems)

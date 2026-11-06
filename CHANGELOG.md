@@ -9,6 +9,15 @@ listed in the release notes; preparing local artifacts does not publish a releas
 
 ### Added
 
+- Local exact-wording facts/decisions with multiple source quotations and observed
+  revision history from feature enablement. Read-only `get_facts` and
+  `get_fact_history` bring MCP to seven compatible read tools; HTTP/native views
+  show current/past-only proof, conservative conflict/replacement relations,
+  stable paginated events and explicit truncation within 32,000 UTF-8 bytes.
+  Current and snapshot policies gate all proof/targets. Existing ready cards
+  project in explicit/background bounded local jobs, with no model call; schema-3
+  extraction uses the existing card queue/provider/retry budgets. No older missing
+  timeline or source truth is inferred.
 - Read-only `get_evidence_bundle` MCP and shared HTTP/native evidence preview:
   exact quotes, stable code-point citation IDs, current revisions, bounded
   duplicate support and compact JSON context budgets of 2,000–32,000 characters.
@@ -125,6 +134,13 @@ shared local memory server for AI assistants.
 
 ### Ещё не выпущено
 
+- Факты/решения по одинаковым формулировкам с несколькими цитатами и историей
+  наблюдаемых ревизий с момента включения. `get_facts` и `get_fact_history`
+  расширяют MCP до семи совместимых инструментов чтения; HTTP/нативные окна
+  показывают текущие/прошлые подтверждения, консервативные связи, постраничные
+  события и усечение в 32 000 байтах UTF-8. Политики применяются к снимкам и целям
+  связей. Готовые карточки проецируются без модели, схема 3 использует прежнюю
+  очередь/провайдера/бюджеты; отсутствующая старая история и истинность не выводятся.
 - `get_evidence_bundle` и общий HTTP/нативный просмотр: точные цитаты, устойчивые
   ID с диапазонами codepoints, ревизии, дополнительные подтверждения дублей и
   JSON-бюджет 2 000–32 000 символов. Фильтры источника/проекта/UTC-даты применяются

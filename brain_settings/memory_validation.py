@@ -30,6 +30,9 @@ def validate_card(card, record) -> dict:
         evidence = redact_text(atom["evidence"])
         if not evidence.strip() or evidence not in record["text"]:
             raise AppError("invalid_evidence", "Подтверждение не найдено в исходной записи.")
+        from .fact_relations import validate_relation
+
+        relation = validate_relation(atom, record["text"])
         clean_atoms = [
             *clean_atoms,
             {
@@ -39,6 +42,7 @@ def validate_card(card, record) -> dict:
                 "record_id": record["id"],
                 "revision": record["revision"],
                 "source_uri": record["source_uri"],
+                **({"relation": relation} if relation is not None else {}),
             },
         ]
     return {**result, "atoms": clean_atoms}

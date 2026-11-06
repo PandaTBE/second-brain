@@ -28,6 +28,7 @@ agent. Connect only clients that you permit to read that memory.
 | MCP retrieval | A connected client receives bounded excerpts and source metadata from local memory. That client's later handling of the data is controlled by the client and its model provider. |
 | Create cloud cards | When explicitly requested or enabled in automation, masked source text is sent to the selected cloud model API, including Qwen API. Requests can incur provider charges. |
 | Create local Ollama cards | Masked source text is sent only to the fixed local Ollama service and a downloaded local model. No cloud fallback or model API token is used; computation uses the Mac's resources. |
+| Project/read facts and history — unreleased | Validated saved card atoms are grouped locally with quotation snapshots. Projection and reads call no model; new-card extraction still uses the selected provider and its normal billing/attempt budget. |
 | Load a catalog or check a connection | Some checks make network requests even while card generation is disabled. A public catalog response may not prove that a credential is valid. |
 
 Cloud model providers and source services have their own retention, access,
@@ -49,6 +50,10 @@ data flows.
   also live in SQLite. Vectors are derived from private text and are not an
   anonymization boundary. Disabling the index stops its use; it is not secure
   erasure of stored vectors or earlier backups.
+- **Unreleased fact history:** participating revision text/quotes and provenance
+  snapshots also remain in SQLite from feature enablement. Current and snapshot
+  policies both gate reads; source deletion removes its derived rows, while
+  exclusions/revocation are access restrictions rather than forensic erasure.
 - Secret masking uses recognizable patterns. It can miss unknown credential formats, personal information, or unusual encodings. Review what a source contains before connecting it; do not treat masking as a complete data-loss-prevention system.
 
 Protect your Mac and backups using appropriate OS and storage controls. FileVault or encrypted backups can add protection, but Second Brain does not enable or verify them. Placing a checkout or backup in a synchronized folder can share it through that folder's service independently of this application.
@@ -82,6 +87,10 @@ The native client validates that it is talking to the helper instance it started
 - Gmail and Yandex Mail use TLS and read-only inbox selection plus `BODY.PEEK` reads. Import does not mark messages read, move them, or delete them. Existing mail connections do not silently opt into body import.
 - Small mail messages are received as bounded complete RFC822 messages. Attachment bytes can therefore exist transiently in process memory, but attachments are excluded from stored text and cards. Whole messages above 1 MiB, including large attachments, are skipped with an explicit warning. Remote images and linked files are not fetched by the mail renderer.
 - Responses, files, UID windows, MIME parsing, and import batches have bounds. Incomplete or unsupported content is reported instead of silently replacing an existing full record with a partial one.
+- If DNS resolves but HTTPS/TLS resets, inspect the VPN/proxy route and certificate
+  trust separately from the API credential. Compare only permitted network paths;
+  this diagnosis does not justify disabling TLS verification or broadening
+  destination permissions.
 
 Use credentials with the smallest practical read scope. For GitHub, select only the intended repositories and read permissions for the content you import. For Notion, share only the intended pages and grant read access. Mail app passwords still grant meaningful access to an inbox; revoke unused ones in the provider's settings.
 
@@ -134,11 +143,22 @@ Global synchronization pause stops new automatic imports and automatic card requ
 
 The four original MCP tools are retrieval/status tools: `search_memory`,
 `get_record`, `get_context_brief`, and `get_sync_status`. Unreleased builds add
-read-only `get_evidence_bundle` with the same source-policy boundary. They do not
+read-only `get_evidence_bundle`, `get_facts` and `get_fact_history` (seven total)
+with the same source-policy boundary. They do not
 offer import, credential management, arbitrary SQL, or paid inference operations.
 The stdio server can remain available after the app closes. Startup may initialize
 or migrate the local database; “read-only tools” does not mean an OS-enforced
 read-only SQLite file.
+
+Fact status is a provenance classification: `source_supported` is exact quotation,
+not truth/endorsement. Recognized uncertain framing remains a candidate; explicit
+replacement requires directional source wording and context, not a later date.
+These language checks are conservative heuristics. Relation targets, current proof
+and old snapshots must all be permitted before grouping/pagination. History-only
+wording is explicitly marked; observation time is not a source-event date.
+MCP facts/history reads never trigger cached-card projection or model generation.
+Reading saved cards and originals does not spend card-provider tokens; a consuming
+AI client can separately bill the returned context as its own input tokens.
 
 Successful source disconnection removes the source's active local materials and its credential; GitHub/mail synchronization checkpoints are also cleared. Unreleased Notes/Outlook connections also clear their local progress; removal does not revoke the macOS Automation permission or Microsoft consent. Original files, remote pages, repositories, and messages are left unchanged. Previously created backups, copies, WAL pages, or client conversations can retain information. Logical deletion is not a guarantee of forensic erasure. Revoking a credential at the provider is a separate operation.
 

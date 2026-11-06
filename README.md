@@ -63,6 +63,14 @@ answer or incur a paid model call. The native app previews the packet and refres
 its permitted citations and support before explicit copying. See
 [evidence workflow](docs/user-guide.en.md#evidence-bundles).
 
+**Unreleased facts and decision history** group identical card wording with
+source quotations and retain observed revision snapshots from feature enablement.
+Past-only wording is explicitly marked and hidden by default; newer dates do not
+silently resolve different decisions. Reading/projecting saved cards makes no
+model call, while creating cards uses the configured model and its normal budget.
+An agent may still spend its own input tokens on retrieved context. See
+[facts and history](docs/user-guide.en.md#facts-history).
+
 ### Sources
 
 | Source | Imported content | Scope |
@@ -191,8 +199,9 @@ flowchart LR
 ```
 
 The four original MCP tools are `search_memory`, `get_record`,
-`get_context_brief`, and `get_sync_status`. Unreleased source builds add the
-read-only `get_evidence_bundle` tool while preserving their required arguments.
+`get_context_brief`, and `get_sync_status`. Unreleased source builds add read-only
+`get_evidence_bundle`, `get_facts`, and `get_fact_history`: seven tools, preserving
+the original required arguments.
 They do not trigger imports or card generation. In unreleased builds,
 `search_memory` accepts optional `mode=lexical|semantic|hybrid`; after explicit
 embedding opt-in, semantic/hybrid requests can invoke only the local query
@@ -294,9 +303,18 @@ Community expectations: [Code of conduct](CODE_OF_CONDUCT.md).
 JSON-контекста. Codex или Claude составляет ответ по этим цитатам; поиск не
 генерирует ответ и не вызывает платную модель. Приложение позволяет просмотреть
 пакет и повторно проверяет разрешённые цитаты/подтверждения перед явным копированием.
-В MCP добавлен пятый инструмент `get_evidence_bundle`,
+В MCP доступен инструмент чтения `get_evidence_bundle`,
 четыре прежних сохраняют обязательные аргументы. См.
 [работу с доказательствами](docs/user-guide.ru.md#evidence-bundles).
+
+**Факты и история решений — ещё не выпущено:** одинаковые формулировки карточек
+объединяются с цитатами, снимки ревизий сохраняются с момента включения функции.
+Только прошлые формулировки явно помечаются и по умолчанию скрыты; новая дата
+не разрешает разные решения автоматически. Чтение/проекция готовых карточек
+не вызывает модель, создание карточек использует выбранную модель и обычный бюджет.
+Агент отдельно расходует свои входные токены на полученный контекст. Добавлены
+`get_facts` и `get_fact_history` — всего семь MCP-инструментов. Подробнее —
+[факты и история](docs/user-guide.ru.md#facts-history).
 
 ### Источники
 

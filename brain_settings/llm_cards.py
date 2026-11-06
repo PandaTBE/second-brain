@@ -8,12 +8,13 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .errors import AppError
+from .fact_relations import FactRelation, validate_relation
 from .importers import redact_text
 from .providers import normalize_endpoint
 from .storage import credential_scope, vault_operation
 from .transport import ProviderTransport
 
-PROMPT_VERSION = "2"
+PROMPT_VERSION = "3"
 ShortText = Annotated[str, Field(min_length=1, max_length=200)]
 
 
@@ -33,6 +34,7 @@ class Atom(BaseModel):
     kind: Literal["fact", "decision", "error", "preference", "task"]
     text: str = Field(min_length=1, max_length=1500)
     evidence: str = Field(min_length=1, max_length=2000)
+    relation: FactRelation | None = None
 
 
 class Card(BaseModel):
@@ -61,7 +63,8 @@ def validate_card(value: dict, text: str) -> dict:
         if atom.text not in atom.evidence:
             raise AppError("card_text_outside_evidence", "Утверждение карточки не входит в цитату. "
                            "Исходный текст сохранён; обработку можно повторить.", 502)
-    return card.model_dump()
+        validate_relation(atom.model_dump(exclude_none=True), text)
+    return card.model_dump(exclude_none=True)
 
 
 def _usage(response: dict) -> dict:
@@ -181,7 +184,18 @@ class LLMCardGenerator:
             "atom.text 1–1500 символов, atom.evidence 1–2000; предпочитай цитаты 100–300 символов. "
             "Каждые atom.text и atom.evidence — дословные непрерывные цитаты исходника; "
             "text должен содержаться в evidence. Не выдумывай факты. Если подтверждений нет, "
-            "верни atoms: []. Резюме и поисковые вопросы являются описанием модели."
+            "верни atoms: []. Резюме и поисковые вопросы являются описанием модели. "
+            "Для fact/decision допустимо необязательное relation: "
+            "{kind:possible_conflict|explicit_supersedes,target_kind:fact|decision,"
+            "target_text:string,evidence:string}. target_text — точная прежняя цитата; "
+            "relation.evidence — точная цитата до 4000 символов с обоими утверждениями. "
+            "explicit_supersedes допускается только для отдельной строки вида "
+            "'новое утверждение supersedes прежнее утверждение' или "
+            "'новое утверждение заменяет прежнее утверждение', без отрицания, условий "
+            "и предположений. Дата сама по себе не заменяет решение. "
+            "possible_conflict — лишь предложение проверки, не доказанное противоречие. "
+            "Если явной связи нет, не добавляй relation. Сохрани полезные title/summary/keywords."
+
         )
         limit_key = "max_completion_tokens" if settings.provider == "openai" else "max_tokens"
         payload = {"model": settings.model_id, limit_key: 1024, "messages": [

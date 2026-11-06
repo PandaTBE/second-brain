@@ -1,7 +1,7 @@
 # Retrieval and evidence contracts
 
 Contracts updated 2026-11-06; Stage 0 implementation baseline `7fe1f49`.
-Source policies, local retrieval and evidence bundles below describe unreleased
+Source policies, local retrieval, evidence and fact/history views describe unreleased
 source builds tracked by the [development plan](agent-memory-plan.ru.md).
 Published `v0.1.0` assets remain unchanged.
 
@@ -15,6 +15,11 @@ The following stdio MCP names and required arguments remain stable:
 | `get_record` | `record_id` | `record`, `offset`, `total_chars`, `next_offset`, `untrusted_content`, `notice` |
 | `get_context_brief` | none | `records`, `untrusted_content`, `notice`, `message` |
 | `get_sync_status` | none | `memory`, `mcp_read_only`, `message` |
+
+Unreleased source builds add three read-only tools, for seven total:
+`get_evidence_bundle` (required `query`), `get_facts` (no required argument) and
+`get_fact_history` (required `fact_id`). They do not change the original four
+required-argument contracts or project cards during a read.
 
 `search_memory` keeps optional `limit=8` (1–20) and `source_id=None`, and adds
 optional `mode="lexical"` in unreleased builds.
@@ -211,7 +216,107 @@ Checked HTTPS URIs open in the browser; local file URIs are revealed in Finder
 (recognized line fragments identify the file, not an executable action). Opaque
 Notes IDs are displayed without invented deep links.
 
-### Offline passage regression slice
+## Implemented facts and history — Stage 4, unreleased
+
+The additional tools are:
+
+| Tool | Parameters | Shared HTTP view |
+| --- | --- | --- |
+| `get_facts` | `query=""`, `limit=20`, `source_id=None`, `include_history=False` | `GET /api/memory/facts` (`q` for query) |
+| `get_fact_history` | required `fact_id`, `limit=50`, `before=None` | `GET /api/memory/facts/{fact_id}/history` |
+
+Fact queries allow 0–512 characters and use a case-folded literal substring match
+on grouped wording, not semantic inference. Both limits accept 1–100; native
+requests use 20 groups and 50 history events. An empty allowed-source set remains
+empty. Current/snapshot source policy and permitted relation targets are applied
+before grouping, limits and response assembly in a final read snapshot.
+
+Projection hashes kind (`fact` or `decision`) plus wording normalized to Unicode
+NFC and trimmed at its outer whitespace. Exact wording shares one entity with
+multiple independent proof records; case changes, internal whitespace and
+paraphrases do not establish equivalence. Materials are not deleted to merge
+cards. Proof objects carry citation ID, record/source identifiers, revision,
+exact `quote`, code-point `start`/`end`, up to 100 characters of context per side,
+separate nullable source/import dates and support status. These offset field names
+differ from evidence-bundle `start_char`/`end_char`.
+
+Statuses describe provenance and relations:
+
+| Status | Meaning |
+| --- | --- |
+| `source_supported` | Extractive support for stored wording, not established truth or endorsement |
+| `candidate` | Support does not satisfy conservative extraction/framing checks; review required |
+| `possible_conflict` | Source-backed suggested relation; not proven contradiction |
+| `explicit_supersedes` | Narrow validated positive directional source wording connecting both claims |
+
+Recognized false/proposal/hypothetical/example/fenced framing remains candidate.
+These are deliberately limited language heuristics, not a complete negation
+classifier. Explicit replacement requires a standalone positive form such as
+`<new wording> supersedes <old wording>` or its supported Russian form, both
+wordings in the exact proof and a valid surrounding context. A later date alone
+cannot replace an earlier decision. Relations are checked again on text revision;
+source and target require permitted proof. The packet does not silently choose a
+winner between different decisions.
+
+`get_facts` returns `schema_version`, `query`, `include_history`, `facts`,
+`history_since`, `untrusted_content`, `notice` and `truncated`. Each fact contains
+`id`, `kind`, `text`, `status`, `evidence`, `relations`, `historical_only`,
+`evidence_truncated` and `relations_truncated`. Default results require active
+current proof. `include_history=true` also discovers an entity with only permitted
+old snapshots: `historical_only=true`, status `candidate`, proof `active=false`.
+Current results retain current proof; use history to inspect past observations.
+Past-only wording is not returned as a current decision.
+
+History returns `fact`, `events`, `history_since`, `next_cursor`, `truncated`,
+schema/trust metadata and notice. Each event has stable `event_id`, `observed_at`,
+`active`, `status`, model/prompt version, exact proof fields and bounded relations.
+`active=false` denotes saved past proof; historical relations carry
+`historical=true`. Observation time is separate from the proof's source/message
+dates. `history_since` marks feature enablement, not a reconstructed earlier
+timeline. Only participating revisions observed/projected since then are saved;
+the system cannot recover pre-existing missing versions.
+
+History orders by observation time and event identity descending. Pass the opaque
+`next_cursor` back as `before` for the same fact; cursors are bounded to 512
+characters and validated against that fact. A cursor always points after the last
+actually returned event, including a byte-limited page, so continuation does not
+skip an event merely because it did not fit. Stable IDs allow consumers to avoid
+duplicate events while loading pages.
+
+Fact/history packets have a **32,000 UTF-8 byte** compact-JSON cap, excluding the
+HTTP/MCP envelope. This differs from evidence bundles' Unicode-character budget.
+Each fact includes at most eight proof records and eight relations; each history
+event includes at most eight relations. Cached proof quotes are bounded to 4,000
+characters (new model atom evidence to 2,000; relation evidence to 4,000).
+Cached entity wording is at most 2,000 characters, new model wording 1,500.
+`evidence_truncated` marks limited fact proof; `relations_truncated` marks limited
+or pruned relations. Top-level `truncated` covers list/byte/metadata/proof/relation
+limits, not evidence of complete source coverage. Oversized history metadata can
+omit optional title/URI/object ID/model while preserving the exact quote/context
+and cursor progress; nested relation metadata can be compacted then pruned with a
+flag. A missing URI is not replaced by an invented link.
+
+New card prompt/schema version 3 extracts optional fact relations through the
+existing selected provider, queue, admission policies and attempt budget. This
+does not add a second paid extraction pass. Saved validated atoms project locally
+in the same card-save transaction. For previously ready cards, app-only
+`POST /api/memory/facts/project` starts an existing-writer job with strict integer
+`limit=100` (1–500). Explicit local projection works while automatic synchronization
+is paused; bounded automatic projection respects the pause and resumes pending
+work. Neither fact/history reads nor MCP startup reads project existing cards or
+invoke a model. Reading saved records/cards/original references spends no
+card-provider model tokens; a consuming agent can separately spend input tokens
+on returned context.
+
+Revision changes revalidate exact proof and framing. Lost support is not active;
+historical snapshots remain accessible only while both their scope and the current
+record scope are permitted. Deletion removes a source's proof, relations and
+snapshots; revocation/exclusion blocks them and target-only disclosure. Native
+fact/history actions requery the view and validate current material before acting;
+past snapshots remain labelled as historical. Previously received/displayed text
+and old backups cannot be retroactively recalled.
+
+## Offline passage regression slice
 
 ```sh
 uv run --frozen python scripts/benchmark_evidence.py

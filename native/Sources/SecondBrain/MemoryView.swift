@@ -10,6 +10,7 @@ struct MemoryView: View {
     @ViewState private var showAutomation = false
     @ViewState private var showEmbeddingSettings = false
     @ViewState private var showEvidence = false
+    @ViewState private var showFacts = false
     init(store: AppStore) { self.store = store; self.memory = store.memory }
 
     private var importableSources: [MemorySource] { store.sources.filter { $0.canImportMemory && $0.enabled } }
@@ -69,6 +70,8 @@ struct MemoryView: View {
                     Picker("Режим поиска", selection: Binding(get: { memory.searchMode }, set: { memory.changeSearchMode($0) })) {
                         ForEach(MemorySearchMode.allCases) { mode in Text(mode.title).tag(mode) }
                     }.labelsHidden().pickerStyle(.menu).frame(width: 140)
+                    Button { showFacts = true } label: { Image(systemName: "list.bullet.rectangle") }
+                        .help("Факты, решения и история подтверждений").accessibilityLabel("Факты, решения и история подтверждений")
                     Button { showEvidence = true } label: { Image(systemName: "text.quote") }
                         .help("Доказательства и контекст с цитатами").accessibilityLabel("Доказательства и контекст с цитатами")
                     Button { showEmbeddingSettings = true } label: { Image(systemName: "slider.horizontal.3") }
@@ -129,6 +132,9 @@ struct MemoryView: View {
         }
         .sheet(isPresented: $showAutomation) { MemoryAutomationSheet(memory: memory) }
         .sheet(isPresented: $showEmbeddingSettings) { EmbeddingSettingsSheet(memory: memory) }
+        .sheet(isPresented: $showFacts) {
+            FactsSheet(memory: memory, sources: store.sources, localOriginalAccess: .currentDevice)
+        }
         .sheet(isPresented: $showEvidence) {
             EvidenceSheet(memory: memory, sources: store.sources, initialQuery: memory.query,
                           initialMode: memory.searchMode, localOriginalAccess: .currentDevice)
