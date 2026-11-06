@@ -66,6 +66,10 @@ extension CoreChecks {
         }
         let local = OriginalSourceLink.target(uri: "file:///synthetic/script.sh", sourceKind: "folder", localFiles: .currentDevice)
         if case .revealFile? = local { } else { throw EvidenceCheckFailure(message: "Local originals must be revealed in Finder instead of executed") }
+        let imported = OriginalSourceLink.target(uri: "file:///synthetic/guide.md#L12-L24", sourceKind: "folder", localFiles: .currentDevice)
+        try evidenceRequire(imported == .revealFile(URL(fileURLWithPath: "/synthetic/guide.md")), "Imported line citations reveal the original file without a fragment")
+        try evidenceRequire(OriginalSourceLink.target(uri: "file:///synthetic/guide.md#script", sourceKind: "folder", localFiles: .currentDevice) == nil, "Unknown file fragments remain display-only")
+        try evidenceRequire(OriginalSourceLink.target(uri: "file:///synthetic/guide%23notes.md#L1-L2", sourceKind: "folder", localFiles: .currentDevice) == .revealFile(URL(fileURLWithPath: "/synthetic/guide#notes.md")), "Line fragments must not change an encoded hash in a filename")
         try evidenceRequire(OriginalSourceLink.target(uri: "file:///synthetic/script.sh", sourceKind: "folder", localFiles: .requiresRelocation) == nil, "A foreign restore cannot use old file paths before relocation")
         try evidenceRequire(OriginalSourceLink.target(uri: "file://remote/synthetic/script.sh", sourceKind: "folder", localFiles: .currentDevice) == nil && OriginalSourceLink.target(uri: "x-coredata://opaque-note", sourceKind: "apple_notes", localFiles: .currentDevice) == nil, "Remote file hosts and opaque Notes IDs do not create invented deep links")
         var state = EvidenceState()
