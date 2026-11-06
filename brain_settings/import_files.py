@@ -31,8 +31,9 @@ def open_source_directory(path: str) -> int:
     return _open_directory(path)
 
 
-def read_source_files(root: Path, kind: str, eligible_paths=None, *, known_files=None):
-    """Yield bounded file events; legacy relative/raw/mtime tuple unpacking is supported."""
+def read_source_files(root: Path, kind: str, eligible_paths=None, *, known_files=None,
+                      allowed_path=None):
+    """Yield bounded file events; excluded paths are checked before files are opened."""
     from .import_batch import read_file_events
 
-    yield from read_file_events(root, kind, eligible_paths, known_files)
+    yield from read_file_events(root, kind, eligible_paths, known_files, allowed_path=allowed_path)

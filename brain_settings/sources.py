@@ -68,6 +68,13 @@ class SourceService:
             close()
 
     def _public(self, source: Source) -> dict:
+        result = self._source_public(source)
+        memory = getattr(self, "memory_store", None)
+        if memory is not None:
+            result = {**result, "policy": memory.source_policy(source.id).model_dump(mode="json")}
+        return result
+
+    def _source_public(self, source: Source) -> dict:
         if source.kind not in ("imap", "notion", "github", "outlook"):
             return source.model_dump()
         try:

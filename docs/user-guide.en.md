@@ -140,6 +140,49 @@ Card diagnostics distinguish invalid response format or JSON, truncated output, 
 
 Adding a source saves its configuration. An access check is not an import and does not mean all content is already in memory. Use the source's import button for the initial archive.
 
+<a id="source-permissions"></a>
+
+### Source permissions and exclusions — unreleased
+
+In **Источники** (Sources), use the hand button next to a source to open
+**Разрешения источника**. Five independent switches control new imports, search
+and browsing in the app, MCP access, local model processing, and external model
+processing. Turning off import leaves permitted cached search available; turning
+off external processing keeps the local archive. A processing permission does not
+start a model or enable an automatic queue.
+
+Legacy sources without a saved policy start with all five permissions allowed,
+preserving their previous behavior. The existing source-enabled setting and the
+separate mail-import switch still apply: allowing import in this dialog does not
+enable a paused mailbox or a disabled source. Existing automation settings and
+model selection are preserved.
+
+MCP permission is separate from local model permission. Codex or Claude can send
+MCP results to its own cloud model even when Second Brain's external card
+processing is disabled. All connected MCP clients use the same source policy;
+there is no client-specific identity or permission check.
+
+For session and local-note folders, enter relative file or directory paths, one
+per line. A directory excludes its subtree. Absolute paths, `..` and wildcard
+patterns are rejected; there are at most 100 paths of 2048 characters each. For
+Apple Notes, select exclusions from the folder IDs already chosen for that source.
+Other connectors retain their actual page, repository or Inbox scope controls.
+
+After changing exclusions, select **Показать последствия исключений** before
+saving. The preview counts affected cached materials and shows up to 20 examples;
+it is not a forecast of future imports. Saved exclusions remove materials from
+active app/MCP retrieval and block further import and model processing for them.
+Original files and notes remain unchanged. Legacy Notes records without a folder
+ID, and legacy local records whose path cannot be recovered, are hidden
+conservatively when relevant exclusions exist until reimport supplies their scope.
+
+Updated MCP processes observe saved policies without reconnecting. Restart older
+server versions when upgrading: they cannot enforce a policy they do not
+implement. A policy cannot recall text already returned to a client or sent to a
+provider; a revoked model permission blocks later admission and result storage.
+Excluded cached text can remain in SQLite pages and older backups; hiding it is
+not forensic erasure.
+
 ### Codex and Claude Code
 
 Select a session directory using the standard macOS folder picker. Common locations are `~/.codex/sessions` and `~/.claude/projects`; other explicitly selected directories work too. Supported JSONL records are imported. Parsers depend on client formats, so a client format change may produce warnings or skipped records.

@@ -30,6 +30,36 @@ MCP reads may run with the application closed. Reads never create card jobs or
 invoke a paid provider. A local query embedding is allowed only after explicit
 local embedding opt-in; it is not an implicit card-model call.
 
+## Implemented source-policy boundary — Stage 1, unreleased
+
+`source_policies` and `source_exclusions` in SQLite are authoritative for five
+independent scopes: `import_enabled`, `local_search_enabled`, `mcp_enabled`,
+`local_model_enabled`, and `external_model_enabled`. A missing policy defaults to
+all five allowed, preserving previous behavior; existing source `enabled`,
+mail-import and automation gates still apply. The migration does not start jobs
+or enable an additional paid operation.
+
+Policy predicates apply before ranking and to direct reads, briefs, graph/history
+and scoped aggregate statistics/timestamps. Updated long-lived MCP processes use
+persisted policies without retaining a startup snapshot. A revocation cannot
+recall earlier responses. Model permission is checked at admission and again
+inside result persistence; local permission is distinct from giving text to an
+agent through MCP.
+
+The HTTP source API exposes `GET`/`PUT /api/sources/{source_id}/policy` and
+`POST /api/sources/{source_id}/policy/preview`. These are application settings,
+not new MCP tools. Local exclusions are relative literal paths/subtrees;
+Notes exclusions must belong to the source's selected folders. Other connectors
+retain their supported scope controls. Preview returns `affected_documents`,
+up to 20 `samples`, and `sample_limit`; it describes the current cache and does
+not guarantee the number of future imports. Unknown legacy path/folder scope
+is hidden conservatively when exclusions require checking it.
+
+Exclusions prevent active retrieval and processing while preserving the original
+source. Cached text may remain physically in SQLite, FTS/WAL pages or backups.
+Old MCP binaries must be restarted when upgrading; this implementation does not
+retrofit enforcement into already running older code.
+
 ## Proposed search additions
 
 Optional `mode` accepts `lexical`, `semantic`, or `hybrid`. Lexical retrieval remains

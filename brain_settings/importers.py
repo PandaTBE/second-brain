@@ -33,6 +33,8 @@ def import_source(source: dict, store, *, eligible_paths: set[str] | None = None
         raise AppError("unsupported_import", "Для этого источника локальный импорт недоступен.")
     if source_id in store.deleted_source_ids():
         raise AppError("source_deleted", "Источник удалён; чтение файлов остановлено.", 404)
+    if not store.source_policy(source_id).import_enabled:
+        raise AppError("source_policy_denied", "Импорт запрещён политикой источника.", 403)
     path = source.get("path")
     if not isinstance(path, str) or not Path(path).is_absolute():
         raise AppError("invalid_source_path", "Выберите источник по полному пути.")
@@ -40,7 +42,9 @@ def import_source(source: dict, store, *, eligible_paths: set[str] | None = None
     progress = ImportProgress(store, source_id)
     known = progress.load()
     try:
-        events = read_source_files(root, kind, eligible_paths, known_files=known)
+        events = read_source_files(root, kind, eligible_paths, known_files=known,
+                                   allowed_path=lambda relative: store.import_path_allowed(
+                                       source_id, relative.as_posix()))
         for event in events:
             absolute = str(root / event.relative)
             warnings = [

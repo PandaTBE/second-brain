@@ -23,6 +23,7 @@ from .providers import EndpointRequest, SaveRequest, SelectionRequest
 from .runtime import asset_directory, data_directory
 from .security import LocalSecurityMiddleware
 from .service import SettingsService
+from .source_policy_routes import create_source_policy_router
 from .source_storage import MailImportRequest, SourceCreate
 from .sources import SourceService
 
@@ -57,6 +58,7 @@ def create_app(data_dir: Path | None = None, vault=None, transport=None,
     application.state.memory_service = memory_service
     application.include_router(create_memory_router(memory_service))
     application.include_router(create_connected_source_router(source_service))
+    application.include_router(create_source_policy_router(memory_service))
     instance_id = os.environ.get("SECOND_BRAIN_INSTANCE_ID")
     try:
         UUID(instance_id or "")

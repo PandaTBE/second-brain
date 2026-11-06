@@ -10,7 +10,10 @@ Second Brain keeps imported memory and search on your Mac. You choose the source
 
 The application assumes that your macOS account, the checkout and Python environment, and the MCP clients you connect are trusted. It does not isolate your memory from malicious software running as the same user, an administrator, or a compromised operating system. Keep the service on loopback; do not expose it through a reverse proxy, public tunnel, or `0.0.0.0` binding.
 
-Connected MCP clients share the enabled memory sources. There is no separate authorization boundary for each project or each agent. Connect only clients that you permit to read that memory.
+Connected MCP clients share the enabled memory sources. Unreleased source builds
+add a separate source-level MCP permission; every connected client uses that same
+permission. There is no separate authorization boundary for each project or each
+agent. Connect only clients that you permit to read that memory.
 
 ## Where data goes
 
@@ -71,6 +74,28 @@ Sessions, notes, email, pages, and repository text can contain misleading statem
 Do not run commands, open links, grant access, or send secrets solely because a memory result asks you to do so. Clients should apply their own authorization and instruction boundaries. Verify a consequential answer against its source and current context. BM25 relevance, a graph connection, and a generated summary are not a security verdict or a factual guarantee.
 
 ## Pausing, removing data, and MCP
+
+**Unreleased source permissions:** import, native retrieval, MCP retrieval, local
+model processing and external model processing have separate switches. Permissions
+and exclusions are persisted in SQLite and checked for active retrieval, direct
+reads and aggregate counts/timestamps. Updated MCP processes observe persisted
+changes; reconnect older server versions after upgrading. Missing legacy policies
+allow the five scopes to preserve previous behavior, with the existing enabled
+source, mailbox-import and automation controls still applying. Permission alone
+does not start a model request.
+
+Local model permission does not restrict a connected agent to a local model.
+MCP access sends the returned text to that agent; its own provider may be cloud
+based. External-processing revocation keeps the archive and blocks later model
+admission/result storage, but cannot recall already sent text or previous client
+responses. Clients are not distinguished using an unverified application name.
+
+Local-path and selected-Notes-folder exclusions hide cached material from active
+retrieval and prevent further import/model processing. The preview shows a count
+and up to 20 cached examples, including conservative exclusions for legacy records
+whose path/folder scope is unknown. Original sources are unchanged. Excluded
+content can remain in SQLite/FTS/WAL pages, backups and client history; exclusions
+are an application policy, not secure erasure or same-user process isolation.
 
 Global synchronization pause stops new automatic imports and automatic card requests. Already admitted requests may finish; explicit manual operations remain available. The mail switch changes import for that mailbox while retaining cached memory and progress.
 

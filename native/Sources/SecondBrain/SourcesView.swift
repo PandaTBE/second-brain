@@ -6,6 +6,7 @@ struct SourcesView: View {
     @ObservedObject private var memory: MemoryViewModel
     @ViewState private var addKind: String?
     @ViewState private var removeCandidate: MemorySource?
+    @ViewState private var policySource: MemorySource?
     @ViewState private var selectedID: String?
     init(store: AppStore) { self.store = store; self.memory = store.memory }
 
@@ -48,8 +49,14 @@ struct SourcesView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(source.name).fontWeight(.medium)
                                 Text(source.displayKind).font(.caption).foregroundStyle(.secondary)
-                                if source.isMailSource && !source.canImportMemory {
+                                if source.isMailSource && source.mailImportEnabled != true {
                                     Text("Импорт писем выключен").font(.caption).foregroundStyle(.secondary)
+                                }
+                                if source.policy?.importEnabled == false {
+                                    Text("Новые материалы запрещены политикой").font(.caption).foregroundStyle(.secondary)
+                                }
+                                if source.policy?.mcpEnabled == false {
+                                    Text("Доступ через MCP выключен").font(.caption).foregroundStyle(.secondary)
                                 }
                             }
                         }.padding(.vertical, 5)
@@ -70,19 +77,21 @@ struct SourcesView: View {
                                     .help("Импортировать в память").accessibilityLabel("Импортировать \(source.name)").disabled(memory.busy || store.busySources.contains(source.id))
                             }
                             if source.isMailSource {
-                                Button { Task { await store.setMailImport(source, enabled: !source.canImportMemory) } } label: {
-                                    Image(systemName: source.canImportMemory ? "pause.circle" : "play.circle")
+                                Button { Task { await store.setMailImport(source, enabled: source.mailImportEnabled != true) } } label: {
+                                    Image(systemName: source.mailImportEnabled == true ? "pause.circle" : "play.circle")
                                 }
-                                .help(source.canImportMemory ? "Приостановить импорт писем" : "Включить импорт писем")
-                                .accessibilityLabel("\(source.canImportMemory ? "Приостановить импорт писем" : "Включить импорт писем") \(source.name)")
+                                .help(source.mailImportEnabled == true ? "Приостановить импорт писем" : "Включить импорт писем")
+                                .accessibilityLabel("\(source.mailImportEnabled == true ? "Приостановить импорт писем" : "Включить импорт писем") \(source.name)")
                                 .disabled(store.busySources.contains(source.id))
                             }
+                            Button { policySource = source } label: { Image(systemName: "hand.raised") }
+                                .help("Разрешения и исключения источника").accessibilityLabel("Разрешения \(source.name)").disabled(store.busySources.contains(source.id))
                             Button { Task { await store.checkSource(source) } } label: { Image(systemName: "arrow.clockwise") }
                                 .help("Проверить доступ").accessibilityLabel("Проверить \(source.name)").disabled(store.busySources.contains(source.id))
                             Button(role: .destructive) { removeCandidate = source } label: { Image(systemName: "trash") }
                                 .help("Удалить подключение").accessibilityLabel("Удалить \(source.name)")
                         }.buttonStyle(.borderless)
-                    }.width(136)
+                    }.width(166)
                 }.padding(.horizontal, 12)
             }
             if let notice = store.notice { Text(notice).font(.callout).foregroundStyle(store.noticeIsError ? Color.orange : Color.green).padding(.horizontal, 24).padding(.bottom, 12) }
@@ -102,6 +111,7 @@ struct SourcesView: View {
             else if addKind == "github" { GitHubSourceSheet(store: store) }
             else if let kind = addKind { AddSourceSheet(store: store, kind: kind) }
         }
+        .sheet(item: $policySource) { source in SourcePolicySheet(store: store, source: source) }
         .alert("Удалить подключение?", isPresented: Binding(get: { removeCandidate != nil }, set: { if !$0 { removeCandidate = nil } })) {
             Button("Отмена", role: .cancel) { removeCandidate = nil }
             Button("Удалить подключение", role: .destructive) { if let source = removeCandidate { Task { await store.removeSource(source) } }; removeCandidate = nil }

@@ -34,6 +34,14 @@ extension CoreChecks {
                 throw PolicyCheckFailure(message: "Unsafe path accepted: \(path)")
             } catch is ServiceError { }
         }
+        let normalized = try original.excluding(paths: [" private/ ", "private", "notes/readme.md"], notesFolderIDs: ["b", "a", "b"])
+        try policyRequire(normalized.excludedPaths == ["private", "notes/readme.md"] && normalized.excludedNotesFolderIds == ["b", "a"], "Validation trims a directory slash and deduplicates while preserving order")
+        for count in [101, 102] {
+            do { _ = try original.excluding(paths: Array(repeating: "private", count: count), notesFolderIDs: []); throw PolicyCheckFailure(message: "Too many path exclusions accepted") }
+            catch is ServiceError { }
+        }
+        do { _ = try original.excluding(paths: [], notesFolderIDs: Array(repeating: "folder", count: 51)); throw PolicyCheckFailure(message: "Too many Notes exclusions accepted") }
+        catch is ServiceError { }
         let scoped = try original.excluding(paths: ["private"], notesFolderIDs: ["selected"])
         var state = SourcePolicyPreviewState()
         try policyRequire(!state.canSave(scoped, original: original), "Changed exclusions require a completed preview")

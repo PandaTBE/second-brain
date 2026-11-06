@@ -104,6 +104,14 @@ final class MemoryViewModel: ObservableObject {
         }
     }
 
+    func sourcePolicyDidChange() async {
+        searchTask?.cancel(); searchTask = nil
+        browsing.invalidate(); clearSelection()
+        statusRequest += 1; status = nil
+        await refreshStatus()
+        await search()
+    }
+
     func changeQuery(_ value: String) {
         query = value
         browsing.invalidate(); clearSelection()

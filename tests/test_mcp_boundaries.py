@@ -102,7 +102,8 @@ def test_disconnected_source_fails_closed_in_all_tools(tmp_path):
     source_store.save((Source(id=SOURCE_ID, name="Test", kind="codex"),))
     tools = MemoryTools(store, tmp_path)
     assert tools.search_memory("x")["results"]
-    store.search.assert_called_with("x", limit=8, source_id=None, allowed_source_ids=[SOURCE_ID])
+    store.search.assert_called_with("x", limit=8, source_id=None,
+                                    allowed_source_ids=[SOURCE_ID], visibility="mcp")
     source_store.save(())
     assert tools.search_memory("x")["results"] == []
     assert tools.get_context_brief()["records"] == []

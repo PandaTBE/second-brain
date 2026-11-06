@@ -215,6 +215,29 @@ final class AppStore: ObservableObject {
         } catch { if revision == sourcesRevision, request == sourcesRequest { showError(error.localizedDescription) } }
     }
 
+    func sourcePolicy(_ source: MemorySource) async throws -> SourcePolicy {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        let result: SourcePolicyResponse = try await client.get("/api/sources/\(source.id)/policy")
+        return result.policy
+    }
+
+    func previewSourcePolicy(_ source: MemorySource, policy: SourcePolicy) async throws -> SourcePolicyPreview {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        return try await client.send("/api/sources/\(source.id)/policy/preview", body: policy)
+    }
+
+    func saveSourcePolicy(_ source: MemorySource, policy: SourcePolicy) async throws {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        sourcesRevision += 1
+        busySources = busySources.union([source.id])
+        defer { busySources = busySources.subtracting([source.id]); sourcesRevision += 1 }
+        let _: SourcePolicyResponse = try await client.send("/api/sources/\(source.id)/policy", method: "PUT", body: policy)
+        await memory.sourcePolicyDidChange()
+        await refreshSources()
+        notice = "Разрешения источника сохранены. Исключённые материалы скрыты; оригиналы не изменены."
+        noticeIsError = false
+    }
+
     func appleNotesFolders() async throws -> AppleNotesFoldersResponse {
         guard let client else { throw ServiceError("Локальный сервис не запущен.") }
         return try await client.send("/api/sources/apple-notes/folders", body: EmptyBody())

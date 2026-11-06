@@ -73,6 +73,8 @@ class MemoryService:
         self.store = store if store is not None else MemoryStore(data_dir)
         self.provider_backoff = ProviderBackoff(self.store)
         self.source_service = source_service
+        self.source_service.memory_store = self.store
+        self.settings_service = settings_service
         self.generator = generator if generator is not None else LLMCardGenerator(settings_service)
         self.importer = importer if importer is not None else import_source
         self.schedule_store = ScheduleStore(data_dir)
@@ -106,16 +108,17 @@ class MemoryService:
 
     def _import_sources(self) -> list[dict]:
         return [source for source in self._sources()
-                if source["kind"] not in ("imap", "outlook")
-                or source.get("mail_import_enabled", False)]
+                if self.store.source_policy(source["id"]).import_enabled
+                and (source["kind"] not in ("imap", "outlook")
+                     or source.get("mail_import_enabled", False))]
 
     def _allowed(self) -> frozenset[str]:
         return frozenset(source["id"] for source in self._sources())
 
     def status(self) -> dict:
-        counts = self.store.status()
-        config = self.schedule_store.load()
         allowed = self._allowed()
+        counts = self.store.status(allowed_source_ids=allowed)
+        config = self.schedule_store.load()
         by_source = counts.get("by_source", {})
         selected = [value for key, value in by_source.items() if key in allowed]
         names = {
@@ -158,7 +161,8 @@ class MemoryService:
 
     def atlas(self) -> dict:
         snapshot = self.store.atlas(allowed_source_ids=self._allowed())
-        sources = self._sources()
+        sources = [source for source in self._sources()
+                   if self.store.source_policy(source["id"]).local_search_enabled]
         allowed = frozenset(source["id"] for source in sources)
         records = [record for record in snapshot["records"] if record["source_id"] in allowed]
         total = sum(count for source, count in snapshot["_counts_by_source"].items()
@@ -360,7 +364,7 @@ class MemoryService:
             remaining = frozenset()
             for _ in range(MAX_IMPORT_BATCHES):
                 self._check_stop()
-                if source["id"] not in self._allowed():
+                if source["id"] not in {item["id"] for item in self._import_sources()}:
                     break
                 kwargs = {"eligible_paths": eligible} if eligible is not None else {}
                 if source["kind"] == "apple_notes":
@@ -503,7 +507,7 @@ class MemoryService:
         self.store.recover_card_attempts()
         pending = self.store.pending(
             limit=limit, retry_errors=retry_errors, allowed_source_ids=self._allowed(),
-            automatic_retries=automatic_retries,
+            automatic_retries=automatic_retries, visibility=self._processing_scope(),
         )
         batch_scope = self._provider_scope()
         provider = self._provider_status()
@@ -550,6 +554,7 @@ class MemoryService:
     def _process_card(self, record, *, expected_scope, manual=False, automatic=False):
         stats = {"ready": 0, "errors": 0, "stale": 0, "usage": {}}
         scope = expected_scope
+        processing_scope = self._processing_scope()
         if self._provider_scope() != scope:
             return {**stats, "stale": 1}
         try:
@@ -558,31 +563,35 @@ class MemoryService:
             if error.code == "provider_paused":
                 return {**stats, "provider_limited": True}
             raise
-        if self._current_candidate(record) is None:
+        if self._current_candidate(record, processing_scope) is None:
             return {**stats, "stale": 1}
         token = self.store.claim_card_attempt(
-            record["id"], record["revision"], manual=manual, allowed_source_ids=self._allowed()
+            record["id"], record["revision"], manual=manual, allowed_source_ids=self._allowed(),
+            visibility=processing_scope,
         )
         if token is None:
             return {**stats, "stale": 1}
         called_provider = False
         try:
             # Admission shares the pause lock, but network work never holds it.
-            self._admit_provider(scope, record, automatic)
+            self._admit_provider(scope, record, automatic, processing_scope)
             called_provider = True
             generate = getattr(self.generator, "generate_with_admission", None)
-            result = (generate(record, lambda: self._admit_provider(scope, record, automatic))
+            result = (generate(record, lambda: self._admit_provider(
+                scope, record, automatic, processing_scope))
                       if callable(generate) else self.generator.generate(record))
             stats = _add_usage(stats, result.get("usage", {}))
-            card = validate_card(result["card"], redact_text(record["text"]))
             self.provider_backoff.success(scope, self.schedule_store.load().card_concurrency)
             active = (self.generator.is_current(result)
                       if hasattr(self.generator, "is_current") else True)
-            if not active or self._current_candidate(record) is None:
+            if (not active or self._provider_scope() != scope
+                    or self._current_candidate(record, processing_scope) is None):
                 return {**stats, "stale": 1}
+            card = validate_card(result["card"], redact_text(record["text"]))
             saved = self.store.save_card(
                 record["id"], record["revision"], card, model=result.get("model", ""),
                 prompt_version=result.get("prompt_version", "1"), attempt_token=token,
+                processing_scope=processing_scope,
             )
             return {**stats, "ready": int(saved), "stale": int(not saved)}
         except Exception as error:
@@ -597,24 +606,35 @@ class MemoryService:
             if throttled:
                 self.provider_backoff.limit(scope, error)
             stats = _add_usage(stats, getattr(error, "usage", {}))
+            if (self._provider_scope() != scope
+                    or self._current_candidate(record, processing_scope) is None):
+                return {**stats, "stale": 1, "provider_limited": throttled}
             self.store.record_card_error(record["id"], record["revision"], _safe_error(error),
-                                         attempt_token=token)
+                                         attempt_token=token, processing_scope=processing_scope)
             return {**stats, "errors": 1, "provider_limited": throttled}
         finally:
             self.store.release_card_attempt(record["id"], record["revision"], token,
                                             refund=not called_provider)
 
-    def _admit_provider(self, scope, record, automatic):
+    def _admit_provider(self, scope, record, automatic, processing_scope=None):
         with self._lock:
             if (self._stop.is_set() or self._provider_scope() != scope
-                    or self._current_candidate(record) is None
+                    or self._current_candidate(record, processing_scope) is None
                     or (automatic and not self._automatic_cards_enabled())):
                 raise paused_error()
             self.provider_backoff.ensure_ready(scope)
 
-    def _current_candidate(self, record: dict) -> dict | None:
+    def _processing_scope(self):
+        scope = getattr(self.generator, "processing_scope", None)
+        if callable(scope):
+            return scope()
+        settings = self.settings_service.store.load()
+        return "model_local" if settings.provider == "ollama" else "model_external"
+
+    def _current_candidate(self, record: dict, processing_scope=None) -> dict | None:
         try:
-            current = self.store.get_record(record["id"], allowed_source_ids=self._allowed())
+            current = self.store.get_record(record["id"], allowed_source_ids=self._allowed(),
+                                            visibility=processing_scope or self._processing_scope())
         except AppError as error:
             if error.status_code == 404:
                 return None
@@ -654,9 +674,11 @@ class MemoryService:
             self._last_auto_check = _now()
         batches = {}
         if config.auto_import_enabled:
-            for source in self._sources():
+            for source in self._import_sources():
                 try:
-                    batch = self.watcher.collect(source, now=now)
+                    batch = self.watcher.collect(
+                        source, now=now, allowed_path=lambda path, sid=source["id"]:
+                        self.store.import_path_allowed(sid, path.as_posix()))
                     if batch.paths:
                         batches = {**batches, source["id"]: batch}
                 except AppError as error:

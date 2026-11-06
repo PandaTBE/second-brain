@@ -225,8 +225,8 @@ def test_pause_during_watch_scan_prevents_late_enqueue_and_does_not_ack(memory_c
     service = client.app.state.memory_service
     collect = service.watcher.collect
 
-    def pause_during_scan(source, now=None):
-        batch = collect(source, now=now)
+    def pause_during_scan(source, now=None, **kwargs):
+        batch = collect(source, now=now, **kwargs)
         assert batch.paths
         service.set_sync_paused(True)
         return batch

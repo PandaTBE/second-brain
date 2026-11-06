@@ -12,6 +12,7 @@ if __package__ in (None, ""):
 from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
 
+from brain_settings.errors import AppError
 from brain_settings.memory_store import MemoryStore
 from brain_settings.runtime import data_directory
 from brain_settings.source_storage import SourcesStore
@@ -60,9 +61,24 @@ class MemoryTools:
         return [source.id for source in self.sources.load() if source.enabled]
 
     def _allowed(self, source_id: str) -> bool:
+        if not self.store.source_policy(source_id).mcp_enabled:
+            return False
         if self.sources is None:
             return True
         return any(source.id == source_id and source.enabled for source in self.sources.load())
+
+    def _allowed_record(self, record):
+        if not self._allowed(record.get("source_id", "")):
+            return False
+        try:
+            current = self.store.get_record(record["id"], allowed_source_ids=self._allowed_ids(),
+                                            visibility="mcp")
+        except AppError as error:
+            if error.status_code == 404:
+                return False
+            raise
+        return (current.get("revision") == record.get("revision")
+                and self._allowed(record.get("source_id", "")))
 
     def search_memory(self, query: str, limit: int = 8, source_id: str | None = None) -> dict:
         """Search shared local memory using FTS5/BM25; returns bounded source snippets."""
@@ -74,13 +90,14 @@ class MemoryTools:
             return _error("invalid_source_id", "Укажите ID источника из приложения.")
         try:
             hits = self.store.search(
-                query, limit=limit, source_id=source_id, allowed_source_ids=self._allowed_ids()
+                query, limit=limit, source_id=source_id, allowed_source_ids=self._allowed_ids(),
+                visibility="mcp",
             )
             # Returning snippets instead of entire sessions bounds token consumption.
             results = [
                 _metadata(hit) | {"snippet": str(hit.get("snippet", hit.get("summary", "")))[:1500]}
                 for hit in hits[:limit]
-                if self._allowed(hit.get("source_id", ""))
+                if self._allowed_record(hit)
             ]
             return {"results": results, "untrusted_content": True, "notice": CONTENT_NOTICE}
         except Exception:
@@ -96,8 +113,9 @@ class MemoryTools:
         if not isinstance(max_chars, int) or isinstance(max_chars, bool) or max_chars < 1:
             return _error("invalid_limit", "Укажите положительный размер фрагмента.")
         try:
-            record = self.store.get_record(record_id, allowed_source_ids=self._allowed_ids())
-            if not self._allowed(record.get("source_id", "")):
+            record = self.store.get_record(record_id, allowed_source_ids=self._allowed_ids(),
+                                           visibility="mcp")
+            if not self._allowed_record(record):
                 return _error("record_unavailable", "Источник отключён или удалён.")
             text = str(record.get("text", ""))
             size = min(max_chars, MAX_RECORD_CHARS)
@@ -121,12 +139,13 @@ class MemoryTools:
     def get_context_brief(self) -> dict:
         """Read a bounded context briefing with provenance, not an inferred user profile."""
         try:
-            brief = self.store.context_brief(allowed_source_ids=self._allowed_ids())
+            brief = self.store.context_brief(allowed_source_ids=self._allowed_ids(),
+                                             visibility="mcp")
             records = brief.get("records", [])[:8]
             bounded = [
                 _metadata(record) | {"summary": str(record.get("summary", ""))[:1200]}
                 for record in records
-                if self._allowed(record.get("source_id", ""))
+                if self._allowed_record(record)
             ]
             return {
                 "records": bounded,
@@ -138,8 +157,8 @@ class MemoryTools:
             return _error("memory_unavailable", "Сводка памяти временно недоступна.")
 
     def _status(self) -> dict:
-        status = self.store.status()
         allowed = self._allowed_ids()
+        status = self.store.status(allowed_source_ids=allowed, visibility="mcp")
         groups = {
             key: value
             for key, value in status.get("by_source", {}).items()

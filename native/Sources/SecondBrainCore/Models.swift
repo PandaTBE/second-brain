@@ -112,12 +112,13 @@ public struct MemorySource: Codable, Identifiable, Hashable {
     public let notesFolderIds: [String]?
     public let outlookClientId: String?
     public let outlookAccountId: String?
+    public let policy: SourcePolicy?
     public var displayKind: String {
         kind == "imap" ? (MailProvider.detect(raw: mailProvider, host: host)?.title ?? "Другая почта") : SourceFormatting.label(kind)
     }
     public var isMailSource: Bool { kind == "imap" || kind == "outlook" }
     public var canImportMemory: Bool {
-        ["codex", "claude", "qwen", "folder", "notion", "github", "apple_notes"].contains(kind) || (isMailSource && mailImportEnabled == true)
+        enabled && (policy?.importEnabled ?? true) && (["codex", "claude", "qwen", "folder", "notion", "github", "apple_notes"].contains(kind) || (isMailSource && mailImportEnabled == true))
     }
     public var location: String {
         if kind == "notion" { return "Выбрано страниц: \(notionPageIds?.count ?? 0)" }

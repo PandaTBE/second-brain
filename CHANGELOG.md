@@ -9,6 +9,12 @@ listed in the release notes; preparing local artifacts does not publish a releas
 
 ### Added
 
+- Independent source permissions for import, native retrieval, MCP retrieval,
+  local processing and external processing, persisted in SQLite. Source-build
+  UI includes local-path/selected-Notes-folder exclusions and a bounded preview.
+  Legacy defaults preserve enabled-source and mailbox behavior. Policy checks
+  cover retrieval and model admission/result storage; a source can be hidden
+  from MCP independently of local processing. Published `v0.1.0` is unchanged.
 - Explicit, disabled-by-default internal-network access for a custom HTTPS model
   API. The permission is saved for that API, resets when its address or provider
   changes, and applies to catalog checks and card generation. TLS verification,
@@ -100,6 +106,11 @@ shared local memory server for AI assistants.
 
 ### Ещё не выпущено
 
+- Раздельные разрешения источника: импорт, поиск в приложении, MCP, локальная
+  и внешняя обработка; исключения локальных путей и выбранных папок Notes
+  с предпросмотром. Старые настройки сохраняют поведение; политики проверяются
+  при чтении, допуске модели и сохранении результата. Это изменение исходников,
+  опубликованный `v0.1.0` не меняется.
 - Apple Заметки: явный выбор папок, разрешение «Автоматизация», ручной импорт и
   фоновая сверка с ограничением размера прохода. Notes должны быть открыты;
   защищённые заметки и вложения пропускаются.

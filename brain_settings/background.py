@@ -110,7 +110,7 @@ class WatchBatch:
     signatures: tuple[tuple[str, tuple[int, int, int]], ...] = ()
 
 
-def _metadata_entries(root_fd: int, max_entries: int):
+def _metadata_entries(root_fd: int, max_entries: int, allowed_path=None):
     visited = 0
     deadline = time.monotonic() + 8
 
@@ -128,6 +128,8 @@ def _metadata_entries(root_fd: int, max_entries: int):
                         "и временем проверки. Выберите папку меньшего размера.",
                     )
                 if entry.name.startswith("."):
+                    continue
+                if allowed_path is not None and not allowed_path(relative / entry.name):
                     continue
                 metadata = entry.stat(follow_symlinks=False)
                 if stat.S_ISDIR(metadata.st_mode) and entry.name not in EXCLUDED:
@@ -185,10 +187,12 @@ class SessionWatcher:
         self._imported = {}
         self._lock = threading.Lock()
 
-    def collect(self, source: dict, now: float | None = None) -> WatchBatch:
+    def collect(self, source: dict, now: float | None = None, *, allowed_path=None) -> WatchBatch:
         source_id = source["id"]
         empty = WatchBatch(source_id, frozenset())
         if source.get("kind") not in ("codex", "claude", "qwen") or not source.get("enabled", True):
+            return empty
+        if allowed_path is not None and not allowed_path(Path()):
             return empty
         raw_path = source.get("path")
         if not raw_path or not Path(raw_path).is_absolute():
@@ -202,8 +206,11 @@ class SessionWatcher:
             for relative, metadata, directory_fd, name in _metadata_entries(
                 descriptor,
                 self.max_entries,
+                allowed_path,
             ):
                 try:
+                    if allowed_path is not None and not allowed_path(relative):
+                        continue
                     if source["kind"] == "qwen" and not is_qwen_session(root, relative):
                         continue
                     path = str(root / relative)

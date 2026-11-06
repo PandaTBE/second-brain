@@ -66,6 +66,14 @@ lexical search, not semantic embeddings.
 
 **Source builds only:** Apple Notes and Outlook are not in the published `v0.1.0` ZIP. See the [source guide](docs/user-guide.en.md#apple-notes-source) and [Outlook registration guide](docs/outlook-setup.md#english).
 
+**Unreleased source permissions:** a source's hand icon opens independent controls
+for import, search in the app, MCP access, local model processing and external
+model processing. Local folders and selected Apple Notes folders also support
+exclusions with a preview. Existing settings keep their behavior; changing a
+permission does not start a model. MCP access permits the requesting agent to
+receive text, including when that agent uses a cloud model. See
+[source permissions](docs/user-guide.en.md#source-permissions).
+
 Large archives run in bounded passes and preserve their continuation state.
 Remote imports are local snapshots: deleting something remotely does not
 implicitly purge its imported copy.
@@ -273,6 +281,14 @@ Community expectations: [Code of conduct](CODE_OF_CONDUCT.md).
 | Outlook / Microsoft 365 — ещё не выпущено | Заголовки и текст входящих | Вход Microsoft по коду; зарегистрированный Client ID; явный выбор периода импорта |
 
 **Только сборки из исходников:** Apple Заметок и Outlook ещё нет в опубликованном ZIP `v0.1.0`. См. [руководство источников](docs/user-guide.ru.md#apple-notes-source) и [регистрацию Outlook](docs/outlook-setup.md#russian).
+
+**Разрешения источников — ещё не выпущено:** кнопка с рукой у источника открывает
+независимые настройки импорта, поиска в приложении, MCP, локальной и внешней
+модельной обработки. Для локальных путей и выбранных папок Apple Заметок доступны
+исключения с предварительным просмотром последствий. Старые настройки сохраняют
+своё поведение; разрешение само по себе не запускает модель. Доступ через MCP
+передаёт текст запрашивающему агенту, в том числе облачному. Подробнее —
+[разрешения источника](docs/user-guide.ru.md#source-permissions).
 
 Большие архивы обрабатываются ограниченными пакетами с сохранением продолжения.
 Удаление объекта в удалённом сервисе само по себе не удаляет локальную копию.

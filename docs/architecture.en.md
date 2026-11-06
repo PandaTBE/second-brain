@@ -1,6 +1,6 @@
 # Architecture
 
-**Version 0.1.0 · updated 2026-11-04** · [Русский](architecture.ru.md) · [User guide](user-guide.en.md)
+**Version 0.1.0 · updated 2026-11-06** · [Русский](architecture.ru.md) · [User guide](user-guide.en.md)
 
 ## Components and data flow
 
@@ -31,6 +31,7 @@ The window and background process have different lifecycles: closing the window 
 | Native UI | `native/Sources/SecondBrain/`, `native/Sources/SecondBrainCore/` | Screens, request models, helper lifecycle, indicators, and user operations. |
 | HTTP application | `brain_settings/app.py`, `security.py`, `memory_routes.py` | Application factory, local HTTP boundary, settings and memory endpoints. |
 | Settings and secrets | `storage.py`, `source_storage.py`, `sources.py`, `service.py` | Atomic JSON persistence, Keychain, source configuration and access checks. |
+| Source policy — unreleased | `source_policy.py`, `source_policy_routes.py` | SQLite permissions and exclusions, preview, and policy predicates shared by import, retrieval and model processing. |
 | Local import | `importers.py`, `import_batch.py`, `session_stream.py`, `dialogue_parsers.py` | Bounded scanning, streaming reads, supported formats, and chunking. |
 | Remote sources | `notion_*.py`, `github_*.py`, `mail_*.py` | Bounded read clients, material conversion, and durable import progress. |
 | Storage and retrieval | `memory_store.py`, `memory_browse.py`, `memory_atlas.py`, `memory_text.py` | SQLite, FTS5/BM25, page cursors, graph snapshots, and redaction. |
@@ -76,6 +77,35 @@ Card status and retry budgets are durable SQLite state. Automatic processing use
 Provider pauses are separate SQLite state scoped by a hash of provider, normalized API address, and model, without credentials or request payloads. A `429` stops further card admission and temporarily lowers effective concurrency to one; successful requests restore it toward the configured value. `Retry-After` controls temporary waits, while recognized balance/key-budget errors require explicit resumption. The pause is checked again before sending a model request. An unsent request does not consume a record attempt; a sent failure does. Resuming a provider changes neither historical record budgets nor source-import and MCP availability. Card diagnostics retain safe categories and usage metadata rather than raw model/provider responses; evidence validation remains exact.
 
 Local, GitHub, and email checkpoints retain import continuation. Mail uses UIDVALIDITY, bounded UID windows, and a persisted date scope. Pausing a mailbox retains existing materials: permission for new reads is separate from cache visibility in the app and MCP.
+
+## Source policy in unreleased builds
+
+Connection configuration remains in `sources.json`; source permissions and
+exclusions are authoritative SQLite state. Compatible migrations add
+`source_policies`, `source_exclusions`, and a Notes folder identifier on materials.
+A missing policy permits each of the five scopes to preserve legacy behavior;
+outer source-enabled and mailbox-import gates remain in force. This migration
+does not configure a model or enable paid work.
+
+The independent scopes are import, local retrieval, MCP retrieval, local model
+processing and external model processing. Central SQL predicates filter before
+ranking and apply to direct reads, browse/graph, brief and aggregate statistics,
+including their timestamps. Updated independent MCP processes read current
+policy from the same database rather than caching startup permissions. Older
+server binaries must be restarted after upgrading.
+
+Exclusions match a local file/subtree or an explicitly selected Notes folder.
+Records with legacy opaque paths or unknown Notes folders are conservatively
+hidden when their scope cannot be checked. The native preview counts affected
+cached records and returns at most 20 examples. Exclusions leave originals alone
+and prevent active retrieval, import and model processing; retained database
+pages and backups are not an erasure guarantee.
+
+Model admission checks the current provider-specific permission, and card saving
+checks policy and revision inside its write transaction. Revocation cannot
+cancel a disclosure that already occurred. MCP visibility remains a separate
+recipient decision: local card processing does not make an agent's own model
+local. There is no verified per-client identity or project authorization layer.
 
 ## Trust boundaries
 

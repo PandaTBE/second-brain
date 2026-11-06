@@ -52,12 +52,15 @@ def _allowed(relative: Path, kind: str) -> bool:
     )
 
 
-def read_file_events(root: Path, kind: str, eligible_paths=None, known_files=None):
+def read_file_events(root: Path, kind: str, eligible_paths=None, known_files=None,
+                     *, allowed_path=None):
     known_files = known_files or {}
     visited = total = 0
 
     def read_file(directory, relative, metadata):
         nonlocal total
+        if allowed_path is not None and not allowed_path(relative):
+            return
         signature = _signature(metadata)
         cached = known_files.get(file_identity(relative))
         if (
@@ -173,8 +176,10 @@ def read_file_events(root: Path, kind: str, eligible_paths=None, known_files=Non
             visited += 1
             if entry.name.startswith(".") or entry.name.casefold() in limits.SKIP_NAMES:
                 continue
-            metadata = entry.stat(follow_symlinks=False)
             child_relative = relative / entry.name
+            if allowed_path is not None and not allowed_path(child_relative):
+                continue
+            metadata = entry.stat(follow_symlinks=False)
             if stat.S_ISDIR(metadata.st_mode) and entry.name not in SKIP_DIRECTORIES:
                 child = os.open(entry.name, DIRECTORY_FLAGS, dir_fd=directory)
                 try:
@@ -194,6 +199,8 @@ def read_file_events(root: Path, kind: str, eligible_paths=None, known_files=Non
             if not absolute.is_relative_to(root):
                 continue
             relative = absolute.relative_to(root)
+            if allowed_path is not None and not allowed_path(relative):
+                continue
             if (len(relative.parts) > 33 or not _allowed(relative, kind)
                     or (kind == "qwen" and not is_qwen_session(root, relative))):
                 continue

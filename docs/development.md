@@ -25,6 +25,7 @@ No environment file or real provider token is required for tests. Application cr
 | `brain_settings/app.py` | FastAPI factory; importing it must not create the personal database |
 | `brain_settings/memory_service.py` | Bounded import/card jobs and automation |
 | `brain_settings/memory_store.py` | SQLite, revisions, FTS5, and source deletion guards |
+| `brain_settings/source_policy.py`, `source_policy_routes.py` | Unreleased independent permissions/exclusions, SQLite predicates and preview API |
 | `brain_settings/mcp_server.py` | Read-only stdio memory tools |
 | `brain_settings/*_client.py`, `*_import.py` | Source-specific read-only access and ingestion |
 | `static/` | Local memory atlas and optional browser settings interface |
@@ -73,6 +74,16 @@ CI uses SHA-pinned official GitHub actions, read-only repository permissions, no
 ## Designing changes
 
 Preserve the explicit separation between import, local search, and paid model processing. Keep network destinations bounded, return safe errors, and retain source provenance. Imported material is untrusted data. Sources must not issue writes to mail, GitHub, or Notion as a side effect of ingestion. Review schema changes for legacy configuration and MCP-process compatibility, and test cancellation, retries, and deletion with synthetic data.
+
+Source-policy changes must use the shared SQLite predicates for the correct
+audience: native retrieval and MCP retrieval are independent, as are local and
+external model processing. Missing legacy policies permit existing scopes without
+enabling automation; retain outer source/mailbox gates. Check permissions before
+model admission and in the transaction that commits a result. Test live policy
+changes using independent stores/processes, hidden-source aggregate timestamps,
+and exclusions on already imported materials. Do not use a real user's database
+to construct migration fixtures. See [search contracts](search-contracts.md) and
+[the offline benchmark](search-contracts.md#offline-evaluation).
 
 The native UI is currently Russian. The public README and user guides are bilingual; documentation translation does not imply that every native view is localized into English.
 

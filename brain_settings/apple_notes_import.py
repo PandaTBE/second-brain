@@ -54,14 +54,25 @@ class AppleNotesProgress:
 
 def _check(source_id, store, check_stop):
     check_stop()
+    if not store.source_policy(source_id).import_enabled:
+        raise AppError("source_policy_denied", "Импорт заметок запрещён политикой источника.", 403)
     if source_id in store.deleted_source_ids():
         raise AppError("source_deleted", "Источник заметок удалён; импорт остановлен.", 404)
 
 
 def import_apple_notes(source, store, client, check_stop=lambda: None):
     source_id = source["id"]
-    selected = normalize_notes_folder_ids(source.get("notes_folder_ids", ()))
+    policy = store.source_policy(source_id)
+    if not policy.import_enabled:
+        raise AppError("source_policy_denied", "Импорт запрещён политикой источника.", 403)
     _check(source_id, store, check_stop)
+    policy = store.source_policy(source_id)
+    selected = normalize_notes_folder_ids(source.get("notes_folder_ids", ()))
+    selected = tuple(folder for folder in selected
+                     if folder not in policy.excluded_notes_folder_ids)
+    if not selected:
+        return {"imported": 0, "updated": 0, "unchanged": 0, "skipped": 0, "errors": [],
+                "warnings": [], "source_id": source_id, "has_more": False}
     progress = AppleNotesProgress(store, source_id)
     scope = hashlib.sha256(json.dumps(selected).encode()).hexdigest()
     cursor = progress.load(scope)
@@ -105,6 +116,7 @@ def import_apple_notes(source, store, client, check_stop=lambda: None):
                 "title": title + f" · {index + 1}",
                 "text": chunk.text,
                 "source_uri": redact_text(note["id"]),
+                "source_folder_id": note["folder_id"],
                 "created_at": note["created_at"],
                 "updated_at": note["updated_at"],
             }
