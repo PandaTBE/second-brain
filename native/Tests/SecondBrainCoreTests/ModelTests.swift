@@ -58,6 +58,9 @@ enum CoreChecks {
             ("Evidence citations and copied context preserve exact Unicode scalars", evidenceUnicodeAndCopy),
             ("Evidence originals and request generations preserve safe boundaries", evidenceOpeningAndRequests),
             ("Evidence button actions refresh complete scopes and revoke stale metadata", evidenceFreshActions),
+            ("Facts retain independent source proofs and explicit projection", memoryFactsContract),
+            ("Fact history preserves observed snapshots and scoped pagination", memoryFactHistoryContract),
+            ("Fact source actions refresh policy-scoped claims before use", memoryFactActionScopes),
         ]
         var failures: [String] = []
         for (name, check) in checks {
