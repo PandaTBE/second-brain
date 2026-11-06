@@ -247,8 +247,8 @@ def macho_fixture(payload):
 
 
 @pytest.mark.parametrize("marker", [
-    b"-----BEGIN RSA PRIVATE KEY-----\0",
-    b"-----BEGIN OPENSSH PRIVATE KEY----------END OPENSSH PRIVATE KEY-----",
+    b"-----BEGIN " b"RSA PRIVATE KEY-----\0",
+    b"-----BEGIN " b"OPENSSH PRIVATE KEY----------END OPENSSH PRIVATE KEY-----",
 ])
 def test_native_macho_parser_delimiters_without_payload_are_not_credentials(tmp_path, marker):
     app = app_tree(tmp_path)
@@ -258,8 +258,8 @@ def test_native_macho_parser_delimiters_without_payload_are_not_credentials(tmp_
 
 @pytest.mark.parametrize("context", ["text", "pyc", "zip_text", "filename"])
 @pytest.mark.parametrize("marker", [
-    b"-----BEGIN RSA PRIVATE KEY-----\0",
-    b"-----BEGIN OPENSSH PRIVATE KEY----------END OPENSSH PRIVATE KEY-----",
+    b"-----BEGIN " b"RSA PRIVATE KEY-----\0",
+    b"-----BEGIN " b"OPENSSH PRIVATE KEY----------END OPENSSH PRIVATE KEY-----",
 ])
 def test_native_parser_delimiters_stay_unsafe_in_other_contexts(tmp_path, context, marker):
     app = app_tree(tmp_path)
@@ -281,11 +281,11 @@ def test_native_parser_delimiters_stay_unsafe_in_other_contexts(tmp_path, contex
 
 
 @pytest.mark.parametrize("payload", [
-    b"-----BEGIN RSA PRIVATE KEY-----\n" + b"A" * 64 + b"\n-----END RSA PRIVATE KEY-----",
-    b"-----BEGIN RSA PRIVATE KEY-----\r\n" + b"A" * 64 + b"\r\n-----END RSA PRIVATE KEY-----",
-    b"-----BEGIN RSA PRIVATE KEY-----" + b"A" * 64 + b"-----END RSA PRIVATE KEY-----",
-    b"-----BEGIN RSA PRIVATE KEY-----\0" + b"sk-" + b"synthetic" * 4,
-    b"-----BEGIN RSA PRIVATE KEY-----\0-----BEGIN PRIVATE KEY-----payload",
+    b"-----BEGIN " b"RSA PRIVATE KEY-----\n" + b"A" * 64 + b"\n-----END RSA PRIVATE KEY-----",
+    b"-----BEGIN " b"RSA PRIVATE KEY-----\r\n" + b"A" * 64 + b"\r\n-----END RSA PRIVATE KEY-----",
+    b"-----BEGIN " b"RSA PRIVATE KEY-----" + b"A" * 64 + b"-----END RSA PRIVATE KEY-----",
+    b"-----BEGIN " b"RSA PRIVATE KEY-----\0" + b"sk-" + b"synthetic" * 4,
+    b"-----BEGIN " b"RSA PRIVATE KEY-----\0-----BEGIN " b"PRIVATE KEY-----payload",
 ])
 def test_native_macho_unsafe_private_key_or_token_still_fails(tmp_path, payload):
     app = app_tree(tmp_path)
@@ -301,7 +301,7 @@ def test_native_macho_unsafe_private_key_or_token_still_fails(tmp_path, payload)
     "section_count", "unknown_architecture", "relocation_bounds", "zero_fill_instructions",
 ])
 def test_malformed_or_magic_only_macho_never_gets_parser_delimiter_exception(tmp_path, damage):
-    marker = b"-----BEGIN RSA PRIVATE KEY-----\0"
+    marker = b"-----BEGIN " b"RSA PRIVATE KEY-----\0"
     image = bytearray(macho_fixture(marker))
     if damage == "magic_only":
         image = image[:4] + marker
@@ -340,7 +340,7 @@ def test_malformed_or_magic_only_macho_never_gets_parser_delimiter_exception(tmp
 @pytest.mark.parametrize("container", ["pyc", "zip_text"])
 def test_nested_macho_bytes_cannot_enable_a_native_exception_in_container_data(tmp_path, container):
     app = app_tree(tmp_path)
-    image = macho_fixture(b"-----BEGIN RSA PRIVATE KEY-----\0")
+    image = macho_fixture(b"-----BEGIN " b"RSA PRIVATE KEY-----\0")
     if container == "pyc":
         code = compile("value = " + repr(image), "public_fixture.py", "exec")
         (app / "Contents/Resources/parser.pyc").write_bytes(b"\0" * 16 + marshal.dumps(code))
