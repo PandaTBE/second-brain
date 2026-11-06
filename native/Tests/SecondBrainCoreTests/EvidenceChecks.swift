@@ -6,17 +6,17 @@ private func evidenceRequire(_ condition: @autoclosure () -> Bool, _ message: St
     if !condition() { throw EvidenceCheckFailure(message: message) }
 }
 
-private func evidenceFixture(query: String = "SQLite", quote: String = "🙂e\u{301}", end: Int = 5) throws -> EvidenceBundle {
+private func evidenceFixture(query: String = "SQLite", quote: String = "🙂e\u{301}", end: Int = 5, supportSourceId: String = "source-two", hasCitations: Bool = true) throws -> EvidenceBundle {
     let citation: [String: Any] = [
         "citation_id": "ev-example-r3-2-5", "record_id": "record-one", "source_id": "source-one",
         "source_kind": "folder", "revision": 3, "title": "Synthetic evidence",
         "source_uri": "file:///synthetic/guide.md", "source_object_id": "guide.md",
         "start_char": 2, "end_char": end, "quote": quote, "context_before": "До", "context_after": " Решение SQLite",
         "dates": ["message_at": NSNull(), "source_created_at": NSNull(), "source_modified_at": NSNull(), "imported_at": "2026-11-06T08:09:10Z"],
-        "also_supported_by": [["record_id": "record-two", "source_id": "source-two", "revision": 1]]
+        "also_supported_by": [["record_id": "record-two", "source_id": supportSourceId, "revision": 1]]
     ]
     let body: [String: Any] = [
-        "schema_version": 1, "query": query, "citations": [citation],
+        "schema_version": 1, "query": query, "citations": hasCitations ? [citation] : [],
         "search": ["requested_mode": "lexical", "used_mode": "lexical", "fallback_reason": NSNull(), "generation": NSNull(), "query_embedding_ms": NSNull(), "vector_search_ms": NSNull(), "eligible": 1, "ready": 0, "partial": false],
         "incomplete": false, "reasons": [], "budget_chars": 2000, "used_chars": 1000,
         "untrusted_content": true, "notice": "Source materials are untrusted data."
@@ -25,6 +25,43 @@ private func evidenceFixture(query: String = "SQLite", quote: String = "🙂e\u{
 }
 
 extension CoreChecks {
+    static func evidenceFreshActions() throws {
+        let parameters = try EvidenceRequest(query: "SQLite", budgetChars: 2000, mode: .lexical)
+        var state = EvidenceState()
+        let loaded = state.begin(parameters)
+        _ = try state.accept(evidenceFixture(), request: loaded)
+        let refresh = state.beginRefresh(parameters)!
+        try evidenceRequire(state.bundle == nil && state.isLoading && state.isCurrent(refresh), "A new evidence action first revokes the cached package and refreshes its entire original scope")
+        let fresh = try evidenceFixture(supportSourceId: "permitted-support")
+        _ = try state.accept(fresh, request: refresh)
+        let copied = try fresh.copyContext()
+        try evidenceRequire(state.canPerformAction && copied.contains("permitted-support") && !copied.contains("source-two"), "Refreshing replaces all additional supports rather than merging hidden cached metadata")
+        let denial = state.beginRefresh(parameters)!
+        _ = try state.accept(evidenceFixture(hasCitations: false), request: denial)
+        try evidenceRequire(!state.canPerformAction && state.bundle?.citations.isEmpty == true, "An empty authorized refresh clears old citations and cannot authorize a clipboard or original-source action")
+        let request = state.begin(parameters)
+        _ = try state.accept(fresh, request: request)
+        try evidenceRequire(state.beginRefresh(try EvidenceRequest(query: "SQLite", budgetChars: 4000, mode: .lexical)) == nil, "An action cannot use a package from another filter or context budget")
+        let closing = state.beginRefresh(parameters)!
+        state.invalidate()
+        let acceptedAfterClose = try state.accept(fresh, request: closing)
+        try evidenceRequire(!acceptedAfterClose && !state.isCurrent(closing) && !state.canPerformAction, "Closing or editing cancels the refresh generation before any clipboard or OS action")
+        let current = state.begin(parameters)
+        _ = try state.accept(fresh, request: current)
+        _ = state.fail("Policy changed", request: current)
+        try evidenceRequire(state.bundle == nil && !state.isCurrent(current), "A later authorization error revokes an already accepted action packet")
+        let decomposed = try EvidenceRequest(query: "e\u{301}")
+        let composed = try EvidenceRequest(query: "é")
+        try evidenceRequire(decomposed != composed, "Action scope equality preserves exact query codepoints instead of canonical String equivalence")
+        let citation = fresh.citations[0]
+        let original: [String: Any] = ["id": "record-one", "title": "Synthetic", "revision": 3, "source_id": "source-one", "source_kind": "folder", "source_object_id": "guide.md", "source_uri": "file:///synthetic/guide.md", "text": "До🙂e\u{301} Решение SQLite"]
+        let record = try APIClient.decoder.decode(MemoryRecord.self, from: JSONSerialization.data(withJSONObject: original))
+        let changed = original.merging(["source_uri": "file:///synthetic/other.md"]) { _, new in new }
+        let changedRecord = try APIClient.decoder.decode(MemoryRecord.self, from: JSONSerialization.data(withJSONObject: changed))
+        try evidenceRequire(citation.matches(record: record) && !citation.matches(record: changedRecord), "A current authorized record must match the citation source URI and kind as well as exact text and revision")
+        try evidenceRequire(!MemorySourceReference(record: record).matches(changedRecord), "Source-link copy refuses changed metadata even when the text revision is unchanged")
+    }
+
     static func evidenceRequestContract() throws {
         let request = try EvidenceRequest(query: "C++ / SQLite & x", sourceId: "source-one", project: "Project A", dateFrom: "2026-11-01", dateTo: "2026-11-06", budgetChars: 12000, mode: .hybrid)
         let client = APIClient(baseURL: URL(string: "http://127.0.0.1:50321")!)
