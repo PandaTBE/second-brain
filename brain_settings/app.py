@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
+from . import __version__
 from .backup import BackupService
 from .backup_routes import create_backup_router
 from .connected_source_routes import create_connected_source_router
@@ -46,7 +47,9 @@ def create_app(data_dir: Path | None = None, vault=None, transport=None,
             source_service.close()
             await memory_service.close()
 
-    application = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
+    application = FastAPI(
+        version=__version__, docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan
+    )
     csrf_token = secrets.token_urlsafe(32)
     service = SettingsService(data_directory(data_dir),
                               vault=vault, transport=transport)

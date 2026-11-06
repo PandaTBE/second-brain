@@ -44,7 +44,7 @@ def bundle_metadata(version: str) -> dict:
         "CFBundleDevelopmentRegion": "ru", "CFBundleIdentifier": "local.secondbrain.desktop",
         "CFBundleName": "Second Brain", "CFBundleDisplayName": "Second Brain",
         "CFBundleExecutable": "SecondBrain", "CFBundlePackageType": "APPL",
-        "CFBundleShortVersionString": version, "CFBundleVersion": "1",
+        "CFBundleShortVersionString": version, "CFBundleVersion": "2",
         "CFBundleIconFile": "AppIcon", "LSMinimumSystemVersion": "14.0",
         "LSUIElement": False, "NSHighResolutionCapable": True,
         "NSPrincipalClass": "NSApplication",

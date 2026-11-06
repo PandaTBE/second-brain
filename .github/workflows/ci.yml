@@ -83,6 +83,8 @@ jobs:
         run: swift --version
       - name: Run native executable checks
         run: swift run --package-path native SecondBrainCoreChecks
+      - name: Check native restore state and secure input
+        run: bash scripts/check-native-restore-state.sh
       - name: Build and verify local app bundle
         run: ./scripts/build-app.sh
 

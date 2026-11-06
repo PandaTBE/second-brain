@@ -6,7 +6,7 @@
 
 ## English
 
-**Unreleased source builds only; not included in the published `v0.1.0` ZIP.** Outlook.com and Microsoft 365 cloud mailboxes use Microsoft Graph. You need an application registered by you or your IT administrator. A Client ID identifies that registration; it is not a password. Do not copy another product's Client ID.
+**Available since 0.2.0.** Outlook.com and Microsoft 365 cloud mailboxes use Microsoft Graph. You need an application registered by you or your IT administrator. A Client ID identifies that registration; it is not a password. Do not copy another product's Client ID.
 
 ### Obtain a Client ID
 
@@ -26,7 +26,7 @@ If app registration, user consent or device-code authentication is blocked by yo
 
 ## Русский
 
-**Только неопубликованная сборка из исходников; в ZIP `v0.1.0` этого подключения нет.** Облачные ящики Outlook.com и Microsoft 365 подключаются через Microsoft Graph. Нужно приложение, зарегистрированное вами или IT-администратором. Client ID обозначает регистрацию, это не пароль. Не используйте Client ID другого продукта.
+**Доступно с 0.2.0.** Облачные ящики Outlook.com и Microsoft 365 подключаются через Microsoft Graph. Нужно приложение, зарегистрированное вами или IT-администратором. Client ID обозначает регистрацию, это не пароль. Не используйте Client ID другого продукта.
 
 ### Получить Client ID
 

@@ -5,9 +5,10 @@ import logging
 import sys
 from pathlib import Path
 
+from brain_settings import __version__
 from brain_settings.runtime import data_directory
 
-VERSION = "0.1.0"
+VERSION = __version__
 
 
 def _port(value: str) -> int:

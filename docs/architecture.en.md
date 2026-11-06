@@ -1,6 +1,6 @@
 # Architecture
 
-**Version 0.1.0 · updated 2026-11-06** · [Русский](architecture.ru.md) · [User guide](user-guide.en.md)
+**Version 0.2.0 · updated 2026-11-06** · [Русский](architecture.ru.md) · [User guide](user-guide.en.md)
 
 ## Components and data flow
 
@@ -29,20 +29,20 @@ The window and background process have different lifecycles: closing the window 
 | Area | Main files | Responsibility |
 | --- | --- | --- |
 | Native UI | `native/Sources/SecondBrain/`, `native/Sources/SecondBrainCore/` | Screens, request models, helper lifecycle, indicators, and user operations. |
-| Quick search — unreleased | Native `QuickSearch*`, `QuickShortcutSettings`, core `QuickSearchState`/`QuickSearchShortcut` | Independent panel requests/actions, Carbon shortcut registration and explicit selected-record context. |
+| Quick search | Native `QuickSearch*`, `QuickShortcutSettings`, core `QuickSearchState`/`QuickSearchShortcut` | Independent panel requests/actions, Carbon shortcut registration and explicit selected-record context. |
 | HTTP application | `brain_settings/app.py`, `security.py`, `memory_routes.py` | Application factory, local HTTP boundary, settings and memory endpoints. |
 | Settings and secrets | `storage.py`, `source_storage.py`, `sources.py`, `service.py` | Atomic JSON persistence, Keychain, source configuration and access checks. |
-| Source policy — unreleased | `source_policy.py`, `source_policy_routes.py` | SQLite permissions and exclusions, preview, and policy predicates shared by import, retrieval and model processing. |
+| Source policy | `source_policy.py`, `source_policy_routes.py` | SQLite permissions and exclusions, preview, and policy predicates shared by import, retrieval and model processing. |
 | Local import | `importers.py`, `import_batch.py`, `session_stream.py`, `dialogue_parsers.py` | Bounded scanning, streaming reads, supported formats, and chunking. |
 | Remote sources | `notion_*.py`, `github_*.py`, `mail_*.py` | Bounded read clients, material conversion, and durable import progress. |
 | Storage and retrieval | `memory_store.py`, `memory_browse.py`, `memory_atlas.py`, `memory_text.py` | SQLite, FTS5/BM25, page cursors, graph snapshots, and redaction. |
-| Local embeddings — unreleased | `embedding_store.py`, `embeddings.py`, `retrieval.py` | SQLite index generations, bounded background indexing, exact vector scans and shared retrieval/RRF. |
-| Evidence and provenance — unreleased | `evidence.py`, `evidence_pack.py`, `evidence_passages.py`, `retrieval_filters.py`, `source_dates.py`, `session_metadata.py` | Extractive citation packets, shared pre-ranking filters and explicit date/project metadata. |
-| Facts and history — unreleased | `memory_facts.py`, `fact_schema.py`, `fact_queries.py`, `fact_relations.py`, `facts_service.py` | Exact card-atom projection, revision proof snapshots, conservative relations and scoped paginated reads. |
-| Backup/recovery — unreleased | `backup*.py`, `maintenance.py`, `source_relocation.py`, `source_recovery_routes.py` | Consistent allowlisted snapshots, age worker, reviewed restore/rollback and explicit post-transfer source repair. |
+| Local embeddings | `embedding_store.py`, `embeddings.py`, `retrieval.py` | SQLite index generations, bounded background indexing, exact vector scans and shared retrieval/RRF. |
+| Evidence and provenance | `evidence.py`, `evidence_pack.py`, `evidence_passages.py`, `retrieval_filters.py`, `source_dates.py`, `session_metadata.py` | Extractive citation packets, shared pre-ranking filters and explicit date/project metadata. |
+| Facts and history | `memory_facts.py`, `fact_schema.py`, `fact_queries.py`, `fact_relations.py`, `facts_service.py` | Exact card-atom projection, revision proof snapshots, conservative relations and scoped paginated reads. |
+| Backup/recovery | `backup*.py`, `maintenance.py`, `source_relocation.py`, `source_recovery_routes.py` | Consistent allowlisted snapshots, age worker, reviewed restore/rollback and explicit post-transfer source repair. |
 | Automation | `background.py`, `memory_service.py`, `card_parallel.py`, `card_retries.py`, `provider_backoff.py` | Watching, writer ownership, batches, concurrency, retries, and durable provider admission pauses. |
 | Model calls | `llm_cards.py`, `providers.py`, `transport.py`, `ollama.py` | Cloud provider settings, bounded public HTTPS and fixed-loopback Ollama calls, card and evidence validation. |
-| MCP | `mcp_server.py`, `mcp_config.py`, `scripts/mcp-server.command` | Four original tools, unreleased evidence/facts/history tools (seven total), and client-configuration generation. |
+| MCP | `mcp_server.py`, `mcp_config.py`, `scripts/mcp-server.command` | Four original tools, evidence/facts/history tools (seven total), and client-configuration generation. |
 | Graph and compatible web UI | `static/` | Local assets without CDNs; the browser graph is separate from native settings. |
 
 ## Portable runtime and development builds
@@ -76,14 +76,14 @@ Provider status reports local execution separately from a temporary provider
 cooldown. Local Ollama and model weights are external installations, not part
 of the release ZIP.
 
-Unreleased embeddings use a separate opt-in setting and installed model, leaving
+embeddings use a separate opt-in setting and installed model, leaving
 the card provider unchanged. The fixed-loopback adapter checks local model
 identity/digest, probes embedding support/dimensions, and uses `/api/embed` with
 `truncate: false`. It does not download weights or fall back to cloud inference.
 Prepared input is the title plus newline plus saved text; more than 12,000
 characters produces an explicit indexing error while BM25 remains available.
 
-## Local retrieval in unreleased builds
+## Local retrieval in 0.2.0
 
 `Retrieval` is shared by HTTP and stdio MCP. Optional search modes are `lexical`
 (default), `semantic` and `hybrid`. Lexical retrieval does not call a model;
@@ -110,7 +110,7 @@ storage/retrieval. See [contracts and measured limits](search-contracts.md).
 
 ## Persistence model
 
-Unreleased evidence metadata separates nullable `message_at`,
+evidence metadata separates nullable `message_at`,
 `source_created_at`, `source_modified_at` and `imported_at`. Legacy ambiguous dates
 remain unknown instead of being inferred from existing freshness fields.
 `imported_at` records saving the current text revision, not each unchanged scan.
@@ -131,7 +131,7 @@ invent project membership.
 
 A source defines an import and visibility scope. A material stores a stable ID, source-object identifier, text, source/URI, timestamps, content hash, and current revision. Replacing one object's chunks is transactional. Unchanged text does not generate a new card; changed text creates a revision and resets its processing state.
 
-FTS5 indexes text and retrieval fields, with BM25 ranking. Reads use bounded snippets and paginated cursors. The graph uses a snapshot of up to 2000 materials. All source/topic relationships are retained in batched SVG paths; keyed nodes and snapshot-scoped search indexes avoid rebuilding unchanged scenes, while camera writes are coalesced to animation frames. Primary documents retain the current revision. Unreleased fact history separately snapshots participating proof revisions from feature enablement; it is not a complete archive of every historical source text.
+FTS5 indexes text and retrieval fields, with BM25 ranking. Reads use bounded snippets and paginated cursors. The graph uses a snapshot of up to 2000 materials. All source/topic relationships are retained in batched SVG paths; keyed nodes and snapshot-scoped search indexes avoid rebuilding unchanged scenes, while camera writes are coalesced to animation frames. Primary documents retain the current revision. fact history separately snapshots participating proof revisions from feature enablement; it is not a complete archive of every historical source text.
 
 Card status and retry budgets are durable SQLite state. Automatic processing uses bounded claims and revision checks; concurrent API calls do not become independent, unsynchronized database writers. A writer lease prevents two import processes from owning the queue simultaneously. Deleted sources have tombstones that block late commits from work already in flight.
 
@@ -139,7 +139,7 @@ Provider pauses are separate SQLite state scoped by a hash of provider, normaliz
 
 Local, GitHub, and email checkpoints retain import continuation. Mail uses UIDVALIDITY, bounded UID windows, and a persisted date scope. Pausing a mailbox retains existing materials: permission for new reads is separate from cache visibility in the app and MCP.
 
-## Evidence packets in unreleased builds
+## Evidence packets in 0.2.0
 
 `EvidenceService` backs both `GET /api/memory/evidence` and read-only MCP
 `get_evidence_bundle`. Source, exact stored-project and UTC date predicates apply
@@ -174,7 +174,7 @@ Passages without localized query evidence and ambiguous card passages carry
 `quote_relevance="uncertain"` plus explicit incompleteness reasons. The native
 view shows human-readable labels while preserving raw diagnostics in JSON.
 
-## Native quick search in unreleased builds
+## Native quick search in 0.2.0
 
 The menu bar and Command–Option–Shift–Space open an AppKit panel with native
 search/list controls. Its own request/action identities isolate it from the main
@@ -194,7 +194,7 @@ Accessibility labels/status announcements and IME-aware plain arrow/Return/Esc
 commands are native; no Accessibility or Input Monitoring authorization is needed.
 Closing the main window keeps the app/hotkey alive; quitting unregisters it.
 
-## Facts and decision history in unreleased builds
+## Facts and decision history in 0.2.0
 
 `fact_schema` adds entities, revision snapshots, evidence, relations and projection
 identities. Entity identity hashes kind and exact NFC-normalized, outer-trimmed
@@ -228,7 +228,7 @@ truncation. Native views show grouped proof, history-only badges and paginated
 observations, refresh authorization before actions, and keep historical proof
 distinct from a current-material view. See [contracts](search-contracts.md).
 
-## Backup, maintenance and transfer in unreleased builds
+## Backup, maintenance and transfer in 0.2.0
 
 The app's backup service acquires the writer lease and exclusive maintenance
 boundary, uses SQLite Backup API in bounded page passes, and captures configuration
@@ -297,7 +297,7 @@ six-field record reference (`id`, `revision`, `source_id`, `source_kind`,
 identifiers. See
 [user workflow](user-guide.en.md#managed-backups) and [contracts](search-contracts.md).
 
-## Source policy in unreleased builds
+## Source policy in 0.2.0
 
 Connection configuration remains in `sources.json`; source permissions and
 exclusions are authoritative SQLite state. Compatible migrations add
@@ -331,7 +331,7 @@ local. There is no verified per-client identity or project authorization layer.
 - Sources are untrusted data, including instructions, inaccurate claims, and potential secrets. They must not become agent commands.
 - HTTPS clients bound destinations and responses; validated public IPs are pinned for TLS connections. Notion/GitHub use fixed APIs; mail uses read-only IMAP over TLS.
 - Known secret patterns are redacted before persistence and model processing. This is a heuristic, not a guarantee that all sensitive content is removed.
-- A cloud model provider becomes a separate recipient of text when cloud card generation is permitted. The named Ollama adapter instead uses a downloaded model at its fixed local endpoint; the OS and server must be trusted. Lexical search calls neither model. Unreleased semantic/hybrid search may call the explicitly enabled local embedding model.
+- A cloud model provider becomes a separate recipient of text when cloud card generation is permitted. The named Ollama adapter instead uses a downloaded model at its fixed local endpoint; the OS and server must be trusted. Lexical search calls neither model. semantic/hybrid search may call the explicitly enabled local embedding model.
 - Keychain stores secrets. JSON settings and SQLite can contain private metadata and are not encrypted by the application.
 - MCP is limited to search and reads, but a client granted access can retrieve private materials. This mechanism does not isolate other processes running as the same user.
 

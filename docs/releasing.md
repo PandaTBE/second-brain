@@ -1,11 +1,11 @@
 # Release and publication checklist
 
-**Updated 2026-11-04.** These are maintainer instructions. Preparing artifacts does
+**Updated 2026-11-06.** These are maintainer instructions. Preparing artifacts does
 not create a remote repository, upload files, push commits, or publish a release.
 
 ## Release formats
 
-The portable Apple Silicon asset is `Second-Brain-0.1.0-macos-arm64.zip`. It
+The portable Apple Silicon asset is `Second-Brain-0.2.0-macos-arm64.zip`. It
 contains **Second Brain.app**, its frozen Python service and dependencies. The
 recipient needs macOS 14+, with no Xcode, Python, uv or source checkout. This is
 separate from `scripts/build-app.sh`, whose development app depends on its
@@ -28,8 +28,9 @@ locked dependencies, then run the project's checks:
 uv sync --frozen --group dev
 uv run ruff check brain_settings tests scripts launch.py
 uv run pytest --cov=brain_settings --cov-report=term-missing
-node --test tests/test-*.mjs
+node --test tests/*.mjs
 swift run --package-path native SecondBrainCoreChecks
+bash scripts/check-native-restore-state.sh
 ./scripts/build-release.sh
 .venv/bin/python scripts/check_release_bundle.py --app "build/release/app/Second Brain.app"
 .venv/bin/python scripts/smoke_release.py --app "build/release/app/Second Brain.app"
@@ -104,12 +105,12 @@ private vulnerability reporting or provide a working private contact in
 rules where available. Local source files cannot enable these account settings.
 
 After authorization to publish, push only the reviewed history to the intended
-remote and choose the tested commit for tag `v0.1.0`. Inspect an existing `origin`
+remote and choose the tested commit for tag `v0.2.0`. Inspect an existing `origin`
 before changing it, and never put a token in the remote URL. Pushing, tagging and
 publishing are separate actions; preparation does not authorize them by itself.
 
 In GitHub **Releases**, create a **draft**, select the intended tag/commit, paste
-[the release notes](releases/0.1.0.md), and attach the portable ZIP plus
+[the release notes](releases/0.2.0.md), and attach the portable ZIP plus
 `SHA256SUMS`. Offer the source ZIP separately if desired. GitHub's automatic
 **Source code** download is not the compiled application. Review the draft and its
 attached file hashes before publishing. See [GitHub's release instructions](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository).

@@ -1,6 +1,6 @@
 [project]
 name = "second-brain-settings"
-version = "0.1.0"
+version = "0.2.0"
 description = "Shared local memory for AI assistants, with a native macOS app and read-only MCP"
 readme = "README.md"
 license = "MIT"

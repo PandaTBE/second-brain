@@ -2,7 +2,7 @@
 
 **A shared, source-backed memory for AI assistants, stored on your Mac.**
 
-**0.1.0 · macOS 14+ · Native SwiftUI app · MIT**
+**0.2.0 · macOS 14+ · Native SwiftUI app · MIT**
 
 [English](#english) · [Русский](#russian) · [Documentation](docs/README.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
 
@@ -50,20 +50,20 @@ copying, it offers shared search, citations and incremental imports. The tradeof
 is maintaining a local app and granting explicit source access. It does not
 replace a team's access-control system. It cannot guarantee that an
 assistant calls MCP on every message or that a generated card is correct. The
-published release uses lexical BM25 search. **Unreleased source builds** add
+default search uses lexical BM25. Version 0.2.0 adds
 optional local semantic/hybrid retrieval through a separately selected installed
 Ollama embedding model. It is off by default, downloads no weights and keeps BM25
 available. Actual relevance improvement has not yet been verified with a real
 model; see [search modes and limits](docs/user-guide.en.md#semantic-search).
 
-**Unreleased evidence bundles** add exact source quotes with stable citation IDs,
+**Evidence bundles** add exact source quotes with stable citation IDs,
 current revisions, nullable source dates and a bounded JSON context budget. Codex
 or Claude writes the answer from those quotes; retrieval does not generate an
 answer or incur a paid model call. The native app previews the packet and refreshes
 its permitted citations and support before explicit copying. See
 [evidence workflow](docs/user-guide.en.md#evidence-bundles).
 
-**Unreleased facts and decision history** group identical card wording with
+**Facts and decision history** group identical card wording with
 source quotations and retain observed revision snapshots from feature enablement.
 Past-only wording is explicitly marked and hidden by default; newer dates do not
 silently resolve different decisions. Reading/projecting saved cards makes no
@@ -71,13 +71,13 @@ model call, while creating cards uses the configured model and its normal budget
 An agent may still spend its own input tokens on retrieved context. See
 [facts and history](docs/user-guide.en.md#facts-history).
 
-**Unreleased quick search:** open a native panel from the menu bar or
+**Quick search:** open a native panel from the menu bar or
 Command–Option–Shift–Space while Second Brain is running. Choose among up to eight
 results with the keyboard, open a material or explicitly copy its source-backed
 context. The shortcut is configurable and requires no Accessibility or Input
 Monitoring permission. See [quick search](docs/user-guide.en.md#quick-search).
 
-**Unreleased backup and transfer:** the native backup screen creates consistent
+**Backup and transfer:** the native backup screen creates consistent
 local SQLite/configuration snapshots, optional scheduled local copies and separate
 password-encrypted age exports. Local copies remain unencrypted. Inspection
 precedes restoration; imported jobs stay paused and another installation requires
@@ -91,15 +91,15 @@ a 128 MiB limit and requires the exact supported schema. See
 | --- | --- | --- |
 | Codex / Claude Code / Qwen Code | JSONL session text | Selected folders; Qwen imports after a quiet period |
 | Notes | Markdown, TXT, JSONL | Selected folder; symlinks skipped |
-| Apple Notes — unreleased | Note text from selected folders | macOS Automation permission; Notes open; protected notes and attachments skipped |
+| Apple Notes | Note text from selected folders | macOS Automation permission; Notes open; protected notes and attachments skipped |
 | Notion | Selected page text | Up to 100 pages; child pages selected separately |
 | GitHub | Markdown, issue/PR titles and bodies, state and labels | Up to 20 repositories; no code, comments or diffs |
 | Gmail / Yandex Mail | Inbox headers and text | App passwords; initial 30/90/365-day window or all history; whole messages over 1 MiB skipped |
-| Outlook / Microsoft 365 — unreleased | Inbox headers and text | Microsoft OAuth device sign-in; registered Client ID; explicit import period |
+| Outlook / Microsoft 365 | Inbox headers and text | Microsoft OAuth device sign-in; registered Client ID; explicit import period |
 
-**Source builds only:** Apple Notes and Outlook are not in the published `v0.1.0` ZIP. See the [source guide](docs/user-guide.en.md#apple-notes-source) and [Outlook registration guide](docs/outlook-setup.md#english).
+**Apple Notes and Outlook are included in 0.2.0.** See the [source guide](docs/user-guide.en.md#apple-notes-source) and [Outlook registration guide](docs/outlook-setup.md#english).
 
-**Unreleased source permissions:** a source's hand icon opens independent controls
+**Source permissions:** a source's hand icon opens independent controls
 for import, search in the app, MCP access, local model processing and external
 model processing. Local folders and selected Apple Notes folders also support
 exclusions with a preview. Existing settings keep their behavior; changing a
@@ -113,7 +113,7 @@ implicitly purge its imported copy.
 
 ### Install and launch
 
-**Prebuilt application:** use `Second-Brain-0.1.0-macos-arm64.zip` from the
+**Prebuilt application:** use `Second-Brain-0.2.0-macos-arm64.zip` from the
 repository's **Releases → Assets**. It contains the native app and its Python
 service. On an **Apple Silicon Mac with macOS 14+**, extract it, move
 **Second Brain.app** to **Applications**, and open it. **Xcode, Python, uv and a
@@ -125,7 +125,7 @@ notarization**. macOS can block an app downloaded from the internet. If you trus
 the release and have checked its checksum, use Apple's documented **System
 Settings → Privacy & Security → Open Anyway** flow. Do not disable Gatekeeper.
 See the [installation guide](docs/user-guide.en.md#2-requirements-and-installation)
-and [release notes](docs/releases/0.1.0.md) for the package's limits.
+and [release notes](docs/releases/0.2.0.md) for the package's limits.
 
 The release starts with a separate local archive in
 `~/Library/Application Support/Second Brain`. It does not include a maintainer's
@@ -151,7 +151,7 @@ rather than a development app, see [releasing](docs/releasing.md).
 ### First-use guide
 
 1. **Add a source.** Open **Sources → Add source**. Select session or notes
-   folders, Notion/GitHub content, Gmail or Yandex Mail. Provider-specific
+   folders, Apple Notes, Notion/GitHub content, Gmail, Yandex Mail or Outlook. Provider-specific
    instructions are in each form. Never paste credentials into a chat or issue.
 2. **Choose scope.** For email, explicitly enable import and choose an initial
    period; the default is 30 days. Existing mail connections do not silently opt in.
@@ -165,9 +165,8 @@ rather than a development app, see [releasing](docs/releasing.md).
    that provider and may incur charges; local processing uses your Mac. Ollama
    and model weights are separate installs. A custom OpenAI-compatible API needs
    its HTTPS base URL (public by default), token and exact model ID; catalog
-   loading is optional. **Unreleased source builds** add an explicit opt-in for a
-   trusted corporate API on an internal network; the published `v0.1.0` ZIP does
-   not include that option. See the [connection guide](docs/user-guide.en.md#4-models-and-cards)
+   loading is optional. Version 0.2.0 includes an explicit opt-in for a
+   trusted corporate API on an internal network. See the [connection guide](docs/user-guide.en.md#4-models-and-cards)
    and [local Qwen setup](docs/user-guide.en.md#qwen-api-and-local-qwen).
 6. **Set automation.** Session watching polls about every 30 seconds, using a
    completed-turn marker or 90 seconds of inactivity. Connected remote sources
@@ -213,10 +212,10 @@ flowchart LR
 ```
 
 The four original MCP tools are `search_memory`, `get_record`,
-`get_context_brief`, and `get_sync_status`. Unreleased source builds add read-only
+`get_context_brief`, and `get_sync_status`. Version 0.2.0 adds read-only
 `get_evidence_bundle`, `get_facts`, and `get_fact_history`: seven tools, preserving
 the original required arguments.
-They do not trigger imports or card generation. In unreleased builds,
+They do not trigger imports or card generation. In 0.2.0,
 `search_memory` accepts optional `mode=lexical|semantic|hybrid`; after explicit
 embedding opt-in, semantic/hybrid requests can invoke only the local query
 embedding model and report the mode actually used. More in the
@@ -233,7 +232,7 @@ are built separately; see the [artifact checks](docs/releasing.md#privacy-and-ar
 These are specific protections, **not a guarantee of complete security**:
 
 - Working SQLite/WAL and local copies are not encrypted by the application.
-  Unreleased age export encrypts a separate portable archive with your password.
+  age export encrypts a separate portable archive with your password.
 - Cloud cards send text to the selected provider; local Ollama cards use a
   downloaded model on this Mac. MCP results can still be transmitted by the
   AI client using them.
@@ -307,14 +306,14 @@ Community expectations: [Code of conduct](CODE_OF_CONDUCT.md).
 постепенный импорт. Взамен нужно поддерживать локальное приложение и осознанно
 предоставлять доступ к источникам. Это не замена командной
 системе прав доступа. Приложение не гарантирует вызов MCP в каждом сообщении и
-безошибочность карточек. Выпущенная версия использует лексический BM25.
-**Неопубликованные исходники** добавляют локальные семантический и гибридный
+безошибочность карточек. По умолчанию используется лексический BM25.
+Версия 0.2.0 добавляет локальные семантический и гибридный
 режимы с отдельной установленной embedding-моделью Ollama. По умолчанию индекс
 выключен, веса автоматически не загружаются, BM25 сохраняется. Улучшение качества
 с настоящей моделью пока не подтверждено; см.
 [режимы и ограничения](docs/user-guide.ru.md#semantic-search).
 
-**Пакет доказательств — ещё не выпущено:** точные цитаты с устойчивыми ID,
+**Пакет доказательств:** точные цитаты с устойчивыми ID,
 текущими ревизиями, отдельно известными датами источника и ограниченным бюджетом
 JSON-контекста. Codex или Claude составляет ответ по этим цитатам; поиск не
 генерирует ответ и не вызывает платную модель. Приложение позволяет просмотреть
@@ -323,7 +322,7 @@ JSON-контекста. Codex или Claude составляет ответ п�
 четыре прежних сохраняют обязательные аргументы. См.
 [работу с доказательствами](docs/user-guide.ru.md#evidence-bundles).
 
-**Факты и история решений — ещё не выпущено:** одинаковые формулировки карточек
+**Факты и история решений:** одинаковые формулировки карточек
 объединяются с цитатами, снимки ревизий сохраняются с момента включения функции.
 Только прошлые формулировки явно помечаются и по умолчанию скрыты; новая дата
 не разрешает разные решения автоматически. Чтение/проекция готовых карточек
@@ -332,13 +331,13 @@ JSON-контекста. Codex или Claude составляет ответ п�
 `get_facts` и `get_fact_history` — всего семь MCP-инструментов. Подробнее —
 [факты и история](docs/user-guide.ru.md#facts-history).
 
-**Быстрый поиск — ещё не выпущено:** нативная панель вызывается из строки меню
+**Быстрый поиск:** нативная панель вызывается из строки меню
 или Command–Option–Shift–Пробел, пока Second Brain работает. Клавиатурой выберите
 один из восьми результатов, откройте материал или явно скопируйте его контекст
 с цитатами. Сочетание настраивается без разрешений Accessibility и отслеживания
 ввода. См. [быстрый поиск](docs/user-guide.ru.md#quick-search).
 
-**Копии и перенос — ещё не выпущено:** нативный экран создаёт согласованные
+**Копии и перенос:** нативный экран создаёт согласованные
 SQLite/конфигурационные снимки, локальные копии по выборочному расписанию и отдельный
 age-архив с паролем. Локальные копии не зашифрованы. Восстановлению предшествует
 проверка, задания остаются на паузе; другая установка требует нового входа и
@@ -351,15 +350,15 @@ age-архив с паролем. Локальные копии не зашиф�
 | --- | --- | --- |
 | Codex / Claude Code / Qwen Code | Текст сессий JSONL | Выбранные папки; Qwen импортируется после паузы записи |
 | Заметки | Markdown, TXT, JSONL | Выбранная папка; символические ссылки пропускаются |
-| Apple Заметки — ещё не выпущено | Текст заметок выбранных папок | Разрешение «Автоматизация» macOS; Notes открыты; защищённые заметки и вложения пропускаются |
+| Apple Заметки | Текст заметок выбранных папок | Разрешение «Автоматизация» macOS; Notes открыты; защищённые заметки и вложения пропускаются |
 | Notion | Текст выбранных страниц | До 100 страниц; вложенные выбираются отдельно |
 | GitHub | Markdown, заголовки и описания issues/PR, состояния и метки | До 20 репозиториев; без кода, комментариев и diff |
 | Gmail / Яндекс Почта | Заголовки и текст входящих | Пароль приложения; 30/90/365 дней или вся история; письма больше 1 МиБ пропускаются |
-| Outlook / Microsoft 365 — ещё не выпущено | Заголовки и текст входящих | Вход Microsoft по коду; зарегистрированный Client ID; явный выбор периода импорта |
+| Outlook / Microsoft 365 | Заголовки и текст входящих | Вход Microsoft по коду; зарегистрированный Client ID; явный выбор периода импорта |
 
-**Только сборки из исходников:** Apple Заметок и Outlook ещё нет в опубликованном ZIP `v0.1.0`. См. [руководство источников](docs/user-guide.ru.md#apple-notes-source) и [регистрацию Outlook](docs/outlook-setup.md#russian).
+**Apple Заметки и Outlook входят в 0.2.0.** См. [руководство источников](docs/user-guide.ru.md#apple-notes-source) и [регистрацию Outlook](docs/outlook-setup.md#russian).
 
-**Разрешения источников — ещё не выпущено:** кнопка с рукой у источника открывает
+**Разрешения источников:** кнопка с рукой у источника открывает
 независимые настройки импорта, поиска в приложении, MCP, локальной и внешней
 модельной обработки. Для локальных путей и выбранных папок Apple Заметок доступны
 исключения с предварительным просмотром последствий. Старые настройки сохраняют
@@ -373,7 +372,7 @@ age-архив с паролем. Локальные копии не зашиф�
 ### Установка
 
 **Готовое приложение:** в **Releases → Assets** этого репозитория выберите
-`Second-Brain-0.1.0-macos-arm64.zip`. Архив содержит нативное приложение и его
+`Second-Brain-0.2.0-macos-arm64.zip`. Архив содержит нативное приложение и его
 Python-сервис. На **Mac с Apple Silicon и macOS 14+** распакуйте его, перенесите
 **Second Brain.app** в **Программы** и откройте. **Устанавливать Xcode, Python, uv
 или исходники пользователю не требуется.** Сборки для Intel в этом архиве нет.
@@ -383,7 +382,7 @@ Apple**. macOS может заблокировать загруженное из
 доверяете выпуску и проверили контрольную сумму, используйте описанный Apple путь
 **Системные настройки → Конфиденциальность и безопасность → Всё равно открыть**.
 Не отключайте Gatekeeper. Подробнее — в [руководстве по установке](docs/user-guide.ru.md#2-требования-и-установка)
-и [примечаниях к выпуску](docs/releases/0.1.0.md).
+и [примечаниях к выпуску](docs/releases/0.2.0.md).
 
 Готовая сборка создаёт отдельный архив в
 `~/Library/Application Support/Second Brain`. Она не содержит памяти,
@@ -422,9 +421,9 @@ open "Second Brain.app"
    локальная обработка использует ресурсы Mac. Ollama и веса устанавливаются
    отдельно. Для **Свой API · OpenAI-совместимый** нужны базовый HTTPS-адрес
    (по умолчанию публичный), токен и точный ID модели; каталог необязателен.
-   **В неопубликованных сборках из исходников** добавлено явное разрешение для
-   доверенного корпоративного API во внутренней сети. В ZIP `v0.1.0` этой настройки
-   ещё нет. Подробнее —
+   В версии 0.2.0 есть явное разрешение для
+   доверенного корпоративного API во внутренней сети. Настройка выключена
+   по умолчанию. Подробнее —
    [подключение модели](docs/user-guide.ru.md#4-подключение-модели-и-карточки) и
    [локальная Qwen](docs/user-guide.ru.md#qwen-api-и-локальная-qwen).
 6. Настройте автоматизацию. Сессии проверяются примерно каждые 30 секунд:
@@ -481,6 +480,6 @@ CSRF. Известные форматы секретов маскируются 
 [инструкции разработчика](docs/development.md). Тесты используют синтетические
 источники и подставные credentials; отдельные CoreChecks проверяют Swift-логику.
 
-Лицензия — [MIT](LICENSE). Изменения `0.1.0`: [CHANGELOG](CHANGELOG.md).
+Лицензия — [MIT](LICENSE). Изменения `0.2.0`: [CHANGELOG](CHANGELOG.md).
 Порядок публикации: [руководство по релизу](docs/releasing.md).
 Правила общения: [кодекс поведения](CODE_OF_CONDUCT.md).

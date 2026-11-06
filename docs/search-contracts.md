@@ -1,9 +1,9 @@
 # Retrieval and evidence contracts
 
 Contracts updated 2026-11-06; Stage 0 implementation baseline `7fe1f49`.
-Source policies, local retrieval, evidence and fact/history views describe unreleased
-source builds tracked by the [development plan](agent-memory-plan.ru.md).
-Published `v0.1.0` assets remain unchanged.
+Source policies, local retrieval, evidence, fact/history views and backup/recovery
+are included in 0.2.0. The [development plan](agent-memory-plan.ru.md) retains the
+historical implementation and verification record.
 
 ## Existing compatibility boundary
 
@@ -16,13 +16,13 @@ The following stdio MCP names and required arguments remain stable:
 | `get_context_brief` | none | `records`, `untrusted_content`, `notice`, `message` |
 | `get_sync_status` | none | `memory`, `mcp_read_only`, `message` |
 
-Unreleased source builds add three read-only tools, for seven total:
+Version 0.2.0 adds three read-only tools, for seven total:
 `get_evidence_bundle` (required `query`), `get_facts` (no required argument) and
 `get_fact_history` (required `fact_id`). They do not change the original four
 required-argument contracts or project cards during a read.
 
 `search_memory` keeps optional `limit=8` (1–20) and `source_id=None`, and adds
-optional `mode="lexical"` in unreleased builds.
+optional `mode="lexical"` in 0.2.0.
 The query must contain 1–512 characters. A result has the existing `id`, `title`,
 `source_id`, `source_kind`, `source_uri`, `updated_at`, `revision`, `score`, and
 bounded `snippet`, where available. `summary` may also be present. Metadata bounds
@@ -36,7 +36,7 @@ MCP reads may run with the application closed. Reads never create card jobs or
 invoke a paid provider. A local query embedding is allowed only after explicit
 local embedding opt-in; it is not an implicit card-model call.
 
-## Implemented source-policy boundary — Stage 1, unreleased
+## Implemented source-policy boundary — Stage 1
 
 `source_policies` and `source_exclusions` in SQLite are authoritative for five
 independent scopes: `import_enabled`, `local_search_enabled`, `mcp_enabled`,
@@ -66,7 +66,7 @@ source. Cached text may remain physically in SQLite, FTS/WAL pages or backups.
 Old MCP binaries must be restarted when upgrading; this implementation does not
 retrofit enforcement into already running older code.
 
-## Implemented local retrieval — Stage 2, unreleased
+## Implemented local retrieval — Stage 2
 
 Optional `mode` accepts `lexical` (default), `semantic`, or `hybrid`; HTTP
 `GET /api/memory/search` and stdio MCP use `Retrieval`. Lexical retrieval remains
@@ -120,7 +120,7 @@ materials (default 8). These mutations remain outside MCP. Native semantic/hybri
 search returns at most 20 ranked materials; status-filtered pagination remains
 lexical.
 
-## Implemented evidence bundle — Stage 3, unreleased
+## Implemented evidence bundle — Stage 3
 
 Read-only MCP `get_evidence_bundle` requires `query` (1–512 characters) and accepts
 `source_id=None`, `project=None`, `date_from=None`, `date_to=None`,
@@ -130,7 +130,7 @@ are identical. Native HTTP retrieval uses local-search permission; MCP uses MCP
 permission. The four original tools remain compatible, including a query-free
 `get_context_brief()`.
 
-Unreleased selected-record context uses `record_id` (a nonblank valid-Unicode ID
+selected-record context uses `record_id` (a nonblank valid-Unicode ID
 of 1–128 characters, without control characters). It directly reads only that
 current authorized material before any ranking or query embedding, then applies
 the same source/project/date filters and final revision/policy snapshot. The
@@ -234,7 +234,7 @@ Checked HTTPS URIs open in the browser; local file URIs are revealed in Finder
 (recognized line fragments identify the file, not an executable action). Opaque
 Notes IDs are displayed without invented deep links.
 
-## Implemented facts and history — Stage 4, unreleased
+## Implemented facts and history — Stage 4
 
 The additional tools are:
 
@@ -334,7 +334,7 @@ fact/history actions requery the view and validate current material before actin
 past snapshots remain labelled as historical. Previously received/displayed text
 and old backups cannot be retroactively recalled.
 
-## Backup/restore operational boundary — Stage 6, unreleased
+## Backup/restore operational boundary — Stage 6
 
 These operational endpoints use the app's HTTP API and add no MCP tools:
 
@@ -449,7 +449,7 @@ or `outlook.office.com`/`outlook.live.com` for the corresponding source kind.
 IMAP/Notes identifiers are not given invented browser links. Restored old file URIs
 remain provenance, not automatically authorized destinations.
 
-This describes implemented unreleased contracts. Native GUI restoration and
+This describes implemented contracts. Native GUI restoration and
 Unicode checks, API cross-checks and source-matched portable-package checks passed
 on the validation Mac. The 30 recorded quick-panel checks include user-confirmed
 physical global-hotkey activation with the main window closed. A physical

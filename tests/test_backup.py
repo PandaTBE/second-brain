@@ -135,6 +135,9 @@ def test_snapshot_uses_sqlite_backup_with_wal_and_manifest_allowlist(seeded):
         manifest = json.loads(archive.read("manifest.json"))
         assert manifest["format"] == "second-brain-backup"
         assert manifest["format_version"] == 1
+        from brain_settings import __version__
+
+        assert manifest["app_version"] == __version__
         for name, expected in manifest["files"].items():
             payload = archive.read(name)
             assert expected == {
@@ -292,7 +295,9 @@ def test_expired_inspection_requires_new_preflight(seeded):
 
 
 @pytest.mark.parametrize("phase", ["after_prepared", "after_database", "after_json"])
-def test_interrupted_restore_recovers_original_state_before_next_store_read(seeded, phase):
+def test_interrupted_restore_recovers_original_state_before_next_store_read(
+    seeded, phase, monkeypatch
+):
     service, record = seeded
     archive = local_path(service)
     put(service.store, "Synthetic pre-restore current version.")
@@ -318,6 +323,8 @@ service.restore(preview['inspection_id'])
         capture_output=True,
     )
     assert result.returncode == 77, result.stderr.decode()
+    # Recovery uses the same synthetic empty handle inventory as the crashed child.
+    monkeypatch.setattr("brain_settings.backup_restore.legacy_sqlite_handles", lambda _: ())
     reopened = MemoryStore(service.directory)
     assert reopened.get_record(record["id"])["text"] == "Synthetic pre-restore current version."
     assert reopened.source_policy(SOURCE).import_enabled is True

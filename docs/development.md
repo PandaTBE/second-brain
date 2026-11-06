@@ -1,9 +1,8 @@
 # Development
 
 Second Brain is a macOS application with a local Python service and a separate
-read-only MCP process. The published 0.1.0 Apple Silicon bundle embeds its Python
-runtime; development builds use the checkout's environment. Unreleased features
-documented below require current source builds. This is not a published Python SDK.
+read-only MCP process. The published 0.2.0 Apple Silicon bundle embeds its Python
+runtime; development builds use the checkout's environment. This is not a published Python SDK.
 
 ## Tools and setup
 
@@ -24,16 +23,16 @@ No environment file or real provider token is required for tests. Application cr
 | --- | --- |
 | `native/Sources/SecondBrain/` | SwiftUI views and app lifecycle |
 | `native/Sources/SecondBrainCore/` | Shared models, service startup, API client, and state helpers |
-| Native `QuickSearch*` / `QuickShortcutSettings` | Unreleased independent panel requests, explicit selected-record actions and exclusive Carbon shortcut registration |
+| Native `QuickSearch*` / `QuickShortcutSettings` | independent panel requests, explicit selected-record actions and exclusive Carbon shortcut registration |
 | `native/Tests/SecondBrainCoreTests/` | Executable CoreChecks target |
 | `brain_settings/app.py` | FastAPI factory; importing it must not create the personal database |
 | `brain_settings/memory_service.py` | Bounded import/card jobs and automation |
 | `brain_settings/memory_store.py` | SQLite, revisions, FTS5, and source deletion guards |
-| `brain_settings/source_policy.py`, `source_policy_routes.py` | Unreleased independent permissions/exclusions, SQLite predicates and preview API |
-| `brain_settings/embedding_store.py`, `embeddings.py`, `retrieval.py` | Unreleased local index generations, background batches, bounded exact scans and shared RRF retrieval |
-| `brain_settings/evidence*.py`, `retrieval_filters.py`, `source_dates.py`, `session_metadata.py` | Unreleased extractive packets, pre-ranking filters and explicit date/project provenance |
-| `brain_settings/memory_facts.py`, `fact_schema.py`, `fact_queries.py`, `fact_relations.py`, `facts_service.py` | Unreleased exact card projection, revision snapshots, conservative relations and scoped facts/history reads |
-| `brain_settings/backup*.py`, `maintenance.py`, `source_relocation.py` | Unreleased snapshots, constrained age worker, inspected restore/rollback, operation isolation and explicit source repair |
+| `brain_settings/source_policy.py`, `source_policy_routes.py` | independent permissions/exclusions, SQLite predicates and preview API |
+| `brain_settings/embedding_store.py`, `embeddings.py`, `retrieval.py` | local index generations, background batches, bounded exact scans and shared RRF retrieval |
+| `brain_settings/evidence*.py`, `retrieval_filters.py`, `source_dates.py`, `session_metadata.py` | extractive packets, pre-ranking filters and explicit date/project provenance |
+| `brain_settings/memory_facts.py`, `fact_schema.py`, `fact_queries.py`, `fact_relations.py`, `facts_service.py` | exact card projection, revision snapshots, conservative relations and scoped facts/history reads |
+| `brain_settings/backup*.py`, `maintenance.py`, `source_relocation.py` | snapshots, constrained age worker, inspected restore/rollback, operation isolation and explicit source repair |
 | `brain_settings/mcp_server.py` | Read-only stdio memory tools |
 | `brain_settings/*_client.py`, `*_import.py` | Source-specific read-only access and ingestion |
 | `static/` | Local memory atlas and optional browser settings interface |

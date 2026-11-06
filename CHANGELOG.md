@@ -7,6 +7,10 @@ listed in the release notes; preparing local artifacts does not publish a releas
 
 ## [Unreleased]
 
+No changes yet.
+
+## [0.2.0] — 2026-11-06
+
 ### Added
 
 - Native local snapshots, optional scheduled managed retention, standard-age
@@ -16,8 +20,7 @@ listed in the release notes; preparing local artifacts does not publish a releas
   Keychain secrets. Inspections bind staged bytes for ten minutes. Restored jobs
   remain paused; foreign installation markers require fresh credentials and
   explicit local/Notes relocation. Source-aware original targets reject stale
-  foreign paths. Local managed copies remain unencrypted. This source-build
-  implementation invalidates native state before the restore POST, binds completion
+  foreign paths. Local managed copies remain unencrypted. The app invalidates native state before the restore POST, binds completion
   to its UUID and keeps uncertain outcomes closed. Password confirmation compares
   exact UTF-8 bytes through a native secure-field adapter. Real native-state,
   Unicode/restore GUI and source-matched portable-package checks passed on the
@@ -56,18 +59,17 @@ listed in the release notes; preparing local artifacts does not publish a releas
   reported rather than truncated and remains available to BM25. No model download
   or paid inference is started by retrieval. Real-model relevance improvement and
   cold/query-embedding timings remain unverified; a separate synthetic 10,000-vector
-  scan report measures only precomputed retrieval. Published `v0.1.0` is unchanged.
+  scan report measures only precomputed retrieval.
 - Independent source permissions for import, native retrieval, MCP retrieval,
-  local processing and external processing, persisted in SQLite. Source-build
+  local processing and external processing, persisted in SQLite. The native
   UI includes local-path/selected-Notes-folder exclusions and a bounded preview.
   Legacy defaults preserve enabled-source and mailbox behavior. Policy checks
   cover retrieval and model admission/result storage; a source can be hidden
-  from MCP independently of local processing. Published `v0.1.0` is unchanged.
+  from MCP independently of local processing.
 - Explicit, disabled-by-default internal-network access for a custom HTTPS model
   API. The permission is saved for that API, resets when its address or provider
   changes, and applies to catalog checks and card generation. TLS verification,
-  DNS pinning and metadata/loopback restrictions remain enforced. This is an
-  unreleased source-build change; published `v0.1.0` assets are unchanged.
+  DNS pinning and metadata/loopback restrictions remain enforced. The option is included in 0.2.0.
 - Apple Notes source with explicit folder selection, macOS Automation permission,
   bounded background reconciliation and manual import. Reads note text only;
   protected notes and attachments are skipped. Notes must already be open.
@@ -75,8 +77,7 @@ listed in the release notes; preparing local artifacts does not publish a releas
   device-code sign-in, using a user-registered Client ID and Keychain tokens.
   Optional 30/90/365-day or all-history import, bounded paging, manual import and
   background reconciliation. Includes bilingual Entra registration instructions.
-  Apple Notes and Outlook are source-build changes, not in published `v0.1.0` ZIPs;
-  restart running MCP clients after adding either new source kind.
+  Restart running MCP clients after upgrading or adding either new source kind.
 
 ## [0.1.0] — 2026-11-04
 
@@ -154,6 +155,10 @@ shared local memory server for AI assistants.
 
 ### Ещё не выпущено
 
+Пока нет изменений.
+
+### 0.2.0 — 2026-11-06
+
 - Нативные локальные снимки, необязательное расписание/очистка управляемых копий,
   парольный age-экспорт через `pyrage` 1.4.0, проверка архива и восстановление на
   месте с откатом при запуске. Формат v1 принимает точную схему и до 128 МиБ
@@ -198,17 +203,15 @@ shared local memory server for AI assistants.
 - Раздельные разрешения источника: импорт, поиск в приложении, MCP, локальная
   и внешняя обработка; исключения локальных путей и выбранных папок Notes
   с предпросмотром. Старые настройки сохраняют поведение; политики проверяются
-  при чтении, допуске модели и сохранении результата. Это изменение исходников,
-  опубликованный `v0.1.0` не меняется.
+  при чтении, допуске модели и сохранении результата. Изменения входят в 0.2.0.
 - Apple Заметки: явный выбор папок, разрешение «Автоматизация», ручной импорт и
   фоновая сверка с ограничением размера прохода. Notes должны быть открыты;
   защищённые заметки и вложения пропускаются.
 - Outlook.com / Microsoft 365: вход Microsoft по коду с собственным Client ID,
   токены в Keychain, чтение входящих через Graph. Импорт включается явно для
   30/90/365 дней или всей истории; добавлена двуязычная инструкция регистрации.
-- Новые источники доступны только в сборке из исходников, не в ZIP `v0.1.0`.
-  После их добавления перезапустите уже работающие MCP-клиенты.
-- Сохраняется неопубликованное разрешение внутренней сети для собственного API,
+- После обновления или добавления новых источников перезапустите уже работающие MCP-клиенты.
+- Добавлено явное разрешение внутренней сети для собственного API,
   описанное в английском разделе выше.
 
 ### 0.1.0 — 2026-11-04

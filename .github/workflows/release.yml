@@ -61,6 +61,7 @@ jobs:
           .venv/bin/ruff check brain_settings tests scripts launch.py
           .venv/bin/python -m pytest --cov=brain_settings --cov-report=term-missing
           swift run --package-path native SecondBrainCoreChecks
+          bash scripts/check-native-restore-state.sh
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "24"

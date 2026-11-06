@@ -1,14 +1,16 @@
 # Documentation / Документация
 
-Version / Версия: **0.1.0** · Updated / Обновлено: **2026-11-06**
+Version / Версия: **0.2.0** · Updated / Обновлено: **2026-11-06**
 
 | Document / Документ | Русский | English |
 | --- | --- | --- |
 | User guide: installation, sources, memory, automation, MCP, troubleshooting | [Руководство пользователя](user-guide.ru.md) | [User guide](user-guide.en.md) |
 | Architecture: components, data flow, boundaries, source map | [Архитектура](architecture.ru.md) | [Architecture](architecture.en.md) |
-| Outlook: Client ID registration and Microsoft sign-in (unreleased) | [Подключение Outlook](outlook-setup.md#russian) | [Outlook setup](outlook-setup.md#english) |
+| Outlook: Client ID registration and Microsoft sign-in | [Подключение Outlook](outlook-setup.md#russian) | [Outlook setup](outlook-setup.md#english) |
 
 The [project README](../README.md) introduces Second Brain. Read the [security policy](../SECURITY.md) before connecting private sources or a model provider. See the [changelog](../CHANGELOG.md) for release history.
+
+Current release / Текущий выпуск: [0.2.0 release notes / примечания к выпуску](releases/0.2.0.md).
 
 [README проекта](../README.md) знакомит с Second Brain. Перед подключением личных источников и провайдера модели прочитайте [описание безопасности](../SECURITY.md). Изменения выпусков перечислены в [changelog](../CHANGELOG.md).
 

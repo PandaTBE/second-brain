@@ -9,6 +9,7 @@ import zipfile
 from contextlib import closing
 from datetime import UTC, datetime
 
+from . import __version__
 from .background import ScheduleConfig, ScheduleStore, acquire_writer_lease, release_writer_lease
 from .backup_files import (
     atomic_bytes,
@@ -105,7 +106,7 @@ def snapshot(directory, destination, installation_id, expected_schema, maximum):
     manifest = {
         "format": "second-brain-backup",
         "format_version": 1,
-        "app_version": "0.1.0",
+        "app_version": __version__,
         "created_at": datetime.now(UTC).isoformat(),
         "installation_id": installation_id,
         "schema_fingerprint": expected_schema,

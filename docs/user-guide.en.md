@@ -1,6 +1,6 @@
 # User guide
 
-**Second Brain 0.1.0 · updated 2026-11-06** · [Русский](user-guide.ru.md) · [Documentation index](README.md)
+**Second Brain 0.2.0 · updated 2026-11-06** · [Русский](user-guide.ru.md) · [Documentation index](README.md)
 
 ## 1. What it does and when to use it
 
@@ -15,12 +15,12 @@ Useful workflows include:
 
 The practical advantages are shared memory across clients, lexical search without
 model calls, source and revision references, and explicit control over model work.
-Unreleased builds also offer opt-in local query embeddings. These are not a promise
+Version 0.2.0 also offers opt-in local query embeddings. These are not a promise
 of better answers to every question. Keyword search can miss paraphrases, models
 can make mistakes, and large archives take time to ingest.
 
 This application is not cloud synchronization between computers or a verified
-user profile. Unreleased source builds add local snapshots and encrypted archive
+user profile. Version 0.2.0 adds local snapshots and encrypted archive
 transfer described below. Its graph shows source membership/shared keywords,
 not proven semantic or causal relationships. The native interface uses Russian;
 this guide includes the corresponding control names where useful.
@@ -30,10 +30,10 @@ this guide includes the corresponding control names where useful.
 ### Prebuilt release: no developer tools required
 
 For an **Apple Silicon Mac running macOS 14+**, download
-`Second-Brain-0.1.0-macos-arm64.zip` from this repository's **Releases → Assets**.
+`Second-Brain-0.2.0-macos-arm64.zip` from this repository's **Releases → Assets**.
 This asset includes the native application and its Python service; the recipient
 does not need Xcode, Python, uv or the source checkout. Intel Macs are not covered
-by this asset. See the [release notes](releases/0.1.0.md).
+by this asset. See the [release notes](releases/0.2.0.md).
 
 1. Compare the ZIP's SHA-256 with `SHA256SUMS` attached to the same release. A
    matching checksum detects a changed file, not whether its publisher is trusted.
@@ -88,13 +88,13 @@ These steps require no model or model API token. In a fresh installation, automa
 
 ## 4. Models and cards
 
-In **Модель и API** (Model and API), choose a provider and model, check the connection, and save. Cloud presets, including **Qwen API**, use an API token. **Qwen / Ollama · локально** (local) uses a downloaded local model without an API token. A custom OpenAI-compatible endpoint uses HTTPS and public addresses by default. The published `v0.1.0` ZIP rejects internal addresses; the unreleased source-build option described below allows selected corporate connections.
+In **Модель и API** (Model and API), choose a provider and model, check the connection, and save. Cloud presets, including **Qwen API**, use an API token. **Qwen / Ollama · локально** (local) uses a downloaded local model without an API token. A custom OpenAI-compatible endpoint uses HTTPS and public addresses by default. The explicit internal-network option below allows selected trusted corporate connections.
 
-For a provider configured by URL, select **Свой API · OpenAI-совместимый** (Custom API · OpenAI-compatible). Enter the public base URL, for example `https://api.example.com/v1`, without `/chat/completions`; supply its API token and the exact model ID issued by that provider. The endpoint must accept OpenAI-style `POST /chat/completions` requests. Loading a catalog and checking the connection are optional: a manually entered model ID can be saved even when `/models` is unavailable or does not list it. Check generation with a small batch after saving. In published `v0.1.0`, private addresses are not supported. Plain HTTP and custom ports remain unsupported; the named Ollama connection is the loopback exception.
+For a provider configured by URL, select **Свой API · OpenAI-совместимый** (Custom API · OpenAI-compatible). Enter the public base URL, for example `https://api.example.com/v1`, without `/chat/completions`; supply its API token and the exact model ID issued by that provider. The endpoint must accept OpenAI-style `POST /chat/completions` requests. Loading a catalog and checking the connection are optional: a manually entered model ID can be saved even when `/models` is unavailable or does not list it. Check generation with a small batch after saving. Plain HTTP and custom ports remain unsupported; the named Ollama connection is the loopback exception.
 
-### Corporate API on an internal network — unreleased
+### Corporate API on an internal network
 
-**Updated 2026-11-05. Source builds only; this option is not in the published `v0.1.0` ZIP.** For a trusted corporate API, choose **Свой API · OpenAI-совместимый** and enable **Разрешить внутреннюю сеть для этого API** (Allow the internal network for this API). The option is off by default and resets when the base address or provider changes. Its saved request/settings field is `allow_private_network`; other provider presets remain public-only.
+**Available since 0.2.0; updated 2026-11-06.** For a trusted corporate API, choose **Свой API · OpenAI-совместимый** and enable **Разрешить внутреннюю сеть для этого API** (Allow the internal network for this API). The option is off by default and resets when the base address or provider changes. Its saved request/settings field is `allow_private_network`; other provider presets remain public-only.
 
 Enter only the base prefix, for example `https://llm.example.internal/api/v2`, plus the token and exact model ID. The app appends `/chat/completions`, producing `/api/v2/chat/completions`. Catalog loading remains optional. Use the corporate network or VPN if your provider requires it; no corporate address or token needs to be included in a public issue.
 
@@ -150,7 +150,7 @@ Adding a source saves its configuration. An access check is not an import and do
 
 <a id="source-permissions"></a>
 
-### Source permissions and exclusions — unreleased
+### Source permissions and exclusions
 
 In **Источники** (Sources), use the hand button next to a source to open
 **Разрешения источника**. Five independent switches control new imports, search
@@ -211,9 +211,9 @@ Markdown, TXT, and JSONL are supported. Scanning and import do not follow symlin
 
 <a id="apple-notes-source"></a>
 
-### Apple Notes — unreleased
+### Apple Notes
 
-**Source builds only; not included in the published `v0.1.0` ZIP.** Open Apple Notes first. In **Источники → Добавить источник → Apple Заметки**, press **Загрузить папки** (Load folders), then allow Second Brain to access Notes when macOS asks. Folder discovery starts only when you press that button. If access was denied, review **System Settings → Privacy & Security → Automation**, as described in [Apple's permission guide](https://support.apple.com/en-ie/guide/mac-help/mchl07817563/27/mac/27).
+**Available since 0.2.0.** Open Apple Notes first. In **Источники → Добавить источник → Apple Заметки**, press **Загрузить папки** (Load folders), then allow Second Brain to access Notes when macOS asks. Folder discovery starts only when you press that button. If access was denied, review **System Settings → Privacy & Security → Automation**, as described in [Apple's permission guide](https://support.apple.com/en-ie/guide/mac-help/mchl07817563/27/mac/27).
 
 Select up to 50 folders and choose **Добавить источник**. Selection covers those exact folders; select child folders separately. The importer reads note text, titles, dates and stable note identifiers through Notes automation. It does not open the Notes database, require Full Disk Access, change notes or read attachments. Password-protected notes are skipped even if you have unlocked them in Notes.
 
@@ -239,7 +239,7 @@ Import covers Markdown files on the default branch and the titles, descriptions,
 
 ### Gmail and Yandex Mail
 
-Both forms require the full email address and an **app password**, not the regular account password. Server, TLS, and port settings are automatic. Passwords are stored in Keychain. These Gmail/Yandex forms do not use OAuth in the published 0.1.0 release.
+Both forms require the full email address and an **app password**, not the regular account password. Server, TLS, and port settings are automatic. Passwords are stored in Keychain. These Gmail/Yandex forms do not use OAuth in the published 0.2.0 release.
 
 For Gmail, create a separate 16-character app password with 2-Step Verification enabled. Organization rules or Advanced Protection may make this unavailable. Spaces between Google's password groups are removed when saving. See [Google's app-password instructions](https://support.google.com/accounts/answer/185833?hl=en).
 
@@ -251,9 +251,9 @@ Each pass handles at most 50 messages in bounded UID windows. Messages are not m
 
 The access-check button counts inbox messages without reading their bodies. Each mailbox's enable/pause button retains its password, progress, and existing materials. Existing generic IMAP connections remain available, with content import off until explicitly enabled.
 
-### Outlook / Microsoft 365 — unreleased
+### Outlook / Microsoft 365
 
-**Source builds only; not included in the published `v0.1.0` ZIP.** This connector imports cloud Outlook.com and Microsoft 365 mailboxes through Microsoft Graph. It does not read local Outlook/PST/OST files or an on-premises Exchange mailbox.
+**Available since 0.2.0.** This connector imports cloud Outlook.com and Microsoft 365 mailboxes through Microsoft Graph. It does not read local Outlook/PST/OST files or an on-premises Exchange mailbox.
 
 1. Register a public-client Microsoft application and obtain its **Application (client) ID** using the [bilingual setup guide](outlook-setup.md#english). No client secret is used.
 2. Choose **Добавить источник → Outlook / Microsoft 365**, enter **Client ID приложения**, select whether to import Inbox and choose 30, 90, 365 days or all history.
@@ -277,7 +277,7 @@ When enabled, periodic reconciliation defaults to every 15 minutes. It updates g
 
 <a id="quick-search"></a>
 
-### Quick search from another app — unreleased
+### Quick search from another app
 
 While Second Brain is running, use **Быстрый поиск…** in its menu bar menu or press
 **Command–Option–Shift–Space**. The native **Быстрый поиск памяти** panel focuses
@@ -317,7 +317,7 @@ and selection, separate from the main memory list.
 In **Память**, choose **Материалы** (Materials), **Карточки** (Cards), **Ожидают**
 (Pending), or **С ошибкой** (Errors) to filter the lexical list. Scrolling loads
 pages of 30 materials. Background changes offer a refresh while keeping previously
-loaded pages until you refresh. In unreleased builds, semantic/hybrid searches
+loaded pages until you refresh. In 0.2.0, semantic/hybrid searches
 instead show up to 20 ranked materials; switch to **По словам** for status filters
 and paginated history.
 
@@ -327,7 +327,7 @@ or alternative wording. Open a result to inspect its text and card evidence.
 
 <a id="semantic-search"></a>
 
-### Local semantic and hybrid search — unreleased
+### Local semantic and hybrid search
 
 In **Память**, open the sliders button **Настройки поиска по смыслу**, or use
 **Модель и API → Настроить поиск по смыслу…**. The semantic index starts disabled.
@@ -377,12 +377,12 @@ it does not demonstrate semantic quality or total user-visible search latency.
 ## 8. Shared memory through MCP
 
 The published release exposes four tools: `search_memory`, `get_record`,
-`get_context_brief`, and `get_sync_status`. Unreleased builds add read-only
+`get_context_brief`, and `get_sync_status`. Version 0.2.0 adds read-only
 `get_evidence_bundle`, `get_facts`, and `get_fact_history` (seven tools total).
 The server does not start imports, generate cards, project saved cards, or delete
 sources. Once separately launched by a client, MCP also works without the app.
 
-In unreleased builds, `search_memory(query, mode="hybrid")` or `mode="semantic"`
+In 0.2.0, `search_memory(query, mode="hybrid")` or `mode="semantic"`
 uses the separately enabled local embedding index. The default remains `lexical`.
 Responses add `search` diagnostics with `requested_mode`, `used_mode`,
 `fallback_reason`, and `ready`/`eligible`/`partial` coverage. A local query embedding
@@ -397,7 +397,7 @@ this is controlled by that client and provider.
 
 <a id="evidence-bundles"></a>
 
-### Evidence bundles — unreleased
+### Evidence bundles
 
 Ask the agent to call `get_evidence_bundle(query, budget_chars=12000)` before
 writing an answer, then cite the returned `citation_id` values. The required
@@ -469,7 +469,7 @@ not recall text already shared with an agent.
 
 <a id="facts-history"></a>
 
-### Facts and decision history — unreleased
+### Facts and decision history
 
 Use the button **Факты, решения и история подтверждений** beside the memory query.
 **Факты и решения** lists up to 20 grouped statements with expandable quotations,
@@ -547,7 +547,7 @@ The application does not encrypt SQLite. Known secret patterns are redacted befo
 
 <a id="managed-backups"></a>
 
-### Managed copies and encrypted transfer — unreleased
+### Managed copies and encrypted transfer
 
 Open **Резервные копии** in the native sidebar. **Создать локальную копию сейчас**
 uses SQLite's Backup API with a coordinated settings/policy snapshot and checksum
@@ -582,7 +582,7 @@ are limited to 128 MiB; encrypted output permits its bounded age overhead. Large
 archives, damaged files, traversal/symlink entries or unknown schemas are rejected.
 This is not a general importer for arbitrary SQLite or ZIP files.
 
-### Inspect and restore — unreleased
+### Inspect and restore
 
 Choose **Выбрать архив…**, supply the password for age (leave it blank for a local
 ZIP copy), then select **Проверить и показать содержимое**. Review the material/source
@@ -629,7 +629,7 @@ invented file link. Old file URIs remain provenance and are not automatically op
 
 ### Manual snapshot for published 0.1.0
 
-The published ZIP predates the native workflow above. Use SQLite's Backup API for
+The published 0.1.0 ZIP predates the native workflow above. Use SQLite's Backup API for
 a consistent manual snapshot; do not copy only an active `.sqlite3` file while
 ignoring its WAL. This optional example needs Python 3, which is not an installation
 requirement. For a source build, change `source` to `.data/memory.sqlite3`:
@@ -679,8 +679,8 @@ Removing a source in the app removes its local materials from search/MCP, relate
 | Gmail/Yandex login fails | Full address, app password, provider settings, and organization restrictions. New Yandex passwords may not activate immediately. |
 | Some emails are missing | INBOX only, selected date window, oversized-message warnings, and deferred work requiring more passes. |
 | MCP sees no memory | Reconnect MCP; verify its generated command, shared data directory, client trust and imported content. Source builds also need their `.venv`. |
-| Semantic index has errors — unreleased | Start Ollama, verify an embedding-capable installed model, then save it again in search settings to requeue failed embedding jobs. Oversized materials remain lexical-only until their input changes. |
-| Facts are empty or show past-only wording — unreleased | Project saved ready cards with **Обновить факты из карточек**, check current source permissions, and use **Включать прошлые формулировки** only when exploring history. Projection makes no model request. |
+| Semantic index has errors | Start Ollama, verify an embedding-capable installed model, then save it again in search settings to requeue failed embedding jobs. Oversized materials remain lexical-only until their input changes. |
+| Facts are empty or show past-only wording | Project saved ready cards with **Обновить факты из карточек**, check current source permissions, and use **Включать прошлые формулировки** only when exploring history. Projection makes no model request. |
 | App no longer starts after a move | For the portable release, restore the intact bundle and update MCP paths. Source builds also need the original checkout/`.venv` or a rebuild. Review macOS launch and folder permissions. |
 | Graph does not open | The app's local service must be running; a standalone MCP process does not serve the graph page. |
 
