@@ -15,7 +15,7 @@ struct OverviewView: View {
                 }.padding(.bottom, 6)
                 HStack(alignment: .top, spacing: 16) {
                     readinessCard(title: "Модель", symbol: "cpu", value: store.hasSavedModel ? store.savedSettings.modelName : "Не выбрана", subtitle: store.hasSavedModel ? "Настройки сохранены" : "Выберите локальную модель или провайдера API", action: { store.section = .model })
-                    readinessCard(title: "Источники", symbol: "tray.full", value: store.sources.isEmpty ? "Не добавлены" : "\(store.sources.count) подключений", subtitle: "Codex, Claude, Qwen Code, Notion, GitHub и почта", action: { store.section = .sources })
+                    readinessCard(title: "Источники", symbol: "tray.full", value: store.sources.isEmpty ? "Не добавлены" : "\(store.sources.count) подключений", subtitle: "История ИИ, Apple Заметки, Notion, GitHub и почта", action: { store.section = .sources })
                 }
                 GroupBox {
                     VStack(alignment: .leading, spacing: 14) {

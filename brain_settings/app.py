@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
+from .connected_source_routes import create_connected_source_router
 from .errors import AppError, error_content
 from .github_models import GitHubRepositoriesRequest
 from .memory_routes import create_memory_router
@@ -30,13 +31,15 @@ logger = logging.getLogger(__name__)
 
 def create_app(data_dir: Path | None = None, vault=None, transport=None,
                mail_tester=None, memory_llm=None, notion_client=None,
-               github_client=None, mail_client=None) -> FastAPI:
+               github_client=None, mail_client=None, apple_notes_client=None,
+               outlook_client=None, outlook_oauth_client=None, outlook_auth=None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_application):
         memory_service.start_background()
         try:
             yield
         finally:
+            source_service.close()
             await memory_service.close()
 
     application = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
@@ -45,11 +48,15 @@ def create_app(data_dir: Path | None = None, vault=None, transport=None,
                               vault=vault, transport=transport)
     source_service = SourceService(service.store.directory, service.vault, mail_tester,
                                    notion_client=notion_client, github_client=github_client,
-                                   mail_client=mail_client)
+                                   mail_client=mail_client, apple_notes_client=apple_notes_client,
+                                   outlook_client=outlook_client,
+                                   outlook_oauth_client=outlook_oauth_client,
+                                   outlook_auth=outlook_auth)
     memory_service = MemoryService(service.store.directory, source_service, service,
                                    generator=memory_llm)
     application.state.memory_service = memory_service
     application.include_router(create_memory_router(memory_service))
+    application.include_router(create_connected_source_router(source_service))
     instance_id = os.environ.get("SECOND_BRAIN_INSTANCE_ID")
     try:
         UUID(instance_id or "")
@@ -66,7 +73,7 @@ def create_app(data_dir: Path | None = None, vault=None, transport=None,
         message = "Проверьте провайдера, адрес API, ID модели и формат токена."
         if request.url.path.startswith("/api/sources"):
             message = ("Проверьте название источника, путь, настройки почты "
-                       "или токен и выбранные материалы Notion/GitHub.")
+                       "или выбранные материалы и подключение Apple Заметок/Outlook/Notion/GitHub.")
         elif request.url.path.startswith("/api/memory"):
             message = "Проверьте источник, размер пакета и параметры расписания памяти."
         error = AppError("validation_error", message, 422)

@@ -10,7 +10,7 @@ struct MemoryView: View {
     @ViewState private var showAutomation = false
     init(store: AppStore) { self.store = store; self.memory = store.memory }
 
-    private var localSources: [MemorySource] { store.sources.filter { ["codex", "claude", "qwen", "folder"].contains($0.kind) && $0.enabled } }
+    private var importableSources: [MemorySource] { store.sources.filter { $0.canImportMemory && $0.enabled } }
     private var selection: Binding<String?> { Binding(get: { memory.selectedId }, set: { id in Task { await memory.selectRecord(id) } }) }
 
     var body: some View {
@@ -28,11 +28,11 @@ struct MemoryView: View {
                     .disabled(memory.atlasURL == nil)
                     .help("Локальный граф и история в браузере. Приложение должно оставаться запущенным.")
                     Menu {
-                        Button("Все локальные источники") { Task { await memory.startImport() } }.disabled(localSources.isEmpty)
+                        Button("Все включённые источники") { Task { await memory.startImport() } }.disabled(importableSources.isEmpty)
                         Divider()
-                        ForEach(localSources) { source in Button(source.name) { Task { await memory.startImport(sourceId: source.id) } } }
+                        ForEach(importableSources) { source in Button(source.name) { Task { await memory.startImport(sourceId: source.id) } } }
                     } label: { Label("Импортировать", systemImage: "square.and.arrow.down") }
-                        .disabled(memory.busy || localSources.isEmpty)
+                        .disabled(memory.busy || importableSources.isEmpty)
                 }
                 HStack(spacing: 12) {
                     countCard(.all, value: memory.status?.records, symbol: "doc.text")

@@ -14,6 +14,15 @@ listed in the release notes; preparing local artifacts does not publish a releas
   changes, and applies to catalog checks and card generation. TLS verification,
   DNS pinning and metadata/loopback restrictions remain enforced. This is an
   unreleased source-build change; published `v0.1.0` assets are unchanged.
+- Apple Notes source with explicit folder selection, macOS Automation permission,
+  bounded background reconciliation and manual import. Reads note text only;
+  protected notes and attachments are skipped. Notes must already be open.
+- Outlook.com/Microsoft 365 Inbox import through Microsoft Graph and public-client
+  device-code sign-in, using a user-registered Client ID and Keychain tokens.
+  Optional 30/90/365-day or all-history import, bounded paging, manual import and
+  background reconciliation. Includes bilingual Entra registration instructions.
+  Apple Notes and Outlook are source-build changes, not in published `v0.1.0` ZIPs;
+  restart running MCP clients after adding either new source kind.
 
 ## [0.1.0] — 2026-11-04
 
@@ -88,6 +97,19 @@ shared local memory server for AI assistants.
 ---
 
 ## Русский
+
+### Ещё не выпущено
+
+- Apple Заметки: явный выбор папок, разрешение «Автоматизация», ручной импорт и
+  фоновая сверка с ограничением размера прохода. Notes должны быть открыты;
+  защищённые заметки и вложения пропускаются.
+- Outlook.com / Microsoft 365: вход Microsoft по коду с собственным Client ID,
+  токены в Keychain, чтение входящих через Graph. Импорт включается явно для
+  30/90/365 дней или всей истории; добавлена двуязычная инструкция регистрации.
+- Новые источники доступны только в сборке из исходников, не в ZIP `v0.1.0`.
+  После их добавления перезапустите уже работающие MCP-клиенты.
+- Сохраняется неопубликованное разрешение внутренней сети для собственного API,
+  описанное в английском разделе выше.
 
 ### 0.1.0 — 2026-11-04
 

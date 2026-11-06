@@ -215,6 +215,26 @@ final class AppStore: ObservableObject {
         } catch { if revision == sourcesRevision, request == sourcesRequest { showError(error.localizedDescription) } }
     }
 
+    func appleNotesFolders() async throws -> AppleNotesFoldersResponse {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        return try await client.send("/api/sources/apple-notes/folders", body: EmptyBody())
+    }
+
+    func startOutlook(clientID: String) async throws -> OutlookStartResponse {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        return try await client.send("/api/sources/outlook/auth/start", body: OutlookStartRequest(clientId: clientID))
+    }
+
+    func pollOutlook(flowID: String) async throws -> OutlookPollResponse {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        return try await client.send("/api/sources/outlook/auth/poll", body: OutlookFlowRequest(flowId: flowID))
+    }
+
+    func cancelOutlook(flowID: String) async throws {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        let _: OutlookCancelResponse = try await client.send("/api/sources/outlook/auth/cancel", body: OutlookFlowRequest(flowId: flowID))
+    }
+
     func notionPages(token: String, query: String, cursor: String?) async throws -> NotionPagesResponse {
         guard let client else { throw ServiceError("Локальный сервис не запущен.") }
         return try await client.send("/api/sources/notion/pages", body: NotionPagesRequest(token: token, query: query, cursor: cursor))
@@ -248,7 +268,7 @@ final class AppStore: ObservableObject {
     }
 
     func setMailImport(_ source: MemorySource, enabled: Bool) async {
-        guard let client, source.kind == "imap", !busySources.contains(source.id) else { return }
+        guard let client, source.isMailSource, !busySources.contains(source.id) else { return }
         sourcesRevision += 1
         busySources = busySources.union([source.id])
         defer { busySources = busySources.subtracting([source.id]); sourcesRevision += 1 }

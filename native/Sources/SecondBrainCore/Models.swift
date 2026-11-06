@@ -109,16 +109,21 @@ public struct MemorySource: Codable, Identifiable, Hashable {
     public let mailProvider: String?
     public let mailImportEnabled: Bool?
     public let mailLookbackDays: Int?
+    public let notesFolderIds: [String]?
+    public let outlookClientId: String?
+    public let outlookAccountId: String?
     public var displayKind: String {
         kind == "imap" ? (MailProvider.detect(raw: mailProvider, host: host)?.title ?? "Другая почта") : SourceFormatting.label(kind)
     }
+    public var isMailSource: Bool { kind == "imap" || kind == "outlook" }
     public var canImportMemory: Bool {
-        ["codex", "claude", "qwen", "folder", "notion", "github"].contains(kind) || (kind == "imap" && mailImportEnabled == true)
+        ["codex", "claude", "qwen", "folder", "notion", "github", "apple_notes"].contains(kind) || (isMailSource && mailImportEnabled == true)
     }
     public var location: String {
         if kind == "notion" { return "Выбрано страниц: \(notionPageIds?.count ?? 0)" }
         if kind == "github" { return "Выбрано репозиториев: \(githubRepositories?.count ?? 0)" }
-        if kind == "imap" { return username ?? host ?? "" }
+        if kind == "apple_notes" { return "Выбрано папок: \(notesFolderIds?.count ?? 0)" }
+        if isMailSource { return username ?? host ?? "" }
         return path ?? [username, host].compactMap { $0 }.joined(separator: " · ")
     }
 }
@@ -131,12 +136,14 @@ public struct AddSourceRequest: Encodable {
     public let token: String?; public let notionPageIds: [String]?
     public let githubRepositories: [String]?; public let githubContent: [String]?
     public let mailProvider: String?; public let mailImportEnabled: Bool?; public let mailLookbackDays: Int?
+    public let notesFolderIds: [String]?; public let outlookAuthId: String?
     public let port = 993; public let mailbox = "INBOX"
-    public init(kind: String, name: String, path: String? = nil, host: String? = nil, username: String? = nil, password: String? = nil, token: String? = nil, notionPageIds: [String]? = nil, githubRepositories: [String]? = nil, githubContent: [String]? = nil, mailProvider: String? = nil, mailImportEnabled: Bool? = nil, mailLookbackDays: Int? = nil) {
+    public init(kind: String, name: String, path: String? = nil, host: String? = nil, username: String? = nil, password: String? = nil, token: String? = nil, notionPageIds: [String]? = nil, githubRepositories: [String]? = nil, githubContent: [String]? = nil, mailProvider: String? = nil, mailImportEnabled: Bool? = nil, mailLookbackDays: Int? = nil, notesFolderIds: [String]? = nil, outlookAuthId: String? = nil) {
         self.kind = kind; self.name = name; self.path = path; self.host = host; self.username = username; self.password = password
         self.token = token; self.notionPageIds = notionPageIds
         self.githubRepositories = githubRepositories; self.githubContent = githubContent
         self.mailProvider = mailProvider; self.mailImportEnabled = mailImportEnabled; self.mailLookbackDays = mailLookbackDays
+        self.notesFolderIds = notesFolderIds; self.outlookAuthId = outlookAuthId
     }
 }
 
@@ -164,12 +171,12 @@ public enum ModelFormatting {
 public enum SourceFormatting {
     public static func count(kind: String, count: Int?) -> String {
         guard let count else { return "Не проверено" }
-        return "\(count) \(kind == "imap" ? "писем" : kind == "notion" ? "страниц" : kind == "github" ? "репозиториев" : "файлов")"
+        return "\(count) \(["imap", "outlook"].contains(kind) ? "писем" : kind == "apple_notes" ? "заметок" : kind == "notion" ? "страниц" : kind == "github" ? "репозиториев" : "файлов")"
     }
     public static func label(_ kind: String) -> String {
-        ["codex": "Codex", "claude": "Claude Code", "qwen": "Qwen Code", "folder": "Папка", "imap": "Другая почта", "notion": "Notion", "github": "GitHub"][kind] ?? kind
+        ["codex": "Codex", "claude": "Claude Code", "qwen": "Qwen Code", "folder": "Папка", "imap": "Другая почта", "notion": "Notion", "github": "GitHub", "apple_notes": "Apple Заметки", "outlook": "Outlook / Microsoft 365"][kind] ?? kind
     }
     public static func symbol(_ kind: String) -> String {
-        ["codex": "terminal", "claude": "sparkle", "qwen": "terminal", "folder": "folder", "imap": "envelope", "notion": "doc.text", "github": "chevron.left.forwardslash.chevron.right"][kind] ?? "doc"
+        ["codex": "terminal", "claude": "sparkle", "qwen": "terminal", "folder": "folder", "imap": "envelope", "notion": "doc.text", "github": "chevron.left.forwardslash.chevron.right", "apple_notes": "note.text", "outlook": "envelope.badge"][kind] ?? "doc"
     }
 }

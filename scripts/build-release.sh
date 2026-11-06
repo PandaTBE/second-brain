@@ -31,6 +31,7 @@ binary_dir="$(swift build "${swift_options[@]}" --show-bin-path)"
   --name SecondBrainHelper --target-architecture arm64 --distpath "$build_dir/helper-dist" \
   --workpath "$build_dir/pyinstaller" --specpath "$build_dir" \
   --paths "$project_dir" --add-data "$project_dir/static:static" \
+  --add-data "$project_dir/brain_settings/resources:brain_settings/resources" \
   --additional-hooks-dir "$project_dir/scripts/pyinstaller-hooks" \
   --hidden-import keyring.backends.macOS --hidden-import uvicorn.logging \
   --hidden-import uvicorn.loops.asyncio --hidden-import uvicorn.protocols.http.h11_impl \

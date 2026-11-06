@@ -52,6 +52,9 @@ def bundle_metadata(version: str) -> dict:
         "NSDocumentsFolderUsageDescription": "Чтение выбранных папок сессий и заметок.",
         "NSDesktopFolderUsageDescription": "Чтение выбранной папки заметок.",
         "NSDownloadsFolderUsageDescription": "Чтение выбранной папки заметок.",
+        "NSAppleEventsUsageDescription": (
+            "Чтение заметок только из выбранных вами папок Apple Заметок."
+        ),
     }
 
 

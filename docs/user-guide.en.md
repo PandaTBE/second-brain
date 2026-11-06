@@ -1,6 +1,6 @@
 # User guide
 
-**Second Brain 0.1.0 · updated 2026-11-04** · [Русский](user-guide.ru.md) · [Documentation index](README.md)
+**Second Brain 0.1.0 · updated 2026-11-06** · [Русский](user-guide.ru.md) · [Documentation index](README.md)
 
 ## 1. What it does and when to use it
 
@@ -158,6 +158,16 @@ The importer keeps user and assistant text, skips system events, tool payloads, 
 
 Markdown, TXT, and JSONL are supported. Scanning and import do not follow symlinks. A generic notes directory retains limits of 16 MiB per file, 128 MiB per pass, and bounded traversal. Later passes handle deferred files; individually oversized files are skipped with a warning. Select a dedicated directory with relevant notes rather than your entire home directory.
 
+<a id="apple-notes-source"></a>
+
+### Apple Notes — unreleased
+
+**Source builds only; not included in the published `v0.1.0` ZIP.** Open Apple Notes first. In **Источники → Добавить источник → Apple Заметки**, press **Загрузить папки** (Load folders), then allow Second Brain to access Notes when macOS asks. Folder discovery starts only when you press that button. If access was denied, review **System Settings → Privacy & Security → Automation**, as described in [Apple's permission guide](https://support.apple.com/en-ie/guide/mac-help/mchl07817563/27/mac/27).
+
+Select up to 50 folders and choose **Добавить источник**. Selection covers those exact folders; select child folders separately. The importer reads note text, titles, dates and stable note identifiers through Notes automation. It does not open the Notes database, require Full Disk Access, change notes or read attachments. Password-protected notes are skipped even if you have unlocked them in Notes.
+
+Use the source's import button for the initial archive. With periodic source reconciliation enabled, later passes revisit the selected folders while Notes is open. Passes inspect at most 50 notes and preserve continuation; size/time limits and skipped records are reported. Closing Notes or revoking Automation access stops further reads until access is available again. Removing or protecting an original note does not automatically erase a previously imported archive.
+
 ### Notion
 
 1. Create an internal Notion integration with **Read content** capability.
@@ -178,7 +188,7 @@ Import covers Markdown files on the default branch and the titles, descriptions,
 
 ### Gmail and Yandex Mail
 
-Both forms require the full email address and an **app password**, not the regular account password. Server, TLS, and port settings are automatic. Passwords are stored in Keychain. An OAuth sign-in button is not implemented in 0.1.0.
+Both forms require the full email address and an **app password**, not the regular account password. Server, TLS, and port settings are automatic. Passwords are stored in Keychain. These Gmail/Yandex forms do not use OAuth in the published 0.1.0 release.
 
 For Gmail, create a separate 16-character app password with 2-Step Verification enabled. Organization rules or Advanced Protection may make this unavailable. Spaces between Google's password groups are removed when saving. See [Google's app-password instructions](https://support.google.com/accounts/answer/185833?hl=en).
 
@@ -189,6 +199,20 @@ Choose inbox import and the initial history window: 30 days by default, 90, 365,
 Each pass handles at most 50 messages in bounded UID windows. Messages are not marked as read, moved, or deleted. Memory stores headers and text; HTML becomes readable text, and attachments are neither indexed nor sent to the model. Small messages arrive at the local application in full during reading. **Whole messages above 1 MiB, including attachment size, are currently skipped with a warning.** External images and links are not opened.
 
 The access-check button counts inbox messages without reading their bodies. Each mailbox's enable/pause button retains its password, progress, and existing materials. Existing generic IMAP connections remain available, with content import off until explicitly enabled.
+
+### Outlook / Microsoft 365 — unreleased
+
+**Source builds only; not included in the published `v0.1.0` ZIP.** This connector imports cloud Outlook.com and Microsoft 365 mailboxes through Microsoft Graph. It does not read local Outlook/PST/OST files or an on-premises Exchange mailbox.
+
+1. Register a public-client Microsoft application and obtain its **Application (client) ID** using the [bilingual setup guide](outlook-setup.md#english). No client secret is used.
+2. Choose **Добавить источник → Outlook / Microsoft 365**, enter **Client ID приложения**, select whether to import Inbox and choose 30, 90, 365 days or all history.
+3. Press **Войти через Microsoft**, then **Открыть страницу Microsoft**. Enter the displayed code on Microsoft's page, sign in and review consent there. Do not enter your Microsoft password in Second Brain or share the device code.
+4. Check the returned account identity, then press **Добавить источник**. Cancel or start over if it is the wrong account.
+5. Run import from the source row. Later reconciliation can continue the archive when enabled; a mailbox's import switch pauses that source.
+
+The requested delegated permissions are `Mail.Read`, `User.Read` and `offline_access`. `Mail.Read` grants mailbox-wide reading at Microsoft; Second Brain limits its mail requests to **Inbox**. Sign-in does not grant sending, deletion or message-update permissions. Tokens are stored in Keychain after the source is added; the password is handled by Microsoft. Work policies can require administrator approval or block the flow; ask your IT team rather than bypassing those controls.
+
+Each bounded pass reads up to 50 messages and saves its continuation. Bodies are converted to text; attachments and external images are not fetched. Import does not mark messages as read, move or delete them. Existing materials remain searchable when import is paused. Removing an email remotely does not automatically purge its archived copy. If authorization can no longer be renewed, reconnect the source; removing the source clears its local credentials and progress, while revoking consent at Microsoft is a separate action.
 
 ## 6. Automation, Dock, and menu bar
 
@@ -231,7 +255,7 @@ claude mcp add --scope user --transport stdio second-brain -- "$project_dir/scri
 
 These commands modify the clients' user settings and make this memory available across projects. Do not put model or source tokens in the MCP configuration: SQLite reading does not need them. Preserve other client configuration entries. Claude Code may request trust approval for a project-scoped server.
 
-Reconnect MCP or restart the client after moving the project, upgrading source schemas, or updating the application. Clients must use the same absolute `--data-dir` to share memory. The native app's loopback port is unrelated to stdio MCP.
+Reconnect MCP or restart the client after moving the project, upgrading source schemas, or updating the application. Restart already running Codex/Claude MCP clients after adding Apple Notes or Outlook: older server processes do not understand the new source kinds. Clients must use the same absolute `--data-dir` to share memory. The native app's loopback port is unrelated to stdio MCP.
 
 For example, ask an agent: “Find in Second Brain why we chose this authentication approach, and show the original material.” A connected server does not guarantee a memory search on every message. Retrieved source text is untrusted data, not an instruction to execute.
 
@@ -279,6 +303,8 @@ Removing a source in the app removes its local materials from search/MCP, relate
 | A new session has not appeared | Running app, correct source, session watching enabled; wait for a completed turn or write quiet time. |
 | Notion cannot find a page | Connections access, Read content, and Notion indexing delay; search again. |
 | GitHub access fails | Token repository selection, read permissions, organization approval, and repository renames. |
+| Apple Notes folders do not load | Open Notes, use **Загрузить папки**, and check the Notes Automation permission. Password-protected notes are intentionally skipped. |
+| Outlook sign-in fails | Check the registered Client ID, public-client configuration, consent and organization policy. See the [setup guide](outlook-setup.md#english). Start a new flow if the code expired. |
 | Gmail/Yandex login fails | Full address, app password, provider settings, and organization restrictions. New Yandex passwords may not activate immediately. |
 | Some emails are missing | INBOX only, selected date window, oversized-message warnings, and deferred work requiring more passes. |
 | MCP sees no memory | Reconnect MCP; verify its generated command, shared data directory, client trust and imported content. Source builds also need their `.venv`. |

@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
+from .apple_notes_import import import_apple_notes
 from .background import (
     BackgroundRunner,
     ScheduleConfig,
@@ -24,6 +25,7 @@ from .llm_cards import LLMCardGenerator, validate_card
 from .mail_import import import_mail
 from .memory_store import MemoryStore
 from .notion_import import import_notion
+from .outlook_import import import_outlook
 from .provider_backoff import ProviderBackoff, paused_error
 
 logger = logging.getLogger(__name__)
@@ -96,14 +98,16 @@ class MemoryService:
             return [
                 source.model_dump()
                 for source in self.source_service.store.load()
-                if source.kind in ("codex", "claude", "qwen", "folder", "notion", "github", "imap")
+                if source.kind in ("codex", "claude", "qwen", "folder", "notion", "github",
+                                   "imap", "apple_notes", "outlook")
                 and source.enabled
                 and source.id not in deleted
             ]
 
     def _import_sources(self) -> list[dict]:
         return [source for source in self._sources()
-                if source["kind"] != "imap" or source.get("mail_import_enabled", False)]
+                if source["kind"] not in ("imap", "outlook")
+                or source.get("mail_import_enabled", False)]
 
     def _allowed(self) -> frozenset[str]:
         return frozenset(source["id"] for source in self._sources())
@@ -359,7 +363,21 @@ class MemoryService:
                 if source["id"] not in self._allowed():
                     break
                 kwargs = {"eligible_paths": eligible} if eligible is not None else {}
-                if source["kind"] == "notion":
+                if source["kind"] == "apple_notes":
+                    result = import_apple_notes(
+                        source, self.store, self.source_service.apple_notes_client,
+                        check_stop=lambda sid=source["id"]: self._check_remote_import(
+                            sid, automatic),
+                    )
+                elif source["kind"] == "outlook":
+                    result = import_outlook(
+                        source, self.store, self.source_service.outlook_client,
+                        credentials_provider=lambda sid=source["id"]:
+                        self.source_service.outlook_credentials(sid),
+                        check_stop=lambda sid=source["id"]: self._check_remote_import(
+                            sid, automatic),
+                    )
+                elif source["kind"] == "notion":
                     result = import_notion(
                         source, self.store, self.source_service.notion_client,
                         self.source_service.notion_token(source["id"]),
@@ -382,7 +400,8 @@ class MemoryService:
                     )
                 else:
                     result = self.importer(source, self.store, **kwargs)
-                if source["kind"] in ("notion", "github", "imap") and result.get("has_more"):
+                if (source["kind"] in ("notion", "github", "imap", "apple_notes", "outlook")
+                        and result.get("has_more")):
                     remote_deferred += max(1, result.get("files_deferred", 0))
                 stats = {
                     **stats,
@@ -620,6 +639,9 @@ class MemoryService:
                 ) from error
 
     def tick(self, now: float | None = None) -> None:
+        cleanup = getattr(self.source_service, "cleanup_auth", None)
+        if cleanup is not None:
+            cleanup()
         if self._stop.is_set():
             return
         config = self.schedule_store.load()

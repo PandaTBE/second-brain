@@ -23,7 +23,8 @@ from .github_models import normalize_repository
 from .notion_models import normalize_page_id, validate_notion_token
 
 logger = logging.getLogger(__name__)
-SourceKind = Literal["codex", "claude", "qwen", "folder", "imap", "notion", "github"]
+SourceKind = Literal["codex", "claude", "qwen", "folder", "imap", "notion", "github",
+                     "apple_notes", "outlook"]
 GitHubContent = Literal["docs", "issues", "pull_requests"]
 
 
@@ -39,13 +40,24 @@ class SourceCreate(BaseModel):
     mail_provider: Literal["custom", "gmail", "yandex"] = "custom"
     mail_import_enabled: StrictBool = False
     mail_lookback_days: int = Field(default=30, strict=True, ge=0, le=365)
+    outlook_auth_id: str | None = Field(default=None, min_length=8, max_length=128,
+                                        pattern=r"^[A-Za-z0-9_-]+$")
     password: SecretStr | None = Field(default=None, max_length=4096)
     token: SecretStr | None = Field(default=None, max_length=4096)
+    notes_folder_ids: tuple[str, ...] = Field(default=(), max_length=50)
     notion_page_ids: tuple[str, ...] = Field(default=(), max_length=100)
     github_repositories: tuple[str, ...] = Field(default=(), max_length=20)
     github_content: tuple[GitHubContent, ...] = Field(
         default=("docs", "issues", "pull_requests"), min_length=1, max_length=3
     )
+
+    @field_validator("notes_folder_ids")
+    @classmethod
+    def safe_notes_folders(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not item.strip() or len(item) > 512
+               or any(ord(c) < 32 for c in item) for item in value):
+            raise ValueError("Выберите папки Apple Заметок из списка.")
+        return tuple(dict.fromkeys(value))
 
     @field_validator("token")
     @classmethod
@@ -109,6 +121,9 @@ class Source(BaseModel):
     mail_lookback_days: int = Field(default=30, strict=True, ge=0, le=365)
     enabled: bool = True
     credential_saved: bool = False
+    notes_folder_ids: tuple[str, ...] = Field(default=(), max_length=50)
+    outlook_client_id: str | None = Field(default=None, max_length=36)
+    outlook_account_id: str | None = Field(default=None, max_length=512)
     notion_page_ids: tuple[str, ...] = Field(default=(), max_length=100)
     github_repositories: tuple[str, ...] = Field(default=(), max_length=20)
     github_content: tuple[GitHubContent, ...] = Field(
@@ -118,6 +133,11 @@ class Source(BaseModel):
     status: Literal["not_checked", "ok", "error"] = "not_checked"
     message: str | None = None
     item_count: int | None = None
+
+    @field_validator("notes_folder_ids")
+    @classmethod
+    def safe_notes_folders(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        return SourceCreate.safe_notes_folders(value)
 
     @field_validator("id")
     @classmethod
@@ -167,7 +187,10 @@ class SourcesStore:
             descriptor, filename = tempfile.mkstemp(prefix=".sources-", dir=self.directory)
             temporary = Path(filename)
             with os.fdopen(descriptor, "w", encoding="utf-8") as output:
-                json.dump({"sources": [source.model_dump() for source in sources]}, output,
+                json.dump({"sources": [source.model_dump(exclude={
+                    key for key in ("notes_folder_ids", "outlook_client_id", "outlook_account_id")
+                    if not getattr(source, key)
+                }) for source in sources]}, output,
                           ensure_ascii=False, indent=2)
                 output.write("\n")
                 output.flush()

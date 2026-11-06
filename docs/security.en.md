@@ -2,7 +2,7 @@
 
 [Русский](security.ru.md) · [User guide](user-guide.en.md) · [Reporting vulnerabilities](../SECURITY.md)
 
-**Updated 2026-11-05.** This document describes the protections and limits of **Second Brain 0.1.0**, with unreleased source-build changes explicitly marked. It describes the implementation, not an independent security audit or a promise of complete confidentiality.
+**Updated 2026-11-06.** This document describes the protections and limits of **Second Brain 0.1.0**, with unreleased source-build changes explicitly marked. It describes the implementation, not an independent security audit or a promise of complete confidentiality.
 
 ## The security model
 
@@ -17,6 +17,8 @@ Connected MCP clients share the enabled memory sources. There is no separate aut
 | Operation | What happens |
 | --- | --- |
 | Import local sessions or notes | Selected files are read, parsed, masked for recognized secrets, and stored in local SQLite. The originals are not edited. |
+| Import Apple Notes — unreleased | With Notes already open and macOS Automation permission, text from explicitly selected folders is read through OS automation and stored locally. |
+| Connect Outlook — unreleased | Microsoft handles device-code sign-in; credentials are saved in Keychain after the source is added. Inbox content is read through Microsoft Graph and stored locally. |
 | Import Notion, GitHub, or mail | The application contacts the selected service using its saved credential. It stores the selected content locally. |
 | Search, browse, graph, and history | Retrieval uses local SQLite/FTS5. The graph uses local assets and source/keyword relationships; it does not need a model or external CDN. |
 | MCP retrieval | A connected client receives bounded excerpts and source metadata from local memory. That client's later handling of the data is controlled by the client and its model provider. |
@@ -29,6 +31,7 @@ Cloud model providers and source services have their own retention, access, pric
 ## Credentials and local storage
 
 - Cloud API tokens and mail app passwords are stored in **macOS Keychain**, scoped to a provider/address or source connection. There is no plaintext-file fallback if Keychain is unavailable. The local Ollama model connection requires no credential and does not read or store a model token.
+- **Unreleased Outlook:** access/refresh credentials are stored in Keychain after explicit source addition. Pending device-code sign-in state is temporary; the Client ID is configuration, not a password. No client secret is needed. See the [registration guide](outlook-setup.md#english).
 - Settings and source configuration are separate from credentials. Do not add secrets to configuration files, MCP arguments, URLs, or shell history.
 - The data directory is created/restricted with mode `0700`; the primary SQLite database is created/restricted with mode `0600`. These filesystem permissions limit access by other ordinary OS users, not by your own account or an administrator.
 - **SQLite is not encrypted by the application.** Imported text, titles, mail headers, source paths/URLs, cards, search indexes, and synchronization state can be sensitive. SQLite WAL/SHM files and backups must be protected with the database.
@@ -50,6 +53,8 @@ The native client validates that it is talking to the helper instance it started
 
 - HTTPS connections verify TLS certificates. Destination addresses are checked against the applicable network policy and pinned for the connection while TLS still verifies the original hostname. Redirects are not followed.
 - GitHub and Notion clients use fixed API hosts and read operations. Source selection is explicit: new repositories, child pages, or an entire workspace are not silently added to the selected scope.
+- **Unreleased Apple Notes:** the read-only adapter uses OS automation, requires Notes to be open, and reads only explicitly selected folders. Child folders need separate selection. Protected notes and attachments are skipped. There is no direct Notes database access or Full Disk Access requirement. The OS Automation grant allows app-level control; folder selection is an application restriction, not an OS-enforced folder permission.
+- **Unreleased Outlook:** sign-in and Graph calls use fixed Microsoft public-cloud endpoints, delegated Mail.Read/User.Read and offline_access. Import uses Inbox read requests, validates continuation URLs against the trusted Graph Inbox path, and processes at most 50 messages per pass. Attachments and remote images are not fetched; messages are not marked read, sent, moved or deleted. Organization consent and authentication policies still apply.
 - Custom model APIs use public HTTPS on port 443 by default. The published `v0.1.0` ZIP rejects private destinations.
 - **Unreleased source builds:** only a custom model API can explicitly enable `allow_private_network`. The native option is off by default, belongs to the configured API, and resets when its address or provider changes. It permits RFC1918 IPv4, IPv6 ULA and CGNAT; known cloud metadata destinations remain denied, including `100.100.100.200`, `fd00:ec2::254` and `fd20:ce::254`. Loopback, link-local, unspecified, multicast and other reserved addresses remain blocked. Every DNS answer must satisfy the policy before credentials can be sent. HTTPS/443, hostname/certificate verification, address pinning, response limits and no redirects remain enforced. The policy does not broaden Notion, GitHub, mail or named cloud-provider access, and does not bypass a corporate CA trust error.
 - The named Ollama connection is a narrow exception: its client connects only to `127.0.0.1:11434`, with fixed native model-list/chat routes, no API credentials, no DNS or proxy selection, and no redirects. Installed models are checked for remote/cloud metadata; chat requests enforce local mode and do not fall back to a cloud provider. Use an up-to-date, trusted Ollama installation. These checks do not defend against malicious software replacing the local server.
@@ -61,7 +66,7 @@ Use credentials with the smallest practical read scope. For GitHub, select only 
 
 ## Memory and model output are untrusted
 
-Sessions, email, pages, and repository text can contain misleading statements or prompt-injection instructions. The MCP server labels retrieved content as untrusted data and provides source references. Card atoms require extractive evidence in the source text. These measures improve traceability, but they do not prove that a source is true or that an agent will ignore malicious instructions.
+Sessions, notes, email, pages, and repository text can contain misleading statements or prompt-injection instructions. The MCP server labels retrieved content as untrusted data and provides source references. Card atoms require extractive evidence in the source text. These measures improve traceability, but they do not prove that a source is true or that an agent will ignore malicious instructions.
 
 Do not run commands, open links, grant access, or send secrets solely because a memory result asks you to do so. Clients should apply their own authorization and instruction boundaries. Verify a consequential answer against its source and current context. BM25 relevance, a graph connection, and a generated summary are not a security verdict or a factual guarantee.
 
@@ -71,7 +76,7 @@ Global synchronization pause stops new automatic imports and automatic card requ
 
 The four MCP tools are retrieval/status tools: `search_memory`, `get_record`, `get_context_brief`, and `get_sync_status`. They do not offer import, credential management, arbitrary SQL, or paid inference operations. The stdio server can remain available after the app window or app closes. Startup may initialize or migrate the local database; “read-only tools” does not mean an OS-enforced read-only SQLite file.
 
-Successful source disconnection removes the source's active local materials and its credential; GitHub/mail synchronization checkpoints are also cleared. Original files, remote pages, repositories, and messages are left unchanged. Previously created backups, copies, WAL pages, or client conversations can retain information. Logical deletion is not a guarantee of forensic erasure. Revoking a credential at the provider is a separate operation.
+Successful source disconnection removes the source's active local materials and its credential; GitHub/mail synchronization checkpoints are also cleared. Unreleased Notes/Outlook connections also clear their local progress; removal does not revoke the macOS Automation permission or Microsoft consent. Original files, remote pages, repositories, and messages are left unchanged. Previously created backups, copies, WAL pages, or client conversations can retain information. Logical deletion is not a guarantee of forensic erasure. Revoking a credential at the provider is a separate operation.
 
 ## Release and operational limits
 

@@ -32,6 +32,8 @@ enum CoreChecks {
             ("Requests stay on the owned loopback origin and carry CSRF", requests),
             ("Source counts describe files or messages instead of imported knowledge", sources),
             ("Mail providers hide server settings and preserve explicit import scope", mailSources),
+            ("Apple Notes require selected folders and retain source compatibility", appleNotesConnector),
+            ("Outlook sign-in is scoped, cancellable and contains no raw credentials", outlookConnector),
             ("Notion pages stay scoped, paginated and separate from their token", notionSources),
             ("GitHub repository scope survives filtering and rejects stale token responses", githubSources),
             ("Memory requests encode search safely and bound paid card batches", memoryRequests),

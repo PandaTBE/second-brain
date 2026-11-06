@@ -492,6 +492,11 @@ class MemoryStore:
             ).fetchone():
                 connection.execute("DELETE FROM mail_sync_progress WHERE source_id=?",
                                    (source_id,))
+            for table in ("apple_notes_sync_progress", "outlook_sync_progress"):
+                if connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
+                ).fetchone():
+                    connection.execute(f"DELETE FROM {table} WHERE source_id=?", (source_id,))
             return len(rows)
 
     def deleted_source_ids(self) -> frozenset[str]:

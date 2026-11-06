@@ -43,6 +43,7 @@ metadata = {
     "NSDocumentsFolderUsageDescription": "Чтение выбранных вами папок сессий и заметок.",
     "NSDesktopFolderUsageDescription": "Чтение выбранной вами папки заметок.",
     "NSDownloadsFolderUsageDescription": "Чтение выбранной вами папки заметок.",
+    "NSAppleEventsUsageDescription": "Чтение заметок только из выбранных вами папок Apple Заметок.",
 }
 Path(sys.argv[1]).write_bytes(plistlib.dumps(metadata))
 PY

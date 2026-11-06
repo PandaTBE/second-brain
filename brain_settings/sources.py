@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
+from .apple_notes import AppleNotesClient
 from .errors import AppError
 from .github_client import GitHubClient
 from .github_models import GitHubRepositoriesRequest
@@ -16,6 +17,10 @@ from .mail_client import MailClient
 from .mail_presets import mail_access_error, mail_connection
 from .notion_client import NotionClient
 from .notion_models import NotionSearchRequest
+from .outlook_auth import OutlookAuthManager
+from .outlook_client import OutlookClient
+from .outlook_transport import MicrosoftOAuthClient
+from .source_connectors import ConnectedSourceSupport
 from .source_storage import Source, SourceCreate, SourcesStore
 from .storage import vault_operation
 
@@ -30,7 +35,8 @@ def source_credential_scope(source: Source) -> str:
 
 class SourceService:
     def __init__(self, data_dir: Path, vault, mail_tester=None, *, notion_client=None,
-                 github_client=None, mail_client=None):
+                 github_client=None, mail_client=None, apple_notes_client=None,
+                 outlook_client=None, outlook_oauth_client=None, outlook_auth=None):
         self.store = SourcesStore(data_dir)
         self.mail_client = mail_client if mail_client is not None else MailClient()
         self.github_client = github_client if github_client is not None else GitHubClient()
@@ -38,9 +44,31 @@ class SourceService:
         self.vault = vault
         self.mail_tester = mail_tester if mail_tester is not None else MailTester()
         self._lock = threading.RLock()
+        self.apple_notes_client = (apple_notes_client if apple_notes_client is not None
+                                   else AppleNotesClient())
+        oauth = outlook_oauth_client if outlook_oauth_client is not None else MicrosoftOAuthClient()
+        self.outlook_client = (outlook_client if outlook_client is not None
+                               else OutlookClient(oauth_client=oauth))
+        self.outlook_auth = (outlook_auth if outlook_auth is not None
+                             else OutlookAuthManager(oauth, self.outlook_client))
+        self.connected = ConnectedSourceSupport(self, source_credential_scope)
+
+    def outlook_credentials(self, source_id: str) -> dict:
+        return self.connected.outlook_credentials(source_id)
+
+    def cleanup_auth(self) -> None:
+        self.connected.cleanup()
+        cleanup = getattr(self.outlook_auth, "cleanup", None)
+        if cleanup is not None:
+            cleanup()
+
+    def close(self) -> None:
+        close = getattr(self.outlook_auth, "close", None)
+        if close is not None:
+            close()
 
     def _public(self, source: Source) -> dict:
-        if source.kind not in ("imap", "notion", "github"):
+        if source.kind not in ("imap", "notion", "github", "outlook"):
             return source.model_dump()
         try:
             present = bool(vault_operation(self.vault, "get", source_credential_scope(source)))
@@ -139,6 +167,10 @@ class SourceService:
         return {"source": self._public(checked)}
 
     def add(self, request: SourceCreate) -> dict:
+        if request.kind == "apple_notes":
+            return self.connected.add_notes(request)
+        if request.kind == "outlook":
+            return self.connected.add_outlook(request)
         if request.kind == "imap":
             if request.password is None:
                 raise AppError("mail_password_required", "Введите пароль приложения для почты.")
@@ -174,7 +206,7 @@ class SourceService:
             if len(current) >= 100:
                 raise AppError("source_limit", "Можно подключить не более 100 источников.")
             credential_written = False
-            if source.kind in ("imap", "notion", "github"):
+            if source.kind in ("imap", "notion", "github", "outlook"):
                 secret = password if source.kind == "imap" else request.token.get_secret_value()
                 vault_operation(self.vault, "set", source_credential_scope(source), secret)
                 credential_written = True
@@ -226,7 +258,7 @@ class SourceService:
         with self._lock:
             current = self.store.load()
             source = self._find(current, source_id)
-            if source.kind != "imap":
+            if source.kind not in ("imap", "outlook"):
                 raise AppError("source_not_mail", "Выберите почтовый источник.", 400)
             updated = source.model_copy(update={"mail_import_enabled": enabled})
             self.store.save(tuple(updated if item.id == source_id else item for item in current))
@@ -255,6 +287,8 @@ class SourceService:
     def test(self, source_id: str) -> dict:
         with self._lock:
             source = self._find(self.store.load(), source_id)
+        if source.kind in ("apple_notes", "outlook"):
+            return self.connected.test(source)
         if source.kind == "notion":
             return self._test_notion(source)
         if source.kind == "github":
@@ -295,14 +329,15 @@ class SourceService:
             current = self.store.load()
             source = self._find(current, source_id)
             previous = None
-            if source.kind in ("imap", "notion", "github"):
+            if source.kind in ("imap", "notion", "github", "outlook"):
                 scope = source_credential_scope(source)
                 previous = vault_operation(self.vault, "get", scope)
                 vault_operation(self.vault, "delete", scope)
             try:
                 self.store.save(tuple(item for item in current if item.id != source_id))
             except AppError:
-                if source.kind in ("imap", "notion", "github"):
+                if source.kind in ("imap", "notion", "github", "outlook"):
                     self._rollback_credential(source, previous)
                 raise
+        self.connected.discard_source(source_id)
         return {"deleted": True}

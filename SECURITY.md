@@ -45,6 +45,13 @@ loopback, link-local and known cloud metadata endpoints blocked. See the
 The local server and OS must be trusted. Remote-source imports and MCP-client
 processing have separate data flows.
 
+**Unreleased source builds** also add Apple Notes through explicit folder selection
+and macOS Automation, and Outlook through Microsoft device-code sign-in with
+user-registered Client ID and delegated read permissions. Outlook credentials
+are stored in Keychain; no client secret is required. Neither connector is in
+the published `v0.1.0` ZIP. See [Outlook setup](docs/outlook-setup.md#english) and
+[source access boundaries](docs/security.en.md#outbound-connections-and-source-access).
+
 The current downloadable package is ad-hoc signed and **not Developer ID signed
 or notarized by Apple**. Scanning for known secret patterns and personal paths is
 not a security certification and cannot prove that every sensitive detail was
@@ -89,6 +96,14 @@ loopback, link-local и известные адреса метаданных о�
 Подробности — в [сетевой политике](docs/security.ru.md).
 Локальный сервер и ОС должны быть доверенными. Импорт удалённых источников и
 обработка MCP-клиентом — отдельные потоки данных.
+
+**В неопубликованной сборке из исходников** также добавлены Apple Заметки с
+явным выбором папок и разрешением «Автоматизация», а также Outlook со входом
+Microsoft по коду, собственным Client ID и делегированными правами чтения.
+Секреты Outlook хранятся в Keychain; client secret не нужен. В ZIP `v0.1.0`
+этих источников нет. См. [настройку Outlook](docs/outlook-setup.md#russian) и
+[границы доступа](docs/security.ru.md).
+
 Проверка известных шаблонов не гарантирует обнаружение
 всех чувствительных сведений. Текущая ad-hoc подпись не является Developer ID или
 нотарификацией Apple. Не отключайте защиту ОС ради недоверенного файла.

@@ -58,9 +58,13 @@ lexical search, not semantic embeddings.
 | --- | --- | --- |
 | Codex / Claude Code / Qwen Code | JSONL session text | Selected folders; Qwen imports after a quiet period |
 | Notes | Markdown, TXT, JSONL | Selected folder; symlinks skipped |
+| Apple Notes — unreleased | Note text from selected folders | macOS Automation permission; Notes open; protected notes and attachments skipped |
 | Notion | Selected page text | Up to 100 pages; child pages selected separately |
 | GitHub | Markdown, issue/PR titles and bodies, state and labels | Up to 20 repositories; no code, comments or diffs |
 | Gmail / Yandex Mail | Inbox headers and text | App passwords; initial 30/90/365-day window or all history; whole messages over 1 MiB skipped |
+| Outlook / Microsoft 365 — unreleased | Inbox headers and text | Microsoft OAuth device sign-in; registered Client ID; explicit import period |
+
+**Source builds only:** Apple Notes and Outlook are not in the published `v0.1.0` ZIP. See the [source guide](docs/user-guide.en.md#apple-notes-source) and [Outlook registration guide](docs/outlook-setup.md#english).
 
 Large archives run in bounded passes and preserve their continuation state.
 Remote imports are local snapshots: deleting something remotely does not
@@ -262,9 +266,13 @@ Community expectations: [Code of conduct](CODE_OF_CONDUCT.md).
 | --- | --- | --- |
 | Codex / Claude Code / Qwen Code | Текст сессий JSONL | Выбранные папки; Qwen импортируется после паузы записи |
 | Заметки | Markdown, TXT, JSONL | Выбранная папка; символические ссылки пропускаются |
+| Apple Заметки — ещё не выпущено | Текст заметок выбранных папок | Разрешение «Автоматизация» macOS; Notes открыты; защищённые заметки и вложения пропускаются |
 | Notion | Текст выбранных страниц | До 100 страниц; вложенные выбираются отдельно |
 | GitHub | Markdown, заголовки и описания issues/PR, состояния и метки | До 20 репозиториев; без кода, комментариев и diff |
 | Gmail / Яндекс Почта | Заголовки и текст входящих | Пароль приложения; 30/90/365 дней или вся история; письма больше 1 МиБ пропускаются |
+| Outlook / Microsoft 365 — ещё не выпущено | Заголовки и текст входящих | Вход Microsoft по коду; зарегистрированный Client ID; явный выбор периода импорта |
+
+**Только сборки из исходников:** Apple Заметок и Outlook ещё нет в опубликованном ZIP `v0.1.0`. См. [руководство источников](docs/user-guide.ru.md#apple-notes-source) и [регистрацию Outlook](docs/outlook-setup.md#russian).
 
 Большие архивы обрабатываются ограниченными пакетами с сохранением продолжения.
 Удаление объекта в удалённом сервисе само по себе не удаляет локальную копию.

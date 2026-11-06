@@ -1,11 +1,12 @@
 # Documentation / Документация
 
-Version / Версия: **0.1.0** · Updated / Обновлено: **2026-11-04**
+Version / Версия: **0.1.0** · Updated / Обновлено: **2026-11-06**
 
 | Document / Документ | Русский | English |
 | --- | --- | --- |
 | User guide: installation, sources, memory, automation, MCP, troubleshooting | [Руководство пользователя](user-guide.ru.md) | [User guide](user-guide.en.md) |
 | Architecture: components, data flow, boundaries, source map | [Архитектура](architecture.ru.md) | [Architecture](architecture.en.md) |
+| Outlook: Client ID registration and Microsoft sign-in (unreleased) | [Подключение Outlook](outlook-setup.md#russian) | [Outlook setup](outlook-setup.md#english) |
 
 The [project README](../README.md) introduces Second Brain. Read the [security policy](../SECURITY.md) before connecting private sources or a model provider. See the [changelog](../CHANGELOG.md) for release history.
 
