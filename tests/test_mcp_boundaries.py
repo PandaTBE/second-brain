@@ -117,7 +117,8 @@ def test_disconnected_source_fails_closed_in_all_tools(tmp_path):
     tools = memory_tools(store, tmp_path)
     assert tools.search_memory("x")["results"]
     store.search.assert_called_with(
-        "x", limit=20, source_id=None, allowed_source_ids=frozenset([SOURCE_ID]), visibility="mcp"
+        "x", limit=20, source_id=None, allowed_source_ids=frozenset([SOURCE_ID]), visibility="mcp",
+        project=None, date_from=None, date_to=None,
     )
     source_store.save(())
     assert tools.search_memory("x")["results"] == []

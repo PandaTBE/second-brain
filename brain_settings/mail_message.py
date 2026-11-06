@@ -113,8 +113,8 @@ def parse_message(raw: bytes) -> dict:
         date = _header(message, "Date")
         try:
             timestamp = parsedate_to_datetime(date)
-            timestamp = timestamp.replace(tzinfo=UTC) if timestamp.tzinfo is None else timestamp
-            timestamp = timestamp.astimezone(UTC).isoformat()
+            timestamp = (timestamp.astimezone(UTC).isoformat()
+                         if timestamp.tzinfo is not None else None)
         except (ValueError, TypeError, OverflowError):
             timestamp = None
         message_id = _header(message, "Message-ID")

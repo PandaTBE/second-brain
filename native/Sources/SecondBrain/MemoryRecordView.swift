@@ -6,8 +6,13 @@ struct MemoryRecordView: View {
     let record: MemoryRecord?
     let loading: Bool
     let error: String?
+    let copySource: (MemoryRecord) async -> Bool
+    @ViewState private var copying = false
+    @ViewState private var copyTask: Task<Void, Never>?
     @ViewState private var tab = "card"
     @ViewState private var copied = false
+
+    private func cancelCopy() { copyTask?.cancel(); copyTask = nil; copying = false; copied = false }
 
     var body: some View {
         if loading {
@@ -22,7 +27,17 @@ struct MemoryRecordView: View {
                     if let uri = record.sourceUri {
                         VStack(alignment: .leading, spacing: 7) {
                             Text(uri).font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
-                            Button(copied ? "Ссылка скопирована" : "Скопировать ссылку на источник") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(uri, forType: .string); copied = true }.font(.caption)
+                            HStack {
+                                Button(copying ? "Проверяем разрешение…" : copied ? "Ссылка скопирована" : "Скопировать ссылку на источник") {
+                                    copying = true; copied = false
+                                    copyTask = Task {
+                                        let success = await copySource(record)
+                                        guard !Task.isCancelled else { return }
+                                        copying = false; copied = success
+                                    }
+                                }.font(.caption).disabled(copying)
+                                if copying { ProgressView().controlSize(.small) }
+                            }
                         }
                     }
                     Picker("Содержимое", selection: $tab) { Text("Карточка").tag("card"); Text("Исходный текст").tag("text") }.pickerStyle(.segmented)
@@ -64,7 +79,11 @@ struct MemoryRecordView: View {
                         }
                     }
                 }.padding(20)
-            }.onChange(of: record.id) { _, _ in copied = false }
+            }
+            .onChange(of: record.id) { _, _ in cancelCopy() }
+            .onChange(of: record.revision) { _, _ in cancelCopy() }
+            .onChange(of: record.sourceUri) { _, _ in cancelCopy() }
+            .onDisappear { cancelCopy() }
         } else {
             ContentUnavailableView("Выберите материал", systemImage: "doc.text", description: Text("Здесь появятся карточка, подтверждающие фрагменты и полный исходный текст."))
         }

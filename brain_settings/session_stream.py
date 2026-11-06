@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from .dialogue_parsers import Turn, parse_session
 from .errors import AppError
+from .session_metadata import session_project
 
 MAX_LINE_BYTES = 1024 * 1024
 MAX_EXTRACTED_BYTES = 8 * 1024 * 1024
@@ -25,6 +26,7 @@ class StreamedSession:
 
 def read_session(stream, kind: str, size: int) -> StreamedSession:
     responses, events = (), ()
+    project = None
     response_bytes = event_bytes = consumed = skipped = line_number = 0
     complete, warnings = True, ()
     deadline = time.monotonic() + MAX_SECONDS
@@ -83,6 +85,7 @@ def read_session(stream, kind: str, size: int) -> StreamedSession:
         if not isinstance(row, dict):
             skipped += 1
             continue
+        project = session_project(row, kind, project)
         if kind == "codex":
             payload = row.get("payload")
             payload = payload if isinstance(payload, dict) else {}
@@ -111,7 +114,7 @@ def read_session(stream, kind: str, size: int) -> StreamedSession:
                 if warning not in warnings:
                     warnings = (*warnings, warning)
                 continue
-            actual = Turn(turn.text, line_number, line_number, turn.timestamp)
+            actual = Turn(turn.text, line_number, line_number, turn.timestamp, project)
             if is_event:
                 events, event_bytes = (*events, actual), event_bytes + cost
             else:

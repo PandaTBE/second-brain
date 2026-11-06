@@ -24,7 +24,9 @@ def _commit(store, source_id, message):
                   "title": title + f" · {index + 1}", "text": chunk.text,
                   "source_uri": redact_text(message["source_uri"]),
                   "created_at": message["created_at"],
-                  "updated_at": message["updated_at"]}
+                  "updated_at": message["updated_at"],
+                  "message_at": message["created_at"],
+                  "source_modified_at": message.get("source_modified_at")}
                  for index, chunk in enumerate(chunk_turns(parse_note(text)))]
     return key, store.replace_file_documents(source_id, key, documents, complete=True)
 

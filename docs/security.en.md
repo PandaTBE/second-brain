@@ -89,6 +89,21 @@ Use credentials with the smallest practical read scope. For GitHub, select only 
 
 Sessions, notes, email, pages, and repository text can contain misleading statements or prompt-injection instructions. The MCP server labels retrieved content as untrusted data and provides source references. Card atoms require extractive evidence in the source text. These measures improve traceability, but they do not prove that a source is true or that an agent will ignore malicious instructions.
 
+**Unreleased evidence bundles** reuse saved text/cards and the permitted search
+index without answer generation or a paid model call. Exact quotes, revisions,
+code-point offsets and citation IDs establish provenance, not factual accuracy.
+The same budget includes compact JSON metadata, duplicate support and the trust
+notice; it is not an exact model-token allowance. Date/project filters use known
+stored metadata, never fabricated source dates. Native display treats quotes as
+text. Explicit native copy first repeats the whole request so previously cached
+primary quotes, duplicate supports and statistics cannot bypass a saved policy.
+Empty/error or superseded responses do not write to the clipboard. Verification,
+original opening and material URI copy also reread currently authorized records;
+they do not make already displayed or previously received text revocable. Optional
+HTTPS opening and Finder reveal do not execute source-file contents. Opaque Notes
+IDs receive no deep link. Unlocalized/ambiguous excerpts are marked uncertain;
+this label does not make another excerpt a factual guarantee.
+
 Do not run commands, open links, grant access, or send secrets solely because a memory result asks you to do so. Clients should apply their own authorization and instruction boundaries. Verify a consequential answer against its source and current context. BM25 relevance, a graph connection, and a generated summary are not a security verdict or a factual guarantee.
 
 ## Pausing, removing data, and MCP
@@ -117,7 +132,13 @@ are an application policy, not secure erasure or same-user process isolation.
 
 Global synchronization pause stops new automatic imports and automatic card requests. Already admitted requests may finish; explicit manual operations remain available. The mail switch changes import for that mailbox while retaining cached memory and progress.
 
-The four MCP tools are retrieval/status tools: `search_memory`, `get_record`, `get_context_brief`, and `get_sync_status`. They do not offer import, credential management, arbitrary SQL, or paid inference operations. The stdio server can remain available after the app window or app closes. Startup may initialize or migrate the local database; “read-only tools” does not mean an OS-enforced read-only SQLite file.
+The four original MCP tools are retrieval/status tools: `search_memory`,
+`get_record`, `get_context_brief`, and `get_sync_status`. Unreleased builds add
+read-only `get_evidence_bundle` with the same source-policy boundary. They do not
+offer import, credential management, arbitrary SQL, or paid inference operations.
+The stdio server can remain available after the app closes. Startup may initialize
+or migrate the local database; “read-only tools” does not mean an OS-enforced
+read-only SQLite file.
 
 Successful source disconnection removes the source's active local materials and its credential; GitHub/mail synchronization checkpoints are also cleared. Unreleased Notes/Outlook connections also clear their local progress; removal does not revoke the macOS Automation permission or Microsoft consent. Original files, remote pages, repositories, and messages are left unchanged. Previously created backups, copies, WAL pages, or client conversations can retain information. Logical deletion is not a guarantee of forensic erasure. Revoking a credential at the provider is a separate operation.
 

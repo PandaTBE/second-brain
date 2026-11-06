@@ -47,7 +47,8 @@ def _commit(store, source, uid, validity, raw):
     documents = [{"source_id": source["id"], "source_kind": "imap",
                   "source_object_id": key + f"::chunk:{index:06}",
                   "title": title + f" · {index + 1}", "text": chunk.text, "source_uri": uri,
-                  "created_at": parsed["timestamp"], "updated_at": parsed["timestamp"]}
+                  "created_at": parsed["timestamp"], "updated_at": parsed["timestamp"],
+                  "message_at": parsed["timestamp"]}
                  for index, chunk in enumerate(chunk_turns(parse_note(text)))]
     return store.replace_file_documents(source["id"], key, documents, complete=True)
 

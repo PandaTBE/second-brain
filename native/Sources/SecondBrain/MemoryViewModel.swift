@@ -124,6 +124,20 @@ final class MemoryViewModel: ObservableObject {
         searchTask = Task { await search() }
     }
 
+    func evidenceBundle(_ request: EvidenceRequest) async throws -> EvidenceBundle {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        return try await client.get("/api/memory/evidence", query: request.queryItems)
+    }
+
+    func currentCitationRecord(_ citation: EvidenceCitation) async throws -> MemoryRecord {
+        guard let client else { throw ServiceError("Локальный сервис не запущен.") }
+        let response: MemoryRecordResponse = try await client.get("/api/memory/records/\(citation.recordId)")
+        guard citation.matches(record: response.record) else {
+            throw ServiceError("Материал или его источник изменились. Обновите пакет доказательств.")
+        }
+        return response.record
+    }
+
     func embeddingSettings() async throws -> EmbeddingSettings {
         guard let client else { throw ServiceError("Локальный сервис не запущен.") }
         return try await client.get("/api/memory/embeddings")
@@ -224,6 +238,32 @@ final class MemoryViewModel: ObservableObject {
             guard request == detailRequest, selectedId == id else { return }
             record = result.record
         } catch { if request == detailRequest { recordError = error.localizedDescription } }
+    }
+
+    func copySourceURI(_ displayed: MemoryRecord) async -> Bool {
+        guard let client, selectedId == displayed.id, record?.id == displayed.id,
+              displayed.revision != nil else { return false }
+        let request = detailRequest
+        let reference = MemorySourceReference(record: displayed)
+        do {
+            let response: MemoryRecordResponse = try await client.get("/api/memory/records/\(displayed.id)")
+            guard !Task.isCancelled, request == detailRequest, selectedId == displayed.id else { return false }
+            guard reference.matches(response.record), let uri = response.record.sourceUri, !uri.isEmpty else {
+                record = response.record
+                notice = "Материал или ссылка изменились. Выберите действие заново."; noticeIsError = true
+                return false
+            }
+            guard !Task.isCancelled, request == detailRequest, selectedId == displayed.id else { return false }
+            NSPasteboard.general.clearContents()
+            guard NSPasteboard.general.setString(uri, forType: .string) else {
+                throw ServiceError("Не удалось скопировать ссылку.")
+            }
+            return true
+        } catch {
+            guard !Task.isCancelled, request == detailRequest, selectedId == displayed.id else { return false }
+            record = nil; recordError = error.localizedDescription
+            return false
+        }
     }
 
     private func clearSelection() {

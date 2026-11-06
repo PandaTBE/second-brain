@@ -146,6 +146,7 @@ def _message(value):
         full = "# " + subject + ("\nОт: " + byline if byline else "") + "\nДата: " + received
         return {"id": identifier, "subject": subject, "text": full + "\n\n" + text.strip(),
                 "created_at": received, "updated_at": updated,
+                "source_modified_at": updated if value.get("lastModifiedDateTime") else None,
                 "source_uri": _source_uri(identifier, value.get("webLink"))}
     except (ValueError, TypeError, UnicodeError, RecursionError) as exc:
         raise _invalid() from exc

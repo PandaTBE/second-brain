@@ -9,6 +9,17 @@ listed in the release notes; preparing local artifacts does not publish a releas
 
 ### Added
 
+- Read-only `get_evidence_bundle` MCP and shared HTTP/native evidence preview:
+  exact quotes, stable code-point citation IDs, current revisions, bounded
+  duplicate support and compact JSON context budgets of 2,000–32,000 characters.
+  Source/project/UTC-date filters apply before ranking; unknown legacy dates and
+  projects remain unknown. Native context copying is explicit, current-record
+  verification is optional; copying refreshes the complete request, including
+  duplicate support/counts, and cancels on empty or stale responses. Original
+  opening and URI copying reread currently permitted materials; unlocalized or
+  ambiguous excerpts are marked uncertain. Originals use checked HTTPS/Finder
+  targets rather than invented Notes links. Extraction creates no answer or paid model request;
+  the four original MCP required-argument contracts remain compatible.
 - Opt-in local semantic and hybrid retrieval with a separate installed Ollama
   embedding model, SQLite index generations and bounded writer-owned indexing.
   Native settings expose the model, progress and search modes; HTTP/MCP share
@@ -114,6 +125,15 @@ shared local memory server for AI assistants.
 
 ### Ещё не выпущено
 
+- `get_evidence_bundle` и общий HTTP/нативный просмотр: точные цитаты, устойчивые
+  ID с диапазонами codepoints, ревизии, дополнительные подтверждения дублей и
+  JSON-бюджет 2 000–32 000 символов. Фильтры источника/проекта/UTC-даты применяются
+  до ранжирования; неизвестные старые даты и проекты не выдумываются. Контекст
+  копируется явно после обновления всего пакета; пустой/устаревший ответ отменяет
+  запись в буфер. Цитату можно перепроверить, неоднозначные фрагменты помечаются;
+  перед открытием/копированием URI проверяется текущий доступ. Оригиналы открываются через
+  проверенные HTTPS/Finder, без выдуманных Notes-ссылок. Ответ/платная генерация
+  не запускаются; обязательные аргументы четырёх прежних MCP сохраняются.
 - Явно включаемые локальные embeddings и гибридный поиск: отдельная установленная
   модель Ollama, поколения SQLite, фоновая индексация, нативные настройки и выбор
   режима. HTTP/MCP показывают возврат к BM25 и неполное покрытие; слишком длинный

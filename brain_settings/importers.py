@@ -119,6 +119,9 @@ def import_source(source: dict, store, *, eligible_paths: set[str] | None = None
                             (turn.timestamp for turn in turns if turn.timestamp), fallback
                         ),
                         "updated_at": chunk.timestamp or fallback,
+                        "message_at": chunk.timestamp if kind != "folder" else None,
+                        "source_modified_at": fallback if kind == "folder" else None,
+                        "project": chunk.project,
                     }
                     for index, chunk in enumerate(chunks)
                 ]

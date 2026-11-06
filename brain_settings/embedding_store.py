@@ -56,7 +56,11 @@ def normalized(vector, dimension=None):
     return tuple(float(value / norm) for value in vector)
 
 
-def _where(visibility="local", allowed_source_ids=None, source_id=None):
+def _where(visibility="local", allowed_source_ids=None, source_id=None,
+           project=None, date_from=None, date_to=None):
+    from .retrieval_filters import SearchFilters
+
+    filters = SearchFilters(project, date_from, date_to)
     sql = "1=1" + policy_clause(visibility, alias="d")
     args = ()
     if source_id is not None:
@@ -68,7 +72,8 @@ def _where(visibility="local", allowed_source_ids=None, source_id=None):
             return "0=1", ()
         sql += " AND d.source_id IN (" + ",".join("?" for _ in allowed) + ")"
         args += allowed
-    return sql, args
+    clause, values = filters.clause()
+    return sql + clause, (*args, *values)
 
 
 class VectorStore:
@@ -82,22 +87,23 @@ class VectorStore:
             ).fetchone()
         return dict(row) | {"enabled": bool(row["enabled"])}
 
-    def coverage(self, *, visibility="local", allowed_source_ids=None, source_id=None):
-        state = self.config()
-        where, args = _where(visibility, allowed_source_ids, source_id)
-        with self.store._connection() as connection:
-            row = connection.execute(
-                "SELECT COUNT(*) AS eligible,COUNT(v.record_id) AS ready FROM documents d "
-                "LEFT JOIN embedding_vectors v ON v.record_id=d.id AND v.revision=d.revision "
-                "AND v.content_hash=d.content_hash AND v.generation=? AND v.dimension=? WHERE "
-                + where,
-                (state["generation"], state["dimension"], *args),
-            ).fetchone()
-        return {
-            "eligible": row["eligible"],
-            "ready": row["ready"],
-            "partial": row["ready"] < row["eligible"],
-        }
+    def coverage(self, *, visibility="local", allowed_source_ids=None, source_id=None,
+                 project=None, date_from=None, date_to=None, _connection=None):
+        if _connection is None:
+            with self.store._connection() as connection:
+                return self.coverage(visibility=visibility, allowed_source_ids=allowed_source_ids,
+                                     source_id=source_id, project=project, date_from=date_from,
+                                     date_to=date_to, _connection=connection)
+        state = _connection.execute("SELECT * FROM embedding_settings WHERE singleton=1").fetchone()
+        where, args = _where(visibility, allowed_source_ids, source_id, project, date_from, date_to)
+        row = _connection.execute(
+            "SELECT COUNT(*) AS eligible,COUNT(v.record_id) AS ready FROM documents d "
+            "LEFT JOIN embedding_vectors v ON v.record_id=d.id AND v.revision=d.revision "
+            "AND v.content_hash=d.content_hash AND v.generation=? AND v.dimension=? WHERE "
+            + where, (state["generation"], state["dimension"], *args),
+        ).fetchone()
+        return {"eligible": row["eligible"], "ready": row["ready"],
+                "partial": row["ready"] < row["eligible"]}
 
     def settings(self):
         state = self.config()
@@ -267,12 +273,15 @@ class VectorStore:
         allowed_source_ids=None,
         source_id=None,
         generation=None,
+        project=None,
+        date_from=None,
+        date_to=None,
     ):
         state = self.config()
         if not state["enabled"] or (generation is not None and generation != state["generation"]):
             return []
         values = normalized(vector, state["dimension"])
-        where, args = _where(visibility, allowed_source_ids, source_id)
+        where, args = _where(visibility, allowed_source_ids, source_id, project, date_from, date_to)
         best = []
         with self.store._connection() as connection:
             cursor = connection.execute(
@@ -301,7 +310,10 @@ class VectorStore:
                 record = self.store.get_record(
                     identifier, allowed_source_ids=allowed_source_ids, visibility=visibility
                 )
-                if record["revision"] == revision and record["content_hash"] == digest:
+                from .retrieval_filters import SearchFilters
+
+                if (record["revision"] == revision and record["content_hash"] == digest
+                        and SearchFilters(project, date_from, date_to).matches(record)):
                     hits.append(record | {"score": score, "snippet": record["text"][:480]})
             except AppError as error:
                 if error.code != "record_not_found":

@@ -9,6 +9,7 @@ struct MemoryView: View {
     @ViewState private var confirmedLimit = 10
     @ViewState private var showAutomation = false
     @ViewState private var showEmbeddingSettings = false
+    @ViewState private var showEvidence = false
     init(store: AppStore) { self.store = store; self.memory = store.memory }
 
     private var importableSources: [MemorySource] { store.sources.filter { $0.canImportMemory && $0.enabled } }
@@ -68,6 +69,8 @@ struct MemoryView: View {
                     Picker("Режим поиска", selection: Binding(get: { memory.searchMode }, set: { memory.changeSearchMode($0) })) {
                         ForEach(MemorySearchMode.allCases) { mode in Text(mode.title).tag(mode) }
                     }.labelsHidden().pickerStyle(.menu).frame(width: 140)
+                    Button { showEvidence = true } label: { Image(systemName: "text.quote") }
+                        .help("Доказательства и контекст с цитатами").accessibilityLabel("Доказательства и контекст с цитатами")
                     Button { showEmbeddingSettings = true } label: { Image(systemName: "slider.horizontal.3") }
                         .help("Настройки поиска по смыслу").accessibilityLabel("Настройки поиска по смыслу")
                     if memory.searchLoading { ProgressView().controlSize(.small) }
@@ -119,12 +122,17 @@ struct MemoryView: View {
                         }.listStyle(.inset)
                     }
                 }.frame(minWidth: 250, idealWidth: 330)
-                MemoryRecordView(record: memory.record, loading: memory.recordLoading, error: memory.recordError)
+                MemoryRecordView(record: memory.record, loading: memory.recordLoading, error: memory.recordError,
+                                 copySource: { record in await memory.copySourceURI(record) })
                     .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .sheet(isPresented: $showAutomation) { MemoryAutomationSheet(memory: memory) }
         .sheet(isPresented: $showEmbeddingSettings) { EmbeddingSettingsSheet(memory: memory) }
+        .sheet(isPresented: $showEvidence) {
+            EvidenceSheet(memory: memory, sources: store.sources, initialQuery: memory.query,
+                          initialMode: memory.searchMode, localOriginalAccess: .currentDevice)
+        }
         .alert(store.savedSettings.isLocal ? "Создать карточки локально?" : "Создать карточки через API?", isPresented: $confirmCards) {
             Button("Отмена", role: .cancel) {}
             Button("Обработать до \(confirmedLimit)") { Task { await memory.startCards(limit: confirmedLimit, retryErrors: false) } }

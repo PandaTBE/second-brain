@@ -38,7 +38,9 @@ def import_notion(source: dict, store, client, token: str, check_stop=lambda: No
                           "source_object_id": page_id + f"::chunk:{index:06}",
                           "title": title + f" · {index + 1}", "text": chunk.text,
                           "source_uri": "https://www.notion.so/" + page_id.replace("-", ""),
-                          "created_at": page["created_at"], "updated_at": page["updated_at"]}
+                          "created_at": page["created_at"], "updated_at": page["updated_at"],
+                          "source_created_at": page["created_at"],
+                          "source_modified_at": page["updated_at"]}
                          for index, chunk in enumerate(chunks)]
             results = store.replace_file_documents(source_id, page_id, documents, complete=True)
             stats = {**stats, "files_processed": stats["files_processed"] + 1,

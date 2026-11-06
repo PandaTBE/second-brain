@@ -29,6 +29,9 @@ class Retrieval:
         self.client = client if client is not None else OllamaClient()
 
     def _finish(self, results, diagnostics, arguments):
+        from .retrieval_filters import SearchFilters
+
+        filters = SearchFilters(arguments["project"], arguments["date_from"], arguments["date_to"])
         fresh = []
         for row in results:
             try:
@@ -40,6 +43,7 @@ class Retrieval:
                 if (
                     current["revision"] == row["revision"]
                     and current["content_hash"] == row["content_hash"]
+                    and filters.matches(current)
                 ):
                     fresh.append(row | current)
             except AppError as error:
@@ -56,6 +60,9 @@ class Retrieval:
         *,
         visibility="local",
         mode="lexical",
+        project=None,
+        date_from=None,
+        date_to=None,
     ):
         if mode not in MODES:
             raise AppError("invalid_search_mode", "Выберите lexical, semantic или hybrid.")
@@ -67,11 +74,17 @@ class Retrieval:
             or not 1 <= limit <= 50
         ):
             raise AppError("invalid_search", "Проверьте запрос и размер выдачи.")
+        from .retrieval_filters import SearchFilters
+
+        SearchFilters(project, date_from, date_to)
         allowed = None if allowed_source_ids is None else frozenset(allowed_source_ids)
         arguments = {
             "source_id": source_id,
             "allowed_source_ids": allowed,
             "visibility": visibility,
+            "project": project,
+            "date_from": date_from,
+            "date_to": date_to,
         }
         lexical = self.store.search(query, limit=min(50, max(limit, 20)), **arguments)
         state = self.vectors.config()

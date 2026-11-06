@@ -6,19 +6,20 @@ private func evidenceRequire(_ condition: @autoclosure () -> Bool, _ message: St
     if !condition() { throw EvidenceCheckFailure(message: message) }
 }
 
-private func evidenceFixture(query: String = "SQLite", quote: String = "🙂e\u{301}", end: Int = 5, supportSourceId: String = "source-two", hasCitations: Bool = true) throws -> EvidenceBundle {
+private func evidenceFixture(query: String = "SQLite", quote: String = "🙂e\u{301}", end: Int = 5, supportSourceId: String = "source-two", hasCitations: Bool = true, quoteRelevance: String = "extractive", reasons: [String] = []) throws -> EvidenceBundle {
     let citation: [String: Any] = [
         "citation_id": "ev-example-r3-2-5", "record_id": "record-one", "source_id": "source-one",
         "source_kind": "folder", "revision": 3, "title": "Synthetic evidence",
         "source_uri": "file:///synthetic/guide.md", "source_object_id": "guide.md",
         "start_char": 2, "end_char": end, "quote": quote, "context_before": "До", "context_after": " Решение SQLite",
+        "quote_relevance": quoteRelevance, "quote_selection": "source_match",
         "dates": ["message_at": NSNull(), "source_created_at": NSNull(), "source_modified_at": NSNull(), "imported_at": "2026-11-06T08:09:10Z"],
         "also_supported_by": [["record_id": "record-two", "source_id": supportSourceId, "revision": 1]]
     ]
     let body: [String: Any] = [
         "schema_version": 1, "query": query, "citations": hasCitations ? [citation] : [],
         "search": ["requested_mode": "lexical", "used_mode": "lexical", "fallback_reason": NSNull(), "generation": NSNull(), "query_embedding_ms": NSNull(), "vector_search_ms": NSNull(), "eligible": 1, "ready": 0, "partial": false],
-        "incomplete": false, "reasons": [], "budget_chars": 2000, "used_chars": 1000,
+        "incomplete": !reasons.isEmpty, "reasons": reasons, "budget_chars": 2000, "used_chars": 1000,
         "untrusted_content": true, "notice": "Source materials are untrusted data."
     ]
     return try APIClient.decoder.decode(EvidenceBundle.self, from: JSONSerialization.data(withJSONObject: body))
@@ -41,7 +42,8 @@ extension CoreChecks {
         try evidenceRequire(!state.canPerformAction && state.bundle?.citations.isEmpty == true, "An empty authorized refresh clears old citations and cannot authorize a clipboard or original-source action")
         let request = state.begin(parameters)
         _ = try state.accept(fresh, request: request)
-        try evidenceRequire(state.beginRefresh(try EvidenceRequest(query: "SQLite", budgetChars: 4000, mode: .lexical)) == nil, "An action cannot use a package from another filter or context budget")
+        let changedScope = try EvidenceRequest(query: "SQLite", budgetChars: 4000, mode: .lexical)
+        try evidenceRequire(state.beginRefresh(changedScope) == nil, "An action cannot use a package from another filter or context budget")
         let closing = state.beginRefresh(parameters)!
         state.invalidate()
         let acceptedAfterClose = try state.accept(fresh, request: closing)
@@ -80,7 +82,11 @@ extension CoreChecks {
     }
 
     static func evidenceUnicodeAndCopy() throws {
+        let uncertain = try evidenceFixture(quoteRelevance: "uncertain", reasons: ["ambiguous_card_evidence", "unlocalized_evidence", "future_reason"])
+        try evidenceRequire(uncertain.citations[0].uncertaintyMessage == "Фрагмент требует проверки", "Uncertain relevance is displayed as a need to verify rather than a confirmed claim")
+        try evidenceRequire(uncertain.incompletenessMessages == ["Карточка содержит несколько возможных подтверждений.", "Не удалось точно определить релевантный фрагмент.", "Часть доказательств не включена в пакет."], "Evidence reasons use clear Russian explanations and a generic fallback for unknown codes")
         let bundle = try evidenceFixture()
+        try evidenceRequire(bundle.citations[0].uncertaintyMessage == nil, "Extractive evidence does not acquire a fictitious uncertainty flag")
         let citation = bundle.citations[0]
         let text = "До🙂e\u{301} Решение SQLite"
         try evidenceRequire(citation.matches(text: text, recordId: "record-one", revision: 3), "Citation offsets use Unicode scalar positions including emoji and combining marks")

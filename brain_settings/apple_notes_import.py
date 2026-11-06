@@ -119,6 +119,8 @@ def import_apple_notes(source, store, client, check_stop=lambda: None):
                 "source_folder_id": note["folder_id"],
                 "created_at": note["created_at"],
                 "updated_at": note["updated_at"],
+                "source_created_at": note["created_at"],
+                "source_modified_at": note["updated_at"],
             }
             for index, chunk in enumerate(chunk_turns(parse_note(text)))
         ]

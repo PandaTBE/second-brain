@@ -1,9 +1,9 @@
 # Retrieval and evidence contracts
 
 Contracts updated 2026-11-06; Stage 0 implementation baseline `7fe1f49`.
-Source policies and local retrieval below describe unreleased source builds.
-The proposed evidence bundle remains a later
-[development-plan](agent-memory-plan.ru.md) contract, not an available tool.
+Source policies, local retrieval and evidence bundles below describe unreleased
+source builds tracked by the [development plan](agent-memory-plan.ru.md).
+Published `v0.1.0` assets remain unchanged.
 
 ## Existing compatibility boundary
 
@@ -115,55 +115,119 @@ materials (default 8). These mutations remain outside MCP. Native semantic/hybri
 search returns at most 20 ranked materials; status-filtered pagination remains
 lexical.
 
-## Proposed evidence bundle
+## Implemented evidence bundle — Stage 3, unreleased
 
-Add a read-only tool `get_evidence_bundle` with required `query` and optional
-source/project/date filters and a bounded context budget. Implementations should
-use consistent parameter names across HTTP and MCP; the exact optional names and
-defaults are fixed in Stage 3 after filter semantics are implemented. A project
-filter must match persisted metadata rather than guessing from document titles.
-A date filter must say which persisted date it uses and how undated records are
-handled. No timestamp is fabricated to satisfy a filter.
+Read-only MCP `get_evidence_bundle` requires `query` (1–512 characters) and accepts
+`source_id=None`, `project=None`, `date_from=None`, `date_to=None`,
+`budget_chars=12000`, and `mode="hybrid"`. The shared `EvidenceService` also backs
+`GET /api/memory/evidence`, where the query parameter is `q`; other parameter names
+are identical. Native HTTP retrieval uses local-search permission; MCP uses MCP
+permission. The four original tools remain compatible, including a query-free
+`get_context_brief()`.
 
-Each evidence item must expose:
+`SearchFilters` applies before candidate retrieval/ranking in BM25 and vector
+paths. `project` exactly matches bounded explicit stored metadata (up to 256
+characters); it does not guess from titles, source file locations or a filesystem
+checkout. Session `cwd`/`project` metadata is carried through parsing/chunking;
+unknown project values are null and fail a project filter. Date precedence is
+`message_at`, then `source_modified_at`, then `source_created_at`; `imported_at`
+never substitutes for a source date. Missing dates fail a date filter. Bounds use
+UTC; date-only `date_to` includes the whole named day through an exclusive next-day
+boundary, while timezone-aware timestamp bounds include their specified instant.
+The response publishes this choice in `filters.date_basis`.
+
+Each primary citation exposes:
 
 | Field | Meaning |
 | --- | --- |
-| `citation_id` | Deterministic ID for document ID, revision, exact quote and offsets |
+| `citation_id` | Deterministic `sb_` ID for record ID, revision, exact quote and offsets |
 | `record_id`, `source_id`, `source_kind` | Stable provenance, not a display title |
-| `revision` | Revision against which quote validation succeeded |
-| `title` | Bounded source title |
-| `source_uri` / source identifier | Original location or opaque identifier as actually imported |
-| source/message/modified/import dates | Separate optional fields with explicit semantics; unknown is null or omitted |
-| `quote` | Exact substring of the saved normalized text |
-| `start`, `end` | Half-open Unicode code point offsets in that text |
-| surrounding context | Bounded exact text around the quote, clearly distinct from the quote |
+| `revision` | Current revision against which quote validation succeeded |
+| `title` | Source title bounded to 256 characters |
+| `source_uri`, `source_object_id`, `project` | Imported location/identifier and explicit nullable project |
+| `dates` | Nullable `message_at`, `source_created_at`, `source_modified_at`, `imported_at` |
+| `quote` | Exact saved-text substring, at most 420 characters |
+| `start_char`, `end_char` | Half-open Unicode code-point offsets in saved normalized text |
+| `context_before`, `context_after` | Exact surrounding text, at most 100 characters per side |
+| `quote_selection`, `quote_relevance` | Extractive selection method and any uncertainty |
+| `also_supported_by` | Optional bounded provenance/offsets for identical quotes |
 
-The invariant is `saved_text[start:end] == quote`, with
-`0 <= start < end <= len(saved_text)`, at the returned revision. Offsets are not
-UTF-8 byte offsets or UTF-16 code units. A stable citation ID can be derived from
-the document ID, revision, offsets and a quote hash; changing any of these changes
-the ID. A citation is a reproducible source reference, not a claim of truth.
+The invariant is `saved_text[start_char:end_char] == quote`, with valid nonempty
+ranges at the stated revision. Offsets are neither UTF-8 bytes nor UTF-16 units.
+Changing record ID, revision, offsets or quote changes the deterministic ID.
+An exact quote establishes source provenance, not the truth of its contents or
+whether it completely answers the query. Ambiguous saved-card evidence is marked
+`quote_relevance="uncertain"` with reason `ambiguous_card_evidence`; a source
+excerpt without localized query evidence is likewise uncertain with reason
+`unlocalized_evidence`. An excerpt can therefore be exact while its relevance is
+unproven. The native view explains these cases in plain Russian rather than
+showing internal reason codes; copied JSON retains the original fields.
 
-The response reports requested/used mode, applied filters, budget use, truncation
-or incompleteness, and an empty evidence list when nothing was found. The budget
-unit must be stated: characters are not exact model tokens. Quotes and surrounding
-context share a total bounded text budget; metadata and total serialized response
-also have fixed bounds. Deduplicate exact fragments while retaining their source
-support. Distribute the budget across relevant sources so one long document does
-not consume it all. Conflicting statements remain visible with their provenance.
+The successful packet contains `schema_version=1`, `query`, `citations`, `search`,
+`filters`, `budget_chars`, `used_chars`, `budget_unit`, `incomplete`, `reasons`,
+`untrusted_content=true`, and `notice`. The accepted budget is 2,000–32,000
+characters of canonical compact JSON (`ensure_ascii=False`, separators `,`/`:`),
+including every packet field and metadata. `budget_unit` is
+`canonical_json_unicode_characters`; it is not tokens, UTF-8 bytes, pretty-printed
+JSON size or the enclosing HTTP/MCP transport. Metadata that cannot fit causes an
+explicit budget error rather than silent quote/provenance alteration.
 
-Read the current revision and current policy when forming each item. Excluded,
-deleted, or revoked sources must not leak through snippets, direct reads, brief,
-history, graph, evidence, or aggregate timestamps/counts. A long-lived MCP process
-must observe persisted changes made by another process. A policy change cannot
-undo a model request already transmitted, but it blocks subsequent admission and
-stale result persistence.
+At most 50 retrieved material candidates feed at most 20 primary citations.
+Source rotation spreads the available budget. Exact quote text is deduplicated,
+retaining up to four additional supports per primary citation when they fit.
+Support/citation/context limits, candidate truncation, search fallback, partial
+index, changed sources and unusable evidence are reported through `reasons` and
+`incomplete`; support metadata may be dropped to fit with a stated reason. Empty
+search produces an empty citation list with no invented answer. Different quote
+text remains distinct; this packet does not infer resolution of conflicting claims.
 
-Imported text, titles, URIs and quotes remain untrusted data. Source instructions
-are never executed. The agent writes its own answer and cites `citation_id`s.
-Only explicitly permitted URI schemes may open an original. An opaque Notes ID
-is displayed as an identifier; no deep link is invented.
+Revision, text slice, metadata and current source policy are checked again in a
+single read snapshot before packaging, including current scoped coverage. A
+long-lived MCP process observes persisted changes. A packet already returned or
+copied is a snapshot; it cannot recall an earlier disclosure and may need refresh.
+Every native copy repeats the complete `EvidenceRequest` first, refreshing
+citations, `also_supported_by` and aggregate counts under current policy instead
+of exporting a cached packet. An empty result or request error cancels export.
+Request identity/parameters and the active sheet are checked after suspension, so
+a later response cannot export for an old request or closed sheet. Verification
+and original opening also refresh the packet, then reread a currently authorized
+record and check ID, source kind, URI, revision, quote and context using Unicode
+scalars. Material-detail source-URI copy similarly rereads its currently selected
+record. None of these checks revoke text already rendered, returned or copied.
+
+Date migration leaves unknown legacy fields null. `imported_at` records saving
+the current text revision; an unchanged reimport can fill explicit source
+dates/project without increasing the revision or inventing an old import time.
+Connector-specific date semantics are documented in
+[architecture](architecture.en.md#persistence-model). Existing freshness timestamps
+are not evidence of source/message time.
+
+Imported text, titles, URIs and quotes remain untrusted data. Extraction reuses
+saved text/cards and the chosen retrieval mode, without card generation or paid
+inference; semantic/hybrid may invoke explicitly enabled local query embeddings.
+The agent writes its own answer and cites `citation_id`s. Native copy is an
+explicit compact JSON operation preserving trust and additional-support metadata.
+Checked HTTPS URIs open in the browser; local file URIs are revealed in Finder
+(recognized line fragments identify the file, not an executable action). Opaque
+Notes IDs are displayed without invented deep links.
+
+### Offline passage regression slice
+
+```sh
+uv run --frozen python scripts/benchmark_evidence.py
+```
+
+This runs `EvidenceService` in lexical mode against ten hand-written synthetic
+RU/EN passage-qrel cases in `tests/fixtures/evidence_cases.json`, with zero model
+calls and temporary databases. It covers exact and late passages, saved-card
+evidence, an ambiguous card, distinct conflicting quotes, and no-answer queries.
+The current fixture run reports context precision/recall **1.0/1.0**, negative
+false positives **0.0**, ambiguity signal **1.0** (`accepted=true`). Precision is
+the fraction of returned quotes containing an expected substring, macro-averaged
+over cases; empty negative cases contribute 1. Recall averages expected-substring
+coverage over positive cases. Ambiguity signalling and negatives are reported
+separately. These are deterministic fixture checks, not a broad retrieval-quality
+claim, real-model semantic evaluation or evidence that an arbitrary answer is true.
 
 ## Offline evaluation
 

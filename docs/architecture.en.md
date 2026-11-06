@@ -36,9 +36,10 @@ The window and background process have different lifecycles: closing the window 
 | Remote sources | `notion_*.py`, `github_*.py`, `mail_*.py` | Bounded read clients, material conversion, and durable import progress. |
 | Storage and retrieval | `memory_store.py`, `memory_browse.py`, `memory_atlas.py`, `memory_text.py` | SQLite, FTS5/BM25, page cursors, graph snapshots, and redaction. |
 | Local embeddings — unreleased | `embedding_store.py`, `embeddings.py`, `retrieval.py` | SQLite index generations, bounded background indexing, exact vector scans and shared retrieval/RRF. |
+| Evidence and provenance — unreleased | `evidence.py`, `evidence_pack.py`, `evidence_passages.py`, `retrieval_filters.py`, `source_dates.py`, `session_metadata.py` | Extractive citation packets, shared pre-ranking filters and explicit date/project metadata. |
 | Automation | `background.py`, `memory_service.py`, `card_parallel.py`, `card_retries.py`, `provider_backoff.py` | Watching, writer ownership, batches, concurrency, retries, and durable provider admission pauses. |
 | Model calls | `llm_cards.py`, `providers.py`, `transport.py`, `ollama.py` | Cloud provider settings, bounded public HTTPS and fixed-loopback Ollama calls, card and evidence validation. |
-| MCP | `mcp_server.py`, `mcp_config.py`, `scripts/mcp-server.command` | Four read tools and client-configuration generation. |
+| MCP | `mcp_server.py`, `mcp_config.py`, `scripts/mcp-server.command` | Four original read tools, unreleased evidence tool, and client-configuration generation. |
 | Graph and compatible web UI | `static/` | Local assets without CDNs; the browser graph is separate from native settings. |
 
 ## Portable runtime and development builds
@@ -106,6 +107,25 @@ storage/retrieval. See [contracts and measured limits](search-contracts.md).
 
 ## Persistence model
 
+Unreleased evidence metadata separates nullable `message_at`,
+`source_created_at`, `source_modified_at` and `imported_at`. Legacy ambiguous dates
+remain unknown instead of being inferred from existing freshness fields.
+`imported_at` records saving the current text revision, not each unchanged scan.
+An explicit reimport can update source metadata without changing an unchanged
+text revision. Session `project` is carried from bounded explicit `cwd`/`project`
+metadata through parser/chunks; paths, titles and filesystem inspection do not
+invent project membership.
+
+| Material | Explicit evidence dates |
+| --- | --- |
+| Local folder file | File mtime as source modification; no inferred message/creation date |
+| Assistant session chunk | Last message time of that chunk, when valid |
+| IMAP message | Message Date only with a timezone |
+| Outlook message | Received time as message date; modification only when supplied |
+| Notion / Apple Notes | Source-provided creation/modification dates |
+| GitHub issue / PR | Object creation/modification dates |
+| GitHub file | Unknown when the file object has no dates; repository dates are not substituted |
+
 A source defines an import and visibility scope. A material stores a stable ID, source-object identifier, text, source/URI, timestamps, content hash, and current revision. Replacing one object's chunks is transactional. Unchanged text does not generate a new card; changed text creates a revision and resets its processing state.
 
 FTS5 indexes text and retrieval fields, with BM25 ranking. Reads use bounded snippets and paginated cursors. The graph uses a snapshot of up to 2000 materials. All source/topic relationships are retained in batched SVG paths; keyed nodes and snapshot-scoped search indexes avoid rebuilding unchanged scenes, while camera writes are coalesced to animation frames. The database retains the current revision rather than every historical text version.
@@ -115,6 +135,34 @@ Card status and retry budgets are durable SQLite state. Automatic processing use
 Provider pauses are separate SQLite state scoped by a hash of provider, normalized API address, and model, without credentials or request payloads. A `429` stops further card admission and temporarily lowers effective concurrency to one; successful requests restore it toward the configured value. `Retry-After` controls temporary waits, while recognized balance/key-budget errors require explicit resumption. The pause is checked again before sending a model request. An unsent request does not consume a record attempt; a sent failure does. Resuming a provider changes neither historical record budgets nor source-import and MCP availability. Card diagnostics retain safe categories and usage metadata rather than raw model/provider responses; evidence validation remains exact.
 
 Local, GitHub, and email checkpoints retain import continuation. Mail uses UIDVALIDITY, bounded UID windows, and a persisted date scope. Pausing a mailbox retains existing materials: permission for new reads is separate from cache visibility in the app and MCP.
+
+## Evidence packets in unreleased builds
+
+`EvidenceService` backs both `GET /api/memory/evidence` and read-only MCP
+`get_evidence_bundle`. Source, exact stored-project and UTC date predicates apply
+before BM25/vector candidate retrieval. Date precedence is message, source
+modification, source creation; undated records do not satisfy date filters, and
+import time is excluded. Current citations and coverage are revalidated against
+one read snapshot of revision, metadata and source policy.
+
+Extractive windows and saved-card evidence produce exact code-point ranges and
+stable citation IDs. The packer rotates sources, combines identical quotes with
+bounded additional support, and caps the canonical compact JSON packet at
+2,000–32,000 Unicode characters including metadata (default 12,000). It reports
+incompleteness rather than generating an answer. No card generation or paid model
+call is admitted; the requested retrieval mode may use opt-in local query embeddings.
+The native sheet previews quotes, optionally verifies them again and copies
+structured JSON only on explicit action. Before copy it repeats the complete
+request under current policy, including duplicate support and aggregate metadata;
+empty/error or superseded responses do not write to the clipboard. Verify/open
+also refresh the packet and reread the authorized record's identity, URI, kind,
+revision and span. URI copy from material details rereads the record too. Already
+displayed/returned data cannot be revoked. HTTPS originals may open in the browser;
+local files are revealed in Finder; opaque Notes IDs remain identifiers.
+
+Passages without localized query evidence and ambiguous card passages carry
+`quote_relevance="uncertain"` plus explicit incompleteness reasons. The native
+view shows human-readable labels while preserving raw diagnostics in JSON.
 
 ## Source policy in unreleased builds
 

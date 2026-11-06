@@ -71,6 +71,19 @@ def create_memory_router(service) -> APIRouter:
     def index_embeddings(request: EmbeddingIndexRequest):
         return {"success": True, "data": service.start_embedding_index(request.limit)}
 
+    @router.get("/evidence")
+    def evidence(q: str = Query(min_length=1, max_length=512),
+                 source_id: str | None = Query(default=None, max_length=128),
+                 project: str | None = Query(default=None, max_length=256),
+                 date_from: str | None = Query(default=None, max_length=64),
+                 date_to: str | None = Query(default=None, max_length=64),
+                 budget_chars: int = Query(default=12000, ge=2000, le=32000),
+                 mode: str = "hybrid"):
+        return {"success": True, "data": service.evidence(
+            q, source_id=source_id, project=project, date_from=date_from, date_to=date_to,
+            budget_chars=budget_chars, mode=mode,
+        )}
+
     @router.get("/browse")
     def browse(
         q: str = Query(default="", max_length=512),

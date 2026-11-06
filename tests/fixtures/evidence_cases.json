@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {"id":"exact-en","query":"retry budget","documents":[{"title":"Worker policy","text":"The retry budget is three attempts."}],"expected_quotes":["The retry budget is three attempts."]},
+    {"id":"exact-ru","query":"срок хранения журналов","documents":[{"title":"Журналы","text":"Срок хранения журналов — четырнадцать дней."}],"expected_quotes":["Срок хранения журналов — четырнадцать дней."]},
+    {"id":"late-en","query":"retention logs","documents":[{"title":"Retention","prefix":"Logs are mentioned in the overview. ","repeat":"Unrelated setup. ","repeat_count":100,"text":"Decision: retention of logs is fourteen days."}],"expected_quotes":["Decision: retention of logs is fourteen days."]},
+    {"id":"late-ru","query":"хранение журналов","documents":[{"title":"Архив","prefix":"Журналы упомянуты во введении. ","repeat":"Прочие настройки. ","repeat_count":100,"text":"Решение: хранение журналов ограничено четырнадцатью днями."}],"expected_quotes":["Решение: хранение журналов ограничено четырнадцатью днями."]},
+    {"id":"card-en","query":"congestion","documents":[{"title":"Worker","repeat":"Unrelated opening. ","repeat_count":100,"text":"Workers wait 45 seconds before retrying.","card_keyword":"congestion","proofs":["Workers wait 45 seconds before retrying."]}],"expected_quotes":["Workers wait 45 seconds before retrying."]},
+    {"id":"card-ru","query":"перегрузка","documents":[{"title":"Повторы","repeat":"Прочие настройки. ","repeat_count":100,"text":"Перед повторным запросом ожидаем сорок пять секунд.","card_keyword":"перегрузка","proofs":["Перед повторным запросом ожидаем сорок пять секунд."]}],"expected_quotes":["Перед повторным запросом ожидаем сорок пять секунд."]},
+    {"id":"ambiguous-card","query":"resilience","documents":[{"title":"Worker","text":"Workers wait 45 seconds before retrying.","between":"Unrelated setup. ","between_count":100,"suffix":"Logs are kept for fourteen days.","card_keyword":"resilience","proofs":["Workers wait 45 seconds before retrying.","Logs are kept for fourteen days."]}],"expected_quotes":["Workers wait 45 seconds before retrying.","Logs are kept for fourteen days."],"expect_ambiguity":true},
+    {"id":"conflict","query":"retention logs","documents":[{"title":"Old decision","text":"Retention of logs is seven days."},{"title":"New candidate","text":"Retention of logs is fourteen days."}],"expected_quotes":["Retention of logs is seven days.","Retention of logs is fourteen days."]},
+    {"id":"negative-en","query":"zebracorn","documents":[{"title":"Worker","text":"The retry budget is three attempts."}],"expected_quotes":[]},
+    {"id":"negative-ru","query":"гиппогриф","documents":[{"title":"Журналы","text":"Срок хранения журналов — четырнадцать дней."}],"expected_quotes":[]}
+  ]
+}

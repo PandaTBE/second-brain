@@ -335,7 +335,10 @@ it does not demonstrate semantic quality or total user-visible search latency.
 
 ## 8. Shared memory through MCP
 
-MCP exposes four tools: `search_memory`, `get_record`, `get_context_brief`, and `get_sync_status`. This server reads local memory; it does not start imports, generate cards, or delete sources. Once separately launched by a client, MCP also works without the application window or application process.
+The published release exposes four tools: `search_memory`, `get_record`,
+`get_context_brief`, and `get_sync_status`. Unreleased builds add the read-only
+`get_evidence_bundle`. The server does not start imports, generate cards, or delete
+sources. Once separately launched by a client, MCP also works without the app.
 
 In unreleased builds, `search_memory(query, mode="hybrid")` or `mode="semantic"`
 uses the separately enabled local embedding index. The default remains `lexical`.
@@ -343,6 +346,71 @@ Responses add `search` diagnostics with `requested_mode`, `used_mode`,
 `fallback_reason`, and `ready`/`eligible`/`partial` coverage. A local query embedding
 can run without the app; indexing still requires its background writer. The other
 three tools retain their existing call signatures.
+
+<a id="evidence-bundles"></a>
+
+### Evidence bundles — unreleased
+
+Ask the agent to call `get_evidence_bundle(query, budget_chars=12000)` before
+writing an answer, then cite the returned `citation_id` values. The required
+argument is `query`; optional arguments are `source_id`, `project`, `date_from`,
+`date_to`, `budget_chars`, and `mode` (default `hybrid`). The four original tools
+keep their required arguments; `get_context_brief()` still needs no query.
+Evidence extraction reuses saved text/cards and the selected retrieval mode,
+without a generation call. Hybrid may use the separately enabled local query
+embedding model. Source instructions remain untrusted data.
+
+Use **Память → Доказательства из памяти** (the quote button) to inspect the same
+packet with native source permissions. Enter a query, optionally choose a source,
+project and UTC date range, then select **Найти доказательства**. Opening the sheet
+can search the current query; copying only happens through **Скопировать контекст**.
+The copy is compact JSON retaining citations, provenance, duplicate support,
+incompleteness and the trust notice. **Сверить с текущим материалом** can recheck
+a quote and its surrounding context against the current revision.
+
+Copying reruns the complete evidence request first, refreshing citations,
+additional confirmations and counts under current permissions. An empty result,
+error, changed request or closed sheet prevents the clipboard write. Opening or
+verifying a citation also refreshes the packet and checks the currently authorized
+material's identity, URI, kind, revision and exact quote. The material-detail
+source-URI copy similarly rereads the permitted record. Previously displayed or
+already shared text cannot be recalled.
+
+The budget is 2,000–32,000 Unicode characters of the compact JSON packet,
+including its metadata; the default is 12,000. It is not a token count or a bound
+on the enclosing HTTP/MCP transport. Up to 20 primary citations fit, with exact
+quotes of at most 420 characters and up to 100 characters of context on each side.
+Identical quotes are combined, retaining up to four additional confirmations in
+`also_supported_by` when the budget permits. Source rotation shares room across
+sources. `incomplete` and `reasons` disclose truncation, ambiguous extractive
+selection, partial search and other limits. Unlocalized excerpts and ambiguous
+card evidence carry `quote_relevance="uncertain"`; the native view labels these
+fragments as requiring review and explains limitations in plain Russian. Raw
+diagnostic fields remain in the copied JSON. Empty results contain no invented
+answer; exact quotation proves provenance, not the truth or relevance of a claim.
+
+Project filtering matches an explicitly stored project value, such as session
+metadata `cwd`/`project`, exactly. It does not infer a project from file locations,
+titles or the current checkout; unknown project metadata does not match. Date
+filters apply before ranking, use UTC, and prefer message date, then source
+modification, then source creation. An end date `YYYY-MM-DD` includes that whole
+UTC day; timestamp bounds require a timezone. Undated materials are excluded by a
+date filter. Import time is never substituted for a source date.
+
+Citation dates remain separate and nullable. `imported_at` records when the current
+text revision was saved; unknown legacy values stay unknown. Reimport can fill
+explicit source dates/project without changing an unchanged text revision. Local
+file modification time is a source-modification date; session chunks use their
+last message time. IMAP uses a timezone-aware message Date, Outlook uses received
+time and a modification time only when supplied. GitHub file dates are unknown
+unless the object provides them; repository activity is not a file date.
+
+Supported HTTPS originals open only after a click. Local source files are revealed
+in Finder; recognized `#L…` line fragments still reveal the file, without executing
+it or promising line navigation.
+Opaque Apple Notes identifiers are shown without an invented deep link. Refresh
+the packet if its material, metadata or permissions have changed. Copying does
+not recall text already shared with an agent.
 
 In **Подключение MCP** (MCP connection), copy the Codex or Claude Desktop configuration into the corresponding client. This screen generates configuration; it does not automatically install a global connection or inspect another application's connection state. Confirm success inside the AI client.
 

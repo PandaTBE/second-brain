@@ -11,6 +11,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from .errors import AppError
 from .memory_text import normalize_text, redact_text, search_terms
+from .source_dates import UNSET, save_metadata, source_metadata
 from .source_policy import policy_clause, record_allowed, schema_lock
 
 SCHEMA = """
@@ -112,6 +113,9 @@ class MemoryStore:
             from .embedding_store import migrate as migrate_embeddings
 
             migrate_embeddings(connection)
+            from .source_dates import migrate as migrate_dates
+
+            migrate_dates(connection)
 
     @contextmanager
     def _connection(self, write=False):
@@ -196,7 +200,13 @@ class MemoryStore:
         created_at=None,
         updated_at=None,
         source_folder_id="",
+        message_at=UNSET,
+        source_created_at=UNSET,
+        source_modified_at=UNSET,
+        project=UNSET,
     ):
+        metadata = source_metadata(message_at=message_at, source_created_at=source_created_at,
+                                   source_modified_at=source_modified_at, project=project)
         self._check_source(connection, source_id)
         if not all(
             isinstance(value, str)
@@ -219,6 +229,7 @@ class MemoryStore:
             (source_id, source_object_id),
         ).fetchone()
         if previous is not None and previous["content_hash"] == digest:
+            save_metadata(connection, previous["id"], metadata)
             if source_folder_id != previous["source_folder_id"]:
                 connection.execute("UPDATE documents SET source_folder_id=? WHERE id=?",
                                    (source_folder_id, previous["id"]))
@@ -279,6 +290,7 @@ class MemoryStore:
                 source_folder_id,
             ),
         )
+        save_metadata(connection, identifier, metadata, imported_at=_now())
         row = connection.execute("SELECT * FROM documents WHERE id=?", (identifier,)).fetchone()
         self._index(connection, row)
         return {"id": identifier, "revision": revision, "changed": True}
@@ -294,6 +306,10 @@ class MemoryStore:
         created_at=None,
         updated_at=None,
         source_folder_id="",
+        message_at=UNSET,
+        source_created_at=UNSET,
+        source_modified_at=UNSET,
+        project=UNSET,
     ) -> dict:
         with self._connection(write=True) as connection:
             return self._upsert(
@@ -307,6 +323,10 @@ class MemoryStore:
                 created_at=created_at,
                 updated_at=updated_at,
                 source_folder_id=source_folder_id,
+                message_at=message_at,
+                source_created_at=source_created_at,
+                source_modified_at=source_modified_at,
+                project=project,
             )
 
     def replace_file_documents(self, source_id, file_key, documents, complete=True) -> list[dict]:
@@ -354,11 +374,14 @@ class MemoryStore:
         return _row(row)
 
     def search(self, query: str, limit=8, source_id=None, allowed_source_ids=None,
-               *, visibility="local") -> list[dict]:
+               *, visibility="local", project=None, date_from=None, date_to=None) -> list[dict]:
         if not isinstance(query, str) or len(query) > 512 or isinstance(limit, bool):
             raise AppError("invalid_search", "Сократите поисковый запрос до 512 символов.")
         if not isinstance(limit, int) or not 1 <= limit <= 50:
             raise AppError("invalid_search", "Лимит результатов должен быть от 1 до 50.")
+        from .retrieval_filters import SearchFilters
+
+        filters = SearchFilters(project, date_from, date_to)
         terms = tuple(dict.fromkeys(search_terms(query)))[:16]
         where = "1=1" + policy_clause(visibility)
         arguments = ()
@@ -367,7 +390,9 @@ class MemoryStore:
             arguments = (source_id,)
         allowed_clause, allowed = _allowed_clause(allowed_source_ids, "d.source_id")
         where += allowed_clause
-        arguments = (*arguments, *allowed)
+        filter_clause, filter_args = filters.clause()
+        where += filter_clause
+        arguments = (*arguments, *allowed, *filter_args)
         with self._connection() as connection:
             if terms:
                 expression = " OR ".join(

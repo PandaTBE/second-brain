@@ -19,14 +19,17 @@ def _check(source_id, store, check_stop):
         raise AppError("source_deleted", "Источник удалён; импорт GitHub остановлен.", 404)
 
 
-def _commit(store, source_id, key, title, text, uri, created, updated, stats):
+def _commit(store, source_id, key, title, text, uri, created, updated, stats,
+            *, object_dates=True):
     title = redact_text(title)
     text = redact_text("# " + title + "\n\n" + text)
     chunks = chunk_turns(parse_note(text))
     documents = [{"source_id": source_id, "source_kind": "github",
                   "source_object_id": key + f"::chunk:{index:06}",
                   "title": title + f" · {index + 1}", "text": chunk.text,
-                  "source_uri": uri, "created_at": created, "updated_at": updated}
+                  "source_uri": uri, "created_at": created, "updated_at": updated,
+                  "source_created_at": created if object_dates else None,
+                  "source_modified_at": updated if object_dates else None}
                  for index, chunk in enumerate(chunks)]
     results = store.replace_file_documents(source_id, key, documents, complete=True)
     return {**stats, "files_processed": stats["files_processed"] + 1,
@@ -63,7 +66,8 @@ def _documents(source_id, repo, metadata, store, client, token, progress, budget
             uri = "https://github.com/" + repo + "/blob/" + listing["snapshot_sha"] + "/" + quote(
                 file["path"], safe="/")
             stats = _commit(store, source_id, key, repo + " · " + file["path"], text, uri,
-                            metadata["created_at"], metadata["updated_at"], stats)
+                            metadata["created_at"], metadata["updated_at"], stats,
+                            object_dates=False)
         except AppError as error:
             if error.code in STOP_CODES | GLOBAL_ERRORS:
                 raise

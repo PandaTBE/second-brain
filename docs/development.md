@@ -30,6 +30,7 @@ No environment file or real provider token is required for tests. Application cr
 | `brain_settings/memory_store.py` | SQLite, revisions, FTS5, and source deletion guards |
 | `brain_settings/source_policy.py`, `source_policy_routes.py` | Unreleased independent permissions/exclusions, SQLite predicates and preview API |
 | `brain_settings/embedding_store.py`, `embeddings.py`, `retrieval.py` | Unreleased local index generations, background batches, bounded exact scans and shared RRF retrieval |
+| `brain_settings/evidence*.py`, `retrieval_filters.py`, `source_dates.py`, `session_metadata.py` | Unreleased extractive packets, pre-ranking filters and explicit date/project provenance |
 | `brain_settings/mcp_server.py` | Read-only stdio memory tools |
 | `brain_settings/*_client.py`, `*_import.py` | Source-specific read-only access and ingestion |
 | `static/` | Local memory atlas and optional browser settings interface |
@@ -89,6 +90,23 @@ and exclusions on already imported materials. Do not use a real user's database
 to construct migration fixtures. See [search contracts](search-contracts.md) and
 [the offline benchmark](search-contracts.md#offline-evaluation).
 
+Evidence tests must verify exact saved-text code-point slices, revision and policy
+changes, source diversity/deduplication, and the whole compact JSON character
+budget rather than quote length alone. Keep HTTP and MCP on `EvidenceService`,
+with their own native/MCP source permissions. Filters must precede candidate
+limits in lexical and vector paths; use known project metadata and explicit UTC
+source dates. Synthetic migrations leave legacy source dates/import time unknown;
+test unchanged reimports filling metadata without increasing the text revision.
+Native checks compare Unicode scalars for exact evidence, retain structured trust
+metadata during copy, and reject source schemes that could execute content.
+
+Native export/open actions must refresh the complete request, including duplicate
+support and counts, before using cached evidence. After each await, guard the
+request generation/parameters and active sheet; verify original targets against a
+currently authorized record. Empty/error/stale results must not touch the clipboard.
+Exercise policy revocation while a packet is visible, using an isolated native
+build and synthetic sources. Already returned/rendered text is not revocable.
+
 The native UI is currently Russian. The public README and user guides are bilingual; documentation translation does not imply that every native view is localized into English.
 
 ## Retrieval evaluation
@@ -99,10 +117,14 @@ databases and need no model or private configuration:
 ```sh
 uv run --frozen python scripts/benchmark_search.py
 uv run --frozen python scripts/benchmark_vectors.py --count 10000
+uv run --frozen python scripts/benchmark_evidence.py
 ```
 
 See [search contracts](search-contracts.md) for the fixture, metrics, timing scopes
 and measured reports. Integration fakes do not establish semantic quality. The
+evidence benchmark is a separate 10-case bilingual synthetic passage-qrels
+regression slice with zero model calls; its fixture precision/recall is not a
+claim about arbitrary sources, semantic models or answer correctness. The
 real-model evaluator is separate and requires both `--model` and
 `--allow-local-model`; it only uses the synthetic corpus, never downloads weights,
 and must not silently replace a missing model. It compares the unchanged fixture

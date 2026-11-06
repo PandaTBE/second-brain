@@ -56,6 +56,13 @@ Ollama embedding model. It is off by default, downloads no weights and keeps BM2
 available. Actual relevance improvement has not yet been verified with a real
 model; see [search modes and limits](docs/user-guide.en.md#semantic-search).
 
+**Unreleased evidence bundles** add exact source quotes with stable citation IDs,
+current revisions, nullable source dates and a bounded JSON context budget. Codex
+or Claude writes the answer from those quotes; retrieval does not generate an
+answer or incur a paid model call. The native app previews the packet and refreshes
+its permitted citations and support before explicit copying. See
+[evidence workflow](docs/user-guide.en.md#evidence-bundles).
+
 ### Sources
 
 | Source | Imported content | Scope |
@@ -183,7 +190,9 @@ flowchart LR
     C --> D
 ```
 
-MCP tools: `search_memory`, `get_record`, `get_context_brief`, `get_sync_status`.
+The four original MCP tools are `search_memory`, `get_record`,
+`get_context_brief`, and `get_sync_status`. Unreleased source builds add the
+read-only `get_evidence_bundle` tool while preserving their required arguments.
 They do not trigger imports or card generation. In unreleased builds,
 `search_memory` accepts optional `mode=lexical|semantic|hybrid`; after explicit
 embedding opt-in, semantic/hybrid requests can invoke only the local query
@@ -279,6 +288,15 @@ Community expectations: [Code of conduct](CODE_OF_CONDUCT.md).
 выключен, веса автоматически не загружаются, BM25 сохраняется. Улучшение качества
 с настоящей моделью пока не подтверждено; см.
 [режимы и ограничения](docs/user-guide.ru.md#semantic-search).
+
+**Пакет доказательств — ещё не выпущено:** точные цитаты с устойчивыми ID,
+текущими ревизиями, отдельно известными датами источника и ограниченным бюджетом
+JSON-контекста. Codex или Claude составляет ответ по этим цитатам; поиск не
+генерирует ответ и не вызывает платную модель. Приложение позволяет просмотреть
+пакет и повторно проверяет разрешённые цитаты/подтверждения перед явным копированием.
+В MCP добавлен пятый инструмент `get_evidence_bundle`,
+четыре прежних сохраняют обязательные аргументы. См.
+[работу с доказательствами](docs/user-guide.ru.md#evidence-bundles).
 
 ### Источники
 

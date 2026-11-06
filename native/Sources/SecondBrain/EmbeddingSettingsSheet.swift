@@ -122,6 +122,8 @@ struct EmbeddingSettingsSheet: View {
                 .font(.caption).foregroundStyle(.secondary)
             Text("Пока индекс готовится или Ollama недоступна, поиск продолжает находить совпадения по словам. При смене модели строится новое поколение индекса.")
                 .font(.caption).foregroundStyle(.secondary)
+            Text("После перезапуска Ollama снова сохраните выбранную модель, затем возобновите индексацию. Это повторит неудавшиеся задания, сохранив готовые векторы; менять модель не требуется.")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 

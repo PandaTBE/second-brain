@@ -7,6 +7,7 @@ from datetime import datetime
 
 from .memory_text import redact_text
 from .qwen_sessions import qwen_dialogue
+from .session_metadata import session_project
 
 
 @dataclass(frozen=True)
@@ -15,6 +16,7 @@ class Turn:
     first_line: int
     last_line: int
     timestamp: str | None = None
+    project: str | None = None
 
 
 def _content(value) -> str:
@@ -56,7 +58,9 @@ def parse_session(raw: str, kind: str) -> tuple[list[Turn], bool, int]:
         if isinstance(row, dict):
             rows = [*rows, (index, row)]
     response_turns, event_turns = [], []
+    project = None
     for line_number, row in rows:
+        project = session_project(row, kind, project)
         role, text = "", ""
         payload = row.get("payload", {})
         payload = payload if isinstance(payload, dict) else {}
@@ -92,6 +96,7 @@ def parse_session(raw: str, kind: str) -> tuple[list[Turn], bool, int]:
             line_number,
             line_number,
             timestamp if isinstance(timestamp, str) else None,
+            project,
         )
         if kind == "codex" and row.get("type") == "event_msg":
             event_turns = [*event_turns, turn]
@@ -115,31 +120,36 @@ def redact_turns(turns: list[Turn]) -> list[Turn]:
     for turn in turns:
         text = masked[offset : offset + len(turn.text)].rstrip()
         if text.strip():
-            result = [*result, Turn(text, turn.first_line, turn.last_line, turn.timestamp)]
+            result = [*result, Turn(text, turn.first_line, turn.last_line, turn.timestamp,
+                                    turn.project)]
         offset += len(turn.text) + 2
     return result
 
 
 def chunk_turns(turns: list[Turn], limit: int = 12_000) -> list[Turn]:
     chunks = []
-    text, first, last, timestamp = "", 1, 1, None
+    text, first, last, timestamp, project = "", 1, 1, None, None
     for turn in turns:
+        if text and turn.project != project:
+            chunks = [*chunks, Turn(text, first, last, timestamp, project)]
+            text, timestamp = "", None
         remaining = turn.text
         while remaining:
             room = limit - len(text) - (2 if text else 0)
             if room <= 0:
-                chunks = [*chunks, Turn(text, first, last, timestamp)]
+                chunks = [*chunks, Turn(text, first, last, timestamp, project)]
                 text, timestamp = "", None
                 continue
             piece, remaining = remaining[:room], remaining[room:]
             if not text:
                 first = turn.first_line
+                project = turn.project
             text = text + ("\n\n" if text else "") + piece
             last = turn.last_line
             timestamp = turn.timestamp or timestamp
             if remaining:
-                chunks = [*chunks, Turn(text, first, last, timestamp)]
+                chunks = [*chunks, Turn(text, first, last, timestamp, project)]
                 text, timestamp = "", None
     if text.strip():
-        chunks = [*chunks, Turn(text, first, last, timestamp)]
+        chunks = [*chunks, Turn(text, first, last, timestamp, project)]
     return chunks
