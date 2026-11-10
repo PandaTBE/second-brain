@@ -1,6 +1,6 @@
 # User guide
 
-**Second Brain 0.3.0 · updated 2026-11-10** · [Русский](user-guide.ru.md) · [Documentation index](README.md)
+**Second Brain 0.3.1 · updated 2026-11-10** · [Русский](user-guide.ru.md) · [Documentation index](README.md)
 
 ## 1. What it does and when to use it
 
@@ -30,10 +30,10 @@ this guide includes the corresponding control names where useful.
 ### Prebuilt release: no developer tools required
 
 For an **Apple Silicon Mac running macOS 14+**, download
-`Second-Brain-0.3.0-macos-arm64.zip` from this repository's **Releases → Assets**.
+`Second-Brain-0.3.1-macos-arm64.zip` from this repository's **Releases → Assets**.
 This asset includes the native application and its Python service; the recipient
 does not need Xcode, Python, uv or the source checkout. Intel Macs are not covered
-by this asset. See the [release notes](releases/0.3.0.md).
+by this asset. See the [release notes](releases/0.3.1.md).
 
 1. Compare the ZIP's SHA-256 with `SHA256SUMS` attached to the same release. A
    matching checksum detects a changed file, not whether its publisher is trusted.
@@ -93,6 +93,10 @@ In **Модель и API** (Model and API), choose a provider and model, check t
 For a provider configured by URL, select **Свой API · OpenAI-совместимый** (Custom API · OpenAI-compatible). Enter the public base URL, for example `https://api.example.com/v1`, without `/chat/completions`; supply its API token and the exact model ID issued by that provider. The endpoint must accept OpenAI-style `POST /chat/completions` requests. Loading a catalog and checking the connection are optional: a manually entered model ID can be saved even when `/models` is unavailable or does not list it. Check generation with a small batch after saving. Plain HTTP and custom ports remain unsupported; the named Ollama connection is the loopback exception.
 
 ### GigaCode CLI: experimental manual cards
+
+**0.3.1 compatibility fix:** known zero-valued `totalDecisions` dictionaries in
+CLI statistics no longer trigger a false unsupported-response error. Other
+response/card validation and prompt/stdin transport are unchanged.
 
 **Available since 0.3.0; updated 2026-11-10.** The portable bundle includes the
 provider adapter; install and authenticate GigaCode CLI separately.

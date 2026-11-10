@@ -155,3 +155,24 @@ def test_normalized_card_is_accepted_by_existing_card_pipeline():
             "questions": ["What is tested?"], "atoms": []}
     content = _response_content(normalize(envelope(json.dumps(card))))
     assert validate_card(json.loads(content), text) == card
+
+
+@pytest.mark.parametrize("decisions", [
+    {}, {"accept": 0, "reject": 0, "modify": 0, "auto_accept": 0},
+])
+def test_zero_decision_map_is_compatible_metadata(decisions):
+    events = envelope(stats={"tools": {
+        "totalCalls": 0, "totalSuccess": 0, "totalFail": 0,
+        "totalDurationMs": 0, "totalDecisions": decisions, "byName": {},
+    }, "skills": {"totalCalls": 0, "totalSuccess": 0, "totalFail": 0, "byName": {}}})
+    assert normalize(events)["choices"][0]["message"]["content"] == "OK"
+
+
+@pytest.mark.parametrize("decisions", [
+    {"accept": 1}, {"reject": 1}, {"modify": 1}, {"auto_accept": 1},
+    {"accept": True}, {"accept": False}, {"accept": -1}, {"accept": "0"},
+    {"accept": 0.0}, {"unknown": 0}, {"accept": {}},
+])
+def test_nonzero_or_malformed_decision_maps_still_fail(decisions):
+    with pytest.raises(AppError):
+        normalize(envelope(stats={"tools": {"totalCalls": 0, "totalDecisions": decisions}}))

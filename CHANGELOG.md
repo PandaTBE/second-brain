@@ -9,6 +9,22 @@ listed in the release notes; preparing local artifacts does not publish a releas
 
 No changes yet.
 
+## [0.3.1] — 2026-11-10
+
+### Fixed
+
+- Accept GigaCode CLI's `stats.tools.totalDecisions` dictionary when its known
+  decision counters are integer zeros. This metadata previously caused a false
+  unsupported-response error. Nonzero activity, unknown decision names and
+  malformed values remain rejected; other response and card checks are unchanged.
+- This patch changes only CLI response validation. Prompt/stdin transport,
+  permissions, manual-only generation and process limits are unchanged. It does
+  not establish that a particular CLI session generated a valid card.
+
+Verification includes 77 parser tests with 100% module coverage and a synthetic
+frozen-helper card flow containing the zero-valued decision dictionary. No new
+requests to a real GigaCode model were made for this fix.
+
 ## [0.3.0] — 2026-11-10
 
 ### Added
@@ -180,6 +196,19 @@ shared local memory server for AI assistants.
 ### Ещё не выпущено
 
 Пока нет изменений.
+
+### 0.3.1 — 2026-11-10
+
+- Исправлена ложная ошибка неподдерживаемого ответа GigaCode CLI: словарь
+  `stats.tools.totalDecisions` с известными нулевыми целочисленными счётчиками
+  теперь принимается. Ненулевая активность, неизвестные имена и некорректные
+  значения по-прежнему отклоняются; остальные проверки ответа/карточки сохранены.
+- Изменена только проверка ответа CLI. Промпт/stdin, разрешения, ручной запуск
+  и лимиты процесса не менялись. Принятая оболочка ответа сама по себе не
+  подтверждает создание корректной карточки конкретной сессией.
+- Прошли 77 тестов парсера с покрытием модуля 100% и синтетическая цепочка
+  frozen helper → CLI → карточка с нулевым словарём решений. Новых запросов
+  к настоящей модели GigaCode для этого исправления не выполнялось.
 
 ### 0.3.0 — 2026-11-10
 

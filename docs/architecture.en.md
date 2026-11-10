@@ -1,6 +1,6 @@
 # Architecture
 
-**Version 0.3.0 · updated 2026-11-10** · [Русский](architecture.ru.md) · [User guide](user-guide.en.md)
+**Version 0.3.1 · updated 2026-11-10** · [Русский](architecture.ru.md) · [User guide](user-guide.en.md)
 
 ## Components and data flow
 

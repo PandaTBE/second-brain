@@ -2,7 +2,7 @@
 
 [Русский](security.ru.md) · [User guide](user-guide.en.md) · [Reporting vulnerabilities](../SECURITY.md)
 
-**Updated 2026-11-10.** This document describes the protections and limits of **Second Brain 0.3.0**. It describes the implementation, not an independent security audit or a promise of complete confidentiality.
+**Updated 2026-11-10.** This document describes the protections and limits of **Second Brain 0.3.1**. It describes the implementation, not an independent security audit or a promise of complete confidentiality.
 
 ## The security model
 
@@ -43,7 +43,7 @@ data flows.
 
 ## Experimental GigaCode CLI boundary (since 0.3.0)
 
-The 0.3.0 portable bundle includes the experimental GigaCode provider adapter.
+The 0.3.1 portable bundle includes the experimental GigaCode provider adapter.
 It is enabled by explicit provider selection and manual card jobs. Scheduled
 imports may continue, but automatic card generation/retries do not invoke it.
 CLI, credentials, sessions and model weights are not bundled or exported. A
@@ -252,7 +252,7 @@ Successful source disconnection removes the source's active local materials and 
 
 ## Release and operational limits
 
-Version 0.3.0 is not a security-certified product. Automated tests and code review cover many boundaries but cannot establish the absence of vulnerabilities. There is no promise of a completed independent penetration test, notarized standalone distribution, enterprise isolation, or regulatory compliance.
+Version 0.3.1 is not a security-certified product. Automated tests and code review cover many boundaries but cannot establish the absence of vulnerabilities. There is no promise of a completed independent penetration test, notarized standalone distribution, enterprise isolation, or regulatory compliance.
 
 Source builds use a local ad-hoc signature and depend on the checkout and Python environment. Inspect code and dependencies before building, keep locked dependencies under review, and use supported OS updates. A green menu-bar icon means that the local service is available; it is not an audit result, proof of upstream access, or a guarantee that every import/card succeeded.
 

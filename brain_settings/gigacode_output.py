@@ -87,6 +87,12 @@ def _check_activity(result):
         if not isinstance(activity, dict) or activity.get("byName", {}) != {}:
             _invalid()
         for key, value in activity.items():
+            if key == "totalDecisions" and isinstance(value, dict):
+                if (not value.keys() <= {"accept", "reject", "modify", "auto_accept"}
+                        or any(not _nonnegative_integer(count) or count != 0
+                               for count in value.values())):
+                    _invalid()
+                continue
             if key.startswith("total") and (not _nonnegative_integer(value) or value != 0):
                 _invalid()
 
