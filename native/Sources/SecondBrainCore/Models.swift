@@ -6,18 +6,21 @@ public struct ModelSettings: Codable, Equatable {
     public var modelId: String
     public var modelName: String
     public var allowPrivateNetwork: Bool
-    public init(provider: String = "openrouter", baseUrl: String = "https://openrouter.ai/api/v1", modelId: String = "", modelName: String = "", allowPrivateNetwork: Bool = false) {
+    public var cliPath: String
+    public init(provider: String = "openrouter", baseUrl: String = "https://openrouter.ai/api/v1", modelId: String = "", modelName: String = "", allowPrivateNetwork: Bool = false, cliPath: String = "") {
         self.provider = provider; self.baseUrl = baseUrl; self.modelId = modelId; self.modelName = modelName
         self.allowPrivateNetwork = provider == "custom" && allowPrivateNetwork
+        self.cliPath = provider == "gigacode_cli" ? cliPath : ""
     }
-    private enum CodingKeys: String, CodingKey { case provider, baseUrl, modelId, modelName, allowPrivateNetwork }
+    private enum CodingKeys: String, CodingKey { case provider, baseUrl, modelId, modelName, allowPrivateNetwork, cliPath }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         self.init(provider: try values.decode(String.self, forKey: .provider),
                   baseUrl: try values.decode(String.self, forKey: .baseUrl),
                   modelId: try values.decode(String.self, forKey: .modelId),
                   modelName: try values.decode(String.self, forKey: .modelName),
-                  allowPrivateNetwork: try values.decodeIfPresent(Bool.self, forKey: .allowPrivateNetwork) ?? false)
+                  allowPrivateNetwork: try values.decodeIfPresent(Bool.self, forKey: .allowPrivateNetwork) ?? false,
+                  cliPath: try values.decodeIfPresent(String.self, forKey: .cliPath) ?? "")
     }
 }
 
@@ -69,23 +72,23 @@ public struct ConnectionResponse: Decodable {
 public struct HealthResponse: Decodable { public let appId: String; public let instanceId: String? }
 public struct EmptyBody: Encodable { public init() {} }
 public struct ScopeRequest: Encodable {
-    public let provider: String; public let baseUrl: String; public let allowPrivateNetwork: Bool
-    public init(_ settings: ModelSettings) { provider = settings.provider; baseUrl = settings.baseUrl; allowPrivateNetwork = settings.privateNetworkAccessAllowed }
+    public let provider: String; public let baseUrl: String; public let allowPrivateNetwork: Bool; public let cliPath: String
+    public init(_ settings: ModelSettings) { provider = settings.provider; baseUrl = settings.baseUrl; allowPrivateNetwork = settings.privateNetworkAccessAllowed; cliPath = settings.isCLI ? settings.cliPath : "" }
 }
 public struct ModelRequest: Encodable {
-    public let provider: String; public let baseUrl: String; public let token: String?; public let allowPrivateNetwork: Bool
-    public init(_ settings: ModelSettings, token: String?) { provider = settings.provider; baseUrl = settings.baseUrl; self.token = token; allowPrivateNetwork = settings.privateNetworkAccessAllowed }
+    public let provider: String; public let baseUrl: String; public let token: String?; public let allowPrivateNetwork: Bool; public let cliPath: String
+    public init(_ settings: ModelSettings, token: String?) { provider = settings.provider; baseUrl = settings.baseUrl; self.token = token; allowPrivateNetwork = settings.privateNetworkAccessAllowed; cliPath = settings.isCLI ? settings.cliPath : "" }
 }
 public struct SaveRequest: Encodable {
-    public let provider: String; public let baseUrl: String; public let modelId: String; public let modelName: String; public let token: String?; public let allowPrivateNetwork: Bool
+    public let provider: String; public let baseUrl: String; public let modelId: String; public let modelName: String; public let token: String?; public let allowPrivateNetwork: Bool; public let cliPath: String
     public init(_ settings: ModelSettings, token: String?) {
         provider = settings.provider; baseUrl = settings.baseUrl; modelId = settings.modelId; modelName = settings.modelName; self.token = token
-        allowPrivateNetwork = settings.privateNetworkAccessAllowed
+        allowPrivateNetwork = settings.privateNetworkAccessAllowed; cliPath = settings.isCLI ? settings.cliPath : ""
     }
 }
 public struct ConnectionRequest: Encodable {
-    public let provider: String; public let baseUrl: String; public let modelId: String; public let token: String?; public let allowPrivateNetwork: Bool
-    public init(_ settings: ModelSettings, token: String?) { provider = settings.provider; baseUrl = settings.baseUrl; modelId = settings.modelId; self.token = token; allowPrivateNetwork = settings.privateNetworkAccessAllowed }
+    public let provider: String; public let baseUrl: String; public let modelId: String; public let token: String?; public let allowPrivateNetwork: Bool; public let cliPath: String
+    public init(_ settings: ModelSettings, token: String?) { provider = settings.provider; baseUrl = settings.baseUrl; modelId = settings.modelId; self.token = token; allowPrivateNetwork = settings.privateNetworkAccessAllowed; cliPath = settings.isCLI ? settings.cliPath : "" }
 }
 
 public struct MemorySource: Codable, Identifiable, Hashable {

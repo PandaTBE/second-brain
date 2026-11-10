@@ -1,6 +1,6 @@
 # Architecture
 
-**Version 0.2.0 · updated 2026-11-06** · [Русский](architecture.ru.md) · [User guide](user-guide.en.md)
+**Version 0.3.0 · updated 2026-11-10** · [Русский](architecture.ru.md) · [User guide](user-guide.en.md)
 
 ## Components and data flow
 
@@ -11,7 +11,7 @@ flowchart TD
     Sources --> Import[Parse, redact, chunk]
     Import --> DB[(SQLite + FTS5)]
     API --> Cards[Bounded card queue]
-    Cards --> LLM[Selected cloud API or local Ollama]
+    Cards --> LLM[Selected cloud API, local Ollama or manual GigaCode CLI]
     Cards --> DB
     API --> Graph[Local graph and history page]
     Graph --> API
@@ -40,8 +40,8 @@ The window and background process have different lifecycles: closing the window 
 | Evidence and provenance | `evidence.py`, `evidence_pack.py`, `evidence_passages.py`, `retrieval_filters.py`, `source_dates.py`, `session_metadata.py` | Extractive citation packets, shared pre-ranking filters and explicit date/project metadata. |
 | Facts and history | `memory_facts.py`, `fact_schema.py`, `fact_queries.py`, `fact_relations.py`, `facts_service.py` | Exact card-atom projection, revision proof snapshots, conservative relations and scoped paginated reads. |
 | Backup/recovery | `backup*.py`, `maintenance.py`, `source_relocation.py`, `source_recovery_routes.py` | Consistent allowlisted snapshots, age worker, reviewed restore/rollback and explicit post-transfer source repair. |
-| Automation | `background.py`, `memory_service.py`, `card_parallel.py`, `card_retries.py`, `provider_backoff.py` | Watching, writer ownership, batches, concurrency, retries, and durable provider admission pauses. |
-| Model calls | `llm_cards.py`, `providers.py`, `transport.py`, `ollama.py` | Cloud provider settings, bounded public HTTPS and fixed-loopback Ollama calls, card and evidence validation. |
+| Automation | `background.py`, `memory_service.py`, `card_parallel.py`, `card_retries.py`, `card_generation_policy.py`, `provider_backoff.py` | Watching, writer ownership, batches, concurrency, retries, manual-only provider gates and durable provider admission pauses. |
+| Model calls | `llm_cards.py`, `providers.py`, `transport.py`, `ollama.py`, `gigacode_cli.py`, `gigacode_output.py` | Provider settings, bounded HTTPS/Ollama or manual CLI calls, response normalization and card/evidence validation. |
 | MCP | `mcp_server.py`, `mcp_config.py`, `scripts/mcp-server.command` | Four original tools, evidence/facts/history tools (seven total), and client-configuration generation. |
 | Graph and compatible web UI | `static/` | Local assets without CDNs; the browser graph is separate from native settings. |
 
@@ -82,6 +82,36 @@ identity/digest, probes embedding support/dimensions, and uses `/api/embed` with
 `truncate: false`. It does not download weights or fall back to cloud inference.
 Prepared input is the title plus newline plus saved text; more than 12,000
 characters produces an explicit indexing error while BM25 remains available.
+
+### GigaCode CLI (since 0.3.0)
+
+`gigacode_cli` uses canonical connection identity `gigacode://local`, optional
+absolute `cli_path`, and model ID `default` for the CLI's configured model or an
+explicit ID. It requires no application model token and does not access the
+cloud-credential branch. A bounded ten-second `--help` check validates supported
+headless/JSON/model/safe-mode flags, without version pinning or an inference/auth
+claim. The model list represents configuration choices, not a fetched catalog.
+
+`gigacode_cli.py` starts a fixed argv without a shell; a static `-p` instruction
+is appended to the card prompt supplied on stdin. The CLI uses `--safe-mode` and
+`--output-format json`, plus `--model` only for an explicit ID. Generation is
+serialized and bounded to 180 seconds, 128 KiB stdin, 1 MiB stdout and 64 KiB stderr.
+Process-group cleanup precedes removal of the private temporary cwd. Normal
+authentication/HOME remain available, so this is not filesystem/network isolation.
+Built-in tools can remain exposed; post-execution rejection of reported tool
+activity is not prevention. CLI network traffic follows its own client/config.
+
+`gigacode_output.py` parses the bounded observed event array, takes the sole final
+successful `result` string, and maps reported usage into the existing card contract.
+Missing usage stays unknown. Existing JSON/card/quote checks still apply. The
+connection is `model_external`; effective concurrency is one. The manual-only
+gate in `card_generation_policy.py`/`memory_service.py` blocks scheduled generation,
+import-followup generation and automatic retries while keeping text import and
+explicit manual jobs available. Foreign restore clears the old executable path
+and model selection; the CLI's own credentials/configuration are not exported or bundled.
+Synthetic executable tests cover the adapter and the frozen helper-to-CLI path;
+web settings checks use disposable data. Real CLI authentication/model generation
+and the native GUI workflow still require verification on an authenticated installation.
 
 ## Local retrieval in 0.2.0
 

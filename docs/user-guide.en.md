@@ -1,6 +1,6 @@
 # User guide
 
-**Second Brain 0.2.0 · updated 2026-11-06** · [Русский](user-guide.ru.md) · [Documentation index](README.md)
+**Second Brain 0.3.0 · updated 2026-11-10** · [Русский](user-guide.ru.md) · [Documentation index](README.md)
 
 ## 1. What it does and when to use it
 
@@ -30,10 +30,10 @@ this guide includes the corresponding control names where useful.
 ### Prebuilt release: no developer tools required
 
 For an **Apple Silicon Mac running macOS 14+**, download
-`Second-Brain-0.2.0-macos-arm64.zip` from this repository's **Releases → Assets**.
+`Second-Brain-0.3.0-macos-arm64.zip` from this repository's **Releases → Assets**.
 This asset includes the native application and its Python service; the recipient
 does not need Xcode, Python, uv or the source checkout. Intel Macs are not covered
-by this asset. See the [release notes](releases/0.2.0.md).
+by this asset. See the [release notes](releases/0.3.0.md).
 
 1. Compare the ZIP's SHA-256 with `SHA256SUMS` attached to the same release. A
    matching checksum detects a changed file, not whether its publisher is trusted.
@@ -92,6 +92,46 @@ In **Модель и API** (Model and API), choose a provider and model, check t
 
 For a provider configured by URL, select **Свой API · OpenAI-совместимый** (Custom API · OpenAI-compatible). Enter the public base URL, for example `https://api.example.com/v1`, without `/chat/completions`; supply its API token and the exact model ID issued by that provider. The endpoint must accept OpenAI-style `POST /chat/completions` requests. Loading a catalog and checking the connection are optional: a manually entered model ID can be saved even when `/models` is unavailable or does not list it. Check generation with a small batch after saving. Plain HTTP and custom ports remain unsupported; the named Ollama connection is the loopback exception.
 
+### GigaCode CLI: experimental manual cards
+
+**Available since 0.3.0; updated 2026-11-10.** The portable bundle includes the
+provider adapter; install and authenticate GigaCode CLI separately.
+
+1. Install GigaCode CLI separately on the same Mac and complete its normal login
+   under the OS account that runs Second Brain. Second Brain does not bundle the
+   CLI, its credentials or models, and does not ask for a GigaCode API token.
+2. Select **GigaCode CLI** in **Model and API**. Leave the executable path blank
+   to find `gigacode` on the application's inherited `PATH`, or enter its full
+   absolute executable path. A GUI app may have a different `PATH` from Terminal;
+   use the explicit path if discovery fails. Enter a file path, not a shell
+   command with arguments. The CLI's required runtime must also be available in
+   the GUI environment; the app does not source your shell profile or install it.
+3. Keep model ID `default` to use the model already configured in GigaCode, or
+   enter the exact model ID supported by that CLI connection. There is no remote
+   model catalog or known price list for this provider.
+4. Check and save the connection, then explicitly start a small card batch in
+   **Memory**. The check only runs bounded CLI help and checks required flags;
+   success does not verify login, model access or generation. Compatibility is
+   based on capabilities, without pinning a CLI version number.
+
+The app sends the card prompt through stdin and reads the final JSON result.
+Generation is limited to one request at a time and 180 seconds per process;
+stdout/stderr are bounded. Errors preserve the imported text for search.
+Automatic text import can continue, but automatic card generation and automatic
+card retries do not launch GigaCode CLI, even when enabled in automation. After
+requeueing failures, explicitly start a manual card batch.
+
+This is an **external-model** connection for source permissions, even though its
+CLI process runs on the Mac. Its service may charge for requests; unknown pricing
+or missing usage is not zero cost. Only reported token usage can be counted.
+`--safe-mode` disables custom context, hooks, extensions, skills and MCP servers,
+but built-in CLI tools may remain available. A private working directory,
+`shell=False`, process limits and rejecting a result reporting tool activity are
+not a sandbox and cannot undo actions already taken. The CLI can retain its own
+history under its normal user configuration. Review the CLI's data handling and
+use this experimental provider only with material you permit it to process.
+See [security](security.en.md).
+
 ### Corporate API on an internal network
 
 **Available since 0.2.0; updated 2026-11-06.** For a trusted corporate API, choose **Свой API · OpenAI-совместимый** and enable **Разрешить внутреннюю сеть для этого API** (Allow the internal network for this API). The option is off by default and resets when the base address or provider changes. Its saved request/settings field is `allow_private_network`; other provider presets remain public-only.
@@ -108,7 +148,7 @@ Cards contain a summary, keywords, retrieval questions, and facts supported by e
 
 Displayed pricing comes from provider catalogs when available; an unknown price does not mean free usage. Models, prices, and data-handling terms can change. The application does not enforce a provider-account spending cap.
 
-To enable automatic cards:
+To enable automatic cards for providers other than GigaCode CLI:
 
 1. Open automation through **Память → Изменить** (Memory → Edit).
 2. Enable automatic card creation and periodic reconciliation if appropriate.
@@ -239,7 +279,7 @@ Import covers Markdown files on the default branch and the titles, descriptions,
 
 ### Gmail and Yandex Mail
 
-Both forms require the full email address and an **app password**, not the regular account password. Server, TLS, and port settings are automatic. Passwords are stored in Keychain. These Gmail/Yandex forms do not use OAuth in the published 0.2.0 release.
+Both forms require the full email address and an **app password**, not the regular account password. Server, TLS, and port settings are automatic. Passwords are stored in Keychain. These Gmail/Yandex forms do not use OAuth in the 0.3.0 release.
 
 For Gmail, create a separate 16-character app password with 2-Step Verification enabled. Organization rules or Advanced Protection may make this unavailable. Spaces between Google's password groups are removed when saving. See [Google's app-password instructions](https://support.google.com/accounts/answer/185833?hl=en).
 
@@ -615,6 +655,9 @@ folders and Notes require relocation, remote sources require fresh login, import
 permissions are off and a cloud model needs a newly entered token. A coincident
 Keychain entry does not satisfy the restored credential gate. Alternatively,
 explicitly select a local Ollama model; no cloud token is needed for that choice.
+For a transferred GigaCode CLI connection, the saved executable path and model
+selection are cleared. Select the current CLI path/model again and verify its
+login on the receiving Mac; CLI authentication and sessions are not transferred.
 
 In **Источники**, use **Восстановить подключение** for marked sources. Choose and
 confirm a new local folder, reload/select current Notes folders, enter a new

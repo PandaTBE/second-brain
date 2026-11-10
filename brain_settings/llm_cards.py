@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .errors import AppError
 from .fact_relations import FactRelation, validate_relation
+from .gigacode_cli import GigaCodeCLI
 from .importers import redact_text
 from .providers import normalize_endpoint
 from .storage import credential_scope, vault_operation
@@ -116,9 +117,10 @@ class LLMCardGenerator:
     def _configuration(self):
         settings = self.settings_service.store.load()
         if settings.requires_reauthentication:
-            raise AppError("model_reauthentication_required",
-                           "После переноса сохраните новый токен "
-                           "или выберите локальную модель.", 409)
+            message = ("После переноса заново выберите подключение GigaCode CLI."
+                       if settings.provider == "gigacode_cli" else
+                       "После переноса сохраните новый токен или выберите локальную модель.")
+            raise AppError("model_reauthentication_required", message, 409)
         if not settings.model_id:
             raise AppError("model_required", "Сначала выберите и сохраните модель для карточек.")
         base_url = normalize_endpoint(settings.provider, settings.base_url,
@@ -128,6 +130,8 @@ class LLMCardGenerator:
     @staticmethod
     def _signature(settings, base_url):
         signature = (settings.provider, base_url, settings.model_id, PROMPT_VERSION)
+        if settings.provider == "gigacode_cli":
+            signature = (*signature, settings.cli_path)
         return (*signature, "private-network") if settings.allow_private_network else signature
 
     def is_current(self, result: dict) -> bool:
@@ -144,6 +148,8 @@ class LLMCardGenerator:
         except AppError:
             return None
         values = [settings.provider, base_url, settings.model_id]
+        if settings.provider == "gigacode_cli":
+            values = [*values, settings.cli_path]
         if settings.allow_private_network:
             values = [*values, "private-network"]
         signature = json.dumps(values, ensure_ascii=False, separators=(",", ":"))
@@ -152,7 +158,7 @@ class LLMCardGenerator:
     def concurrency_limit(self) -> int | None:
         try:
             settings, _ = self._configuration()
-            return 1 if settings.provider == "ollama" else None
+            return 1 if settings.provider in ("ollama", "gigacode_cli") else None
         except AppError:
             return None
 
@@ -168,6 +174,8 @@ class LLMCardGenerator:
         settings, base_url = self._configuration()
         if settings.provider == "ollama":
             self._local_client().ensure_local_model(settings.model_id)
+            token = None
+        elif settings.provider == "gigacode_cli":
             token = None
         else:
             with self._credential_lock:
@@ -227,7 +235,7 @@ class LLMCardGenerator:
             raise CardGenerationError("card_preparation_failed", "Не удалось подготовить запрос "
                                       "карточки. Исходный текст сохранён.", 502, usage,
                                       request_sent=False) from None
-        if before_request is not None:
+        if before_request is not None and settings.provider != "gigacode_cli":
             try:
                 before_request()
             except AppError as error:
@@ -242,6 +250,9 @@ class LLMCardGenerator:
             if settings.provider == "ollama":
                 response = self._local_client().generate(payload, timeout=180,
                                                          before_request=before_request)
+            elif settings.provider == "gigacode_cli":
+                response = GigaCodeCLI(cli_path=settings.cli_path).generate(
+                    payload, model_id=settings.model_id, timeout=180, before_request=before_request)
             else:
                 policy = {"allow_private_network": True} if settings.allow_private_network else {}
                 response = self.transport.post_json(base_url, "/chat/completions", payload,

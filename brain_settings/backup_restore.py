@@ -186,6 +186,7 @@ def _restored_configs(staged, foreign):
                 "model_id": "",
                 "model_name": "",
                 "allow_private_network": False,
+                "cli_path": "",
                 "requires_reauthentication": True,
             }
         )

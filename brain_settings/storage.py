@@ -102,7 +102,8 @@ class SettingsStore:
             descriptor, filename = tempfile.mkstemp(prefix=".settings-", dir=self.directory)
             temporary = Path(filename)
             with os.fdopen(descriptor, "w", encoding="utf-8") as output:
-                excluded = {key for key in ("allow_private_network", "requires_reauthentication")
+                excluded = {key for key in ("allow_private_network", "requires_reauthentication",
+                                            "cli_path")
                             if not getattr(settings, key)}
                 json.dump(settings.model_dump(exclude=excluded), output,
                           ensure_ascii=False, indent=2)

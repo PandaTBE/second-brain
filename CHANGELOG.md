@@ -9,6 +9,30 @@ listed in the release notes; preparing local artifacts does not publish a releas
 
 No changes yet.
 
+## [0.3.0] — 2026-11-10
+
+### Added
+
+- Experimental **GigaCode CLI** card provider using an already authenticated,
+  separately installed headless CLI, with an optional absolute executable path
+  and either its configured default model or an explicit model ID. No model API
+  token is entered in Second Brain. Compatibility is checked from supported
+  flags rather than a pinned CLI version; the connection check does not prove
+  authentication or run inference.
+- Explicit manual card generation through bounded CLI processes and the existing
+  card/evidence validator. Prompts use stdin, with no shell command template;
+  source permissions remain those for an external model. Automatic import can
+  continue, but automatic card creation and retries do not invoke GigaCode CLI.
+  `--safe-mode` disables customizations and MCP, not all built-in tools; process
+  limits and a private working directory are not a sandbox. Provider pricing can
+  remain unknown and usage is recorded only when reported.
+
+The 0.3.0 portable bundle includes this provider; GigaCode CLI remains a separate
+installation. Verification includes 1,709 Python tests (90.44% coverage), 31
+JavaScript tests, 53 native CoreChecks, synthetic frozen-helper-to-CLI card
+generation and the web settings flow. Real corporate CLI authentication/model
+generation and the native GUI workflow remain unverified.
+
 ## [0.2.0] — 2026-11-06
 
 ### Added
@@ -156,6 +180,22 @@ shared local memory server for AI assistants.
 ### Ещё не выпущено
 
 Пока нет изменений.
+
+### 0.3.0 — 2026-11-10
+
+- Экспериментальный провайдер карточек **GigaCode CLI** с текущим входом отдельно
+  установленного headless CLI. В приложении не нужен API-токен модели; доступны
+  путь к исполняемому файлу, модель из настроек CLI (`default`) или явный ID.
+  Совместимость проверяется по флагам, без привязки к номеру версии; справка не
+  подтверждает авторизацию и не запускает генерацию.
+- Только явные ручные задачи карточек: автоимпорт текста сохраняется, автоматическая
+  генерация и автоповторы CLI не запускают. Текст идёт через stdin; применяются
+  существующие проверки карточки/цитат и разрешения внешней модели. Один процесс,
+  лимиты вывода/времени и `--safe-mode` не являются sandbox: встроенные инструменты
+  могут оставаться доступны. Неизвестные цена/usage не означают бесплатность.
+- Проверены 1709 Python-тестов (покрытие 90,44%), 31 JS-тест, 53 CoreChecks,
+  синтетическая цепочка frozen helper → CLI → карточка и веб-настройки. Реальные
+  корпоративный вход/модель и нативный GUI-процесс ещё требуют проверки.
 
 ### 0.2.0 — 2026-11-06
 

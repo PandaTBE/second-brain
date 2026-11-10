@@ -410,6 +410,18 @@ enum CoreChecks {
         try require(local.isLocal && !local.requiresCredential, "Ollama is a token-free local connection")
         try require(local.canUseCredential(tokenSaved: false, tokenDraft: ""), "Local model needs no saved token")
         try require(local.matchesSavedConnection(local, tokenSaved: false, tokenDraft: ""), "Local settings are saved without faking tokenSaved")
+        let cli = ModelSettings(provider: "gigacode_cli", baseUrl: "gigacode://local", modelId: "default", cliPath: "/opt/bin/gigacode")
+        try require(cli.isCLI && !cli.isLocal && !cli.requiresCredential, "CLI is external and tokenless")
+        try require(cli.matchesSavedConnection(cli, tokenSaved: false, tokenDraft: ""), "CLI saves without inventing a credential")
+        var otherCLI = cli
+        otherCLI.cliPath = "/another/gigacode"
+        try require(otherCLI.connectionScopeKey != cli.connectionScopeKey, "Changing executable invalidates the checked connection")
+        let cliPayload = try JSONSerialization.jsonObject(with: APIClient.encoder.encode(SaveRequest(cli, token: nil))) as! [String: Any]
+        try require(cliPayload["cli_path"] as? String == cli.cliPath && cliPayload["token"] == nil, "CLI save carries its path and no API credential")
+        let connectionPayload = try JSONSerialization.jsonObject(with: APIClient.encoder.encode(ConnectionRequest(cli, token: nil))) as! [String: Any]
+        try require(connectionPayload["cli_path"] as? String == cli.cliPath, "CLI check uses the selected executable")
+        let legacySettings = try APIClient.decoder.decode(ModelSettings.self, from: Data(#"{"provider":"openai","base_url":"https://api.example.com/v1","model_id":"demo","model_name":"Demo"}"#.utf8))
+        try require(legacySettings.cliPath.isEmpty, "Older settings remain decodable")
         let cloud = ModelSettings(provider: "qwen", baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", modelId: "qwen-flash")
         try require(!cloud.isLocal && cloud.requiresCredential, "Qwen API remains a credentialed cloud provider")
         try require(!cloud.canUseCredential(tokenSaved: false, tokenDraft: ""), "Cloud requires a real credential")

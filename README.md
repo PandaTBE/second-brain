@@ -2,7 +2,7 @@
 
 **A shared, source-backed memory for AI assistants, stored on your Mac.**
 
-**0.2.0 · macOS 14+ · Native SwiftUI app · MIT**
+**0.3.0 · macOS 14+ · Native SwiftUI app · MIT**
 
 [English](#english) · [Русский](#russian) · [Documentation](docs/README.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
 
@@ -85,6 +85,14 @@ new credentials and explicit local/Notes scope selection. The current format has
 a 128 MiB limit and requires the exact supported schema. See
 [backup and recovery](docs/user-guide.en.md#managed-backups).
 
+**New in 0.3.0 — GigaCode CLI:** create cards manually through a separately
+installed, already authenticated headless CLI, without entering a model API token
+in Second Brain. Choose its configured model with `default` or an explicit ID.
+Automatic card creation/retries do not invoke this experimental provider; text
+import can continue. It uses external-model source permissions. Built-in CLI tools
+may remain available: `--safe-mode` and a private working directory are not a
+sandbox. See [setup and limits](docs/user-guide.en.md#gigacode-cli-experimental-manual-cards).
+
 ### Sources
 
 | Source | Imported content | Scope |
@@ -113,7 +121,7 @@ implicitly purge its imported copy.
 
 ### Install and launch
 
-**Prebuilt application:** use `Second-Brain-0.2.0-macos-arm64.zip` from the
+**Prebuilt application:** use `Second-Brain-0.3.0-macos-arm64.zip` from the
 repository's **Releases → Assets**. It contains the native app and its Python
 service. On an **Apple Silicon Mac with macOS 14+**, extract it, move
 **Second Brain.app** to **Applications**, and open it. **Xcode, Python, uv and a
@@ -125,7 +133,7 @@ notarization**. macOS can block an app downloaded from the internet. If you trus
 the release and have checked its checksum, use Apple's documented **System
 Settings → Privacy & Security → Open Anyway** flow. Do not disable Gatekeeper.
 See the [installation guide](docs/user-guide.en.md#2-requirements-and-installation)
-and [release notes](docs/releases/0.2.0.md) for the package's limits.
+and [release notes](docs/releases/0.3.0.md) for the package's limits.
 
 The release starts with a separate local archive in
 `~/Library/Application Support/Second Brain`. It does not include a maintainer's
@@ -168,6 +176,8 @@ rather than a development app, see [releasing](docs/releasing.md).
    loading is optional. Version 0.2.0 includes an explicit opt-in for a
    trusted corporate API on an internal network. See the [connection guide](docs/user-guide.en.md#4-models-and-cards)
    and [local Qwen setup](docs/user-guide.en.md#qwen-api-and-local-qwen).
+   For GigaCode CLI, use its existing login and explicitly run manual card jobs;
+   install the CLI/runtime separately and provide its executable path when needed.
 6. **Set automation.** Session watching polls about every 30 seconds, using a
    completed-turn marker or 90 seconds of inactivity. Connected remote sources
    use the memory reconciliation schedule while the app runs.
@@ -177,7 +187,8 @@ rather than a development app, see [releasing](docs/releasing.md).
    size. A failed card has two automatic retries after the first attempt, then
    waits for user action. A provider `429` pauses further card requests across
    the queue; recovery starts at one request at a time, without changing your
-   saved concurrency. Import and MCP search remain available. See
+   saved concurrency. GigaCode CLI is serialized and requires manual generation/retries.
+   Import and MCP search remain available. See
    [provider recovery](docs/user-guide.en.md#provider-pauses-and-card-errors).
 8. **Connect assistants.** In **MCP connection**, copy/register the server command
    in Codex/Claude. Ask the client to search Second Brain. See the
@@ -344,6 +355,14 @@ age-архив с паролем. Локальные копии не зашиф�
 явного выбора локальных путей/папок Notes. Формат ограничен 128 МиБ и точной
 поддерживаемой схемой. См. [копии и восстановление](docs/user-guide.ru.md#managed-backups).
 
+**Новое в 0.3.0 — GigaCode CLI:** ручное создание карточек через отдельно
+установленный headless CLI с выполненным входом, без API-токена модели в Second
+Brain. `default` использует модель из настроек CLI; можно указать явный ID.
+Автоматическая генерация и автоповторы этого экспериментального провайдера не
+вызывают, импорт текста может продолжаться. Действует разрешение внешней модели.
+Встроенные инструменты CLI могут оставаться доступны: `--safe-mode` и приватная
+рабочая папка не являются sandbox. См. [настройку и ограничения](docs/user-guide.ru.md#gigacode-cli-экспериментальные-ручные-карточки).
+
 ### Источники
 
 | Источник | Что попадает в память | Область |
@@ -372,7 +391,7 @@ age-архив с паролем. Локальные копии не зашиф�
 ### Установка
 
 **Готовое приложение:** в **Releases → Assets** этого репозитория выберите
-`Second-Brain-0.2.0-macos-arm64.zip`. Архив содержит нативное приложение и его
+`Second-Brain-0.3.0-macos-arm64.zip`. Архив содержит нативное приложение и его
 Python-сервис. На **Mac с Apple Silicon и macOS 14+** распакуйте его, перенесите
 **Second Brain.app** в **Программы** и откройте. **Устанавливать Xcode, Python, uv
 или исходники пользователю не требуется.** Сборки для Intel в этом архиве нет.
@@ -382,7 +401,7 @@ Apple**. macOS может заблокировать загруженное из
 доверяете выпуску и проверили контрольную сумму, используйте описанный Apple путь
 **Системные настройки → Конфиденциальность и безопасность → Всё равно открыть**.
 Не отключайте Gatekeeper. Подробнее — в [руководстве по установке](docs/user-guide.ru.md#2-требования-и-установка)
-и [примечаниях к выпуску](docs/releases/0.2.0.md).
+и [примечаниях к выпуску](docs/releases/0.3.0.md).
 
 Готовая сборка создаёт отдельный архив в
 `~/Library/Application Support/Second Brain`. Она не содержит памяти,
@@ -426,6 +445,8 @@ open "Second Brain.app"
    по умолчанию. Подробнее —
    [подключение модели](docs/user-guide.ru.md#4-подключение-модели-и-карточки) и
    [локальная Qwen](docs/user-guide.ru.md#qwen-api-и-локальная-qwen).
+   GigaCode CLI использует текущий вход и только ручные задачи карточек; CLI/runtime
+   устанавливаются отдельно, при необходимости укажите путь к исполняемому файлу.
 6. Настройте автоматизацию. Сессии проверяются примерно каждые 30 секунд:
    завершение хода позволяет импортировать раньше, иначе ожидается 90 секунд
    тишины. Удалённые источники обновляются по общему расписанию памяти.
@@ -434,7 +455,8 @@ open "Second Brain.app"
    Фактическое число одновременных задач ограничено размером текущей партии.
    После первой неудачи карточка имеет два автоматических повтора. Ответ `429`
    приостанавливает новые запросы карточек для выбранной модели; восстановление
-   начинается с одного запроса, сохраняя заданную параллельность. Импорт и MCP
+   начинается с одного запроса, сохраняя заданную параллельность. GigaCode CLI
+   выполняет один запрос за раз и требует ручного запуска генерации/повторов. Импорт и MCP
    продолжают работать. Подробнее — [о паузах провайдера](docs/user-guide.ru.md#паузы-провайдера-и-ошибки-карточек).
 8. В **Подключение MCP** зарегистрируйте сервер в нужных клиентах и попросите
    ассистента поискать прошлое решение. Команды есть в
@@ -480,6 +502,6 @@ CSRF. Известные форматы секретов маскируются 
 [инструкции разработчика](docs/development.md). Тесты используют синтетические
 источники и подставные credentials; отдельные CoreChecks проверяют Swift-логику.
 
-Лицензия — [MIT](LICENSE). Изменения `0.2.0`: [CHANGELOG](CHANGELOG.md).
+Лицензия — [MIT](LICENSE). Изменения `0.3.0`: [CHANGELOG](CHANGELOG.md).
 Порядок публикации: [руководство по релизу](docs/releasing.md).
 Правила общения: [кодекс поведения](CODE_OF_CONDUCT.md).

@@ -17,6 +17,7 @@ from .background import (
     acquire_writer_lease,
     release_writer_lease,
 )
+from .card_generation_policy import automatic_cards_enabled, execution_mode, manual_cards_only
 from .card_parallel import run_card_window
 from .embeddings import EmbeddingManager
 from .errors import AppError
@@ -279,7 +280,7 @@ class MemoryService(FactsServiceMixin):
         limit = getattr(self.generator, "concurrency_limit", lambda: None)()
         if isinstance(limit, int) and not isinstance(limit, bool) and limit > 0:
             return {**status, "effective_concurrency": min(status["effective_concurrency"], limit),
-                    "execution_mode": "local"}
+                    "execution_mode": execution_mode(self._processing_scope())}
         return {**status, "execution_mode": "cloud"}
 
     @guarded_service
@@ -550,7 +551,8 @@ class MemoryService(FactsServiceMixin):
     def _retry_processing_state(self, config):
         if config.paused:
             return "paused"
-        if not config.process_cards or not (config.enabled or config.auto_import_enabled):
+        if (manual_cards_only(self.settings_service) or not config.process_cards
+                or not (config.enabled or config.auto_import_enabled)):
             return "automation_disabled"
         if self._provider_scope() is None:
             return "model_required"
@@ -562,12 +564,16 @@ class MemoryService(FactsServiceMixin):
     def start_cards(self, limit: int = 10, retry_errors: bool = False, *, automatic=False) -> dict:
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 50:
             raise AppError("invalid_batch", "Размер пакета должен быть от 1 до 50.")
+        if automatic and manual_cards_only(self.settings_service):
+            raise AppError("cli_manual_only", "GigaCode CLI доступен только для ручной генерации.")
         self.provider_backoff.ensure_ready(self._provider_scope())
         return self._begin("cards", lambda job_id: self._cards(
             job_id, limit, retry_errors, automatic_retries=automatic
         ))
 
     def _cards(self, job_id, limit, retry_errors, import_stats=None, *, automatic_retries=False):
+        if automatic_retries and manual_cards_only(self.settings_service):
+            return
         self.store.recover_card_attempts()
         pending = self.store.pending(
             limit=limit, retry_errors=retry_errors, allowed_source_ids=self._allowed(),
@@ -611,13 +617,13 @@ class MemoryService(FactsServiceMixin):
                         lambda count: self._update(job_id, in_flight=count))
 
     def _automatic_cards_enabled(self):
-        config = self.schedule_store.load()
-        return (not config.paused and config.process_cards
-                and (config.enabled or config.auto_import_enabled))
+        return automatic_cards_enabled(self.settings_service, self.schedule_store.load())
 
     def _process_card(self, record, *, expected_scope, manual=False, automatic=False):
         stats = {"ready": 0, "errors": 0, "stale": 0, "usage": {}}
         scope = expected_scope
+        if automatic and manual_cards_only(self.settings_service):
+            return {**stats, "stale": 1}
         processing_scope = self._processing_scope()
         if self._provider_scope() != scope:
             return {**stats, "stale": 1}

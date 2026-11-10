@@ -98,6 +98,7 @@ def test_local_concurrency_cap_is_effective_without_rewriting_saved_target(
     config = service.schedule_store.load().model_copy(update={"card_concurrency": 10})
     service.update_schedule(config)
     monkeypatch.setattr(llm, "concurrency_limit", lambda: 1, raising=False)
+    monkeypatch.setattr(llm, "processing_scope", lambda: "model_local", raising=False)
     status = service.status()["provider_backoff"]
     assert status["effective_concurrency"] == 1
     assert status["configured_concurrency"] == 10 and status["execution_mode"] == "local"

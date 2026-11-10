@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .errors import AppError
+from .gigacode_cli import GigaCodeCLI
 from .maintenance import guarded_service
 from .providers import (
     EndpointRequest,
@@ -44,7 +45,8 @@ class SettingsService:
             settings = Settings()
             warning = error.message
         token_saved = False
-        if (settings.provider != "ollama" and not settings.requires_reauthentication
+        if (settings.provider not in ("ollama", "gigacode_cli")
+                and not settings.requires_reauthentication
                 and self.vault.available):
             try:
                 token_saved = bool(vault_operation(self.vault, "get", credential_scope(
@@ -55,15 +57,19 @@ class SettingsService:
             "csrf_token": csrf_token, "providers": provider_metadata(),
             "settings": settings.model_dump(), "token_saved": token_saved,
             "storage": {"available": bool(self.vault.available)
-                        if settings.provider != "ollama" else False,
-                        "label": "Связка ключей macOS"
-                        if settings.provider != "ollama" else "Локальная модель без токена"},
+                        if settings.provider not in ("ollama", "gigacode_cli") else False,
+                        "label": "Авторизация GigaCode CLI" if settings.provider == "gigacode_cli"
+                        else ("Локальная модель без токена" if settings.provider == "ollama"
+                              else "Связка ключей macOS")},
             "warning": warning,
         }
 
     def _endpoint(self, request: EndpointRequest) -> tuple[str, str]:
         base_url = normalize_endpoint(request.provider, request.base_url,
                                       allow_private_network=request.allow_private_network)
+        if request.provider == "gigacode_cli" and getattr(request, "token", None) is not None:
+            raise AppError("cli_token_forbidden", "GigaCode CLI использует существующий вход. "
+                           "Удалите API-токен из запроса.")
         if request.provider == "ollama" and getattr(request, "token", None) is not None:
             raise AppError("local_token_forbidden", "Для локального Ollama API-токен не нужен. "
                            "Удалите токен из запроса.")
@@ -71,6 +77,9 @@ class SettingsService:
 
     @guarded_service
     def _token(self, request: SelectionRequest, scope: str) -> str:
+        if request.provider == "gigacode_cli":
+            raise AppError("cli_token_forbidden",
+                           "GigaCode CLI не использует API-токен приложения.")
         if request.token is not None:
             return request.token.get_secret_value()
         if self.store.load().requires_reauthentication:
@@ -117,13 +126,23 @@ class SettingsService:
         if self.store.load().requires_reauthentication:
             return {"token_saved": False}
         _, scope = self._endpoint(request)
-        if request.provider == "ollama":
+        if request.provider in ("ollama", "gigacode_cli"):
             return {"token_saved": False}
         return {"token_saved": bool(vault_operation(self.vault, "get", scope))}
 
     @guarded_service
     def models(self, request: SelectionRequest) -> dict:
         base_url, scope = self._endpoint(request)
+        if request.provider == "gigacode_cli":
+            rows = [{"id": "default", "name": "Модель из настроек GigaCode CLI",
+                     "input_price": None, "output_price": None, "context_length": None}]
+            if request.model_id and request.model_id != "default":
+                rows = [*rows, {"id": request.model_id, "name": request.model_id,
+                                "input_price": None, "output_price": None,
+                                "context_length": None}]
+            return {"models": rows, "catalog_available": False,
+                    "fetched_at": datetime.now(UTC).isoformat(), "currency": None,
+                    "price_unit": "Тариф и доступность модели определяются GigaCode CLI"}
         if request.provider == "ollama":
             return {"models": self._request(base_url, "/api/tags", local=True),
                     "fetched_at": datetime.now(UTC).isoformat(), "currency": "USD",
@@ -146,6 +165,10 @@ class SettingsService:
     @guarded_service
     def test_connection(self, request: SelectionRequest) -> dict:
         base_url, scope = self._endpoint(request)
+        if request.provider == "gigacode_cli":
+            result = GigaCodeCLI(cli_path=request.cli_path).check()
+            return {**result, "checked_at": datetime.now(UTC).isoformat(),
+                    "model_available": None}
         if request.provider == "ollama":
             models = self._request(base_url, "/api/tags", local=True)
             available = any(model["id"] == request.model_id for model in models)
@@ -199,8 +222,10 @@ class SettingsService:
     @guarded_service
     def save(self, request: SaveRequest) -> dict:
         base_url, scope = self._endpoint(request)
-        if request.provider == "ollama":
+        if request.provider in ("ollama", "gigacode_cli"):
             settings = Settings(provider=request.provider, base_url=base_url,
+                                cli_path=(request.cli_path
+                                          if request.provider == "gigacode_cli" else ""),
                                 model_id=request.model_id,
                                 model_name=request.model_name.strip() or request.model_id,
                                 allow_private_network=request.allow_private_network)
@@ -217,6 +242,8 @@ class SettingsService:
             if not token:
                 raise AppError("token_required", "Вставьте API-токен выбранного провайдера.")
             settings = Settings(provider=request.provider, base_url=base_url,
+                                cli_path=(request.cli_path
+                                          if request.provider == "gigacode_cli" else ""),
                                 model_id=request.model_id,
                                 model_name=request.model_name.strip() or request.model_id,
                                 allow_private_network=request.allow_private_network)
@@ -240,7 +267,7 @@ class SettingsService:
     @guarded_service
     def delete_token(self, request: EndpointRequest) -> dict:
         _, scope = self._endpoint(request)
-        if request.provider == "ollama":
+        if request.provider in ("ollama", "gigacode_cli"):
             return {"token_saved": False}
         with self._lock:
             vault_operation(self.vault, "delete", scope)

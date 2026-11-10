@@ -19,7 +19,7 @@ struct ModelSettingsView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Модель для ваших карточек").font(.title2.weight(.semibold))
-                    Text(store.draft.isLocal ? "Выберите загруженную модель Ollama для обработки на этом Mac." : "Выберите недорогую модель. Провайдера можно изменить в любой момент.").font(.callout).foregroundStyle(.secondary)
+                    Text(store.draft.isCLI ? "Экспериментальная ручная генерация через установленный GigaCode CLI." : store.draft.isLocal ? "Выберите загруженную модель Ollama для обработки на этом Mac." : "Выберите недорогую модель. Провайдера можно изменить в любой момент.").font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Label(store.isSaved ? "Сохранено" : "Есть изменения", systemImage: store.isSaved ? "checkmark.circle.fill" : "pencil.circle")
@@ -42,6 +42,10 @@ struct ModelSettingsView: View {
                             TextField("Точный ID модели", text: Binding(get: { store.draft.modelId }, set: { store.enterModelID($0) }), prompt: Text("ID из документации вашего API"))
                                 .textFieldStyle(.roundedBorder)
                             Text("Совместимый с OpenAI HTTPS API. Укажите базовый адрес, без /chat/completions. Каталог необязателен: можно сохранить адрес, токен и ID из документации вашего API.").font(.caption).foregroundStyle(.secondary)
+                        } else if store.draft.isCLI {
+                            TextField("Путь к GigaCode CLI", text: Binding(get: { store.draft.cliPath }, set: { store.changeCLIPath($0) }), prompt: Text("Абсолютный путь или пусто для поиска в PATH"))
+                                .textFieldStyle(.roundedBorder)
+                            Text("Укажите исполняемый файл без аргументов. Приложение из Finder может не видеть PATH вашего Терминала; в таком случае нужен полный путь.").font(.caption).foregroundStyle(.secondary)
                         } else {
                             LabeledContent("Адрес API") { Text(store.draft.baseUrl).font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled) }
                         }
@@ -54,6 +58,12 @@ struct ModelSettingsView: View {
                             Link("Установить Ollama ↗", destination: URL(string: "https://ollama.com/download/mac")!).font(.caption)
                             Text("ollama pull qwen3:8b").font(.caption.monospaced()).textSelection(.enabled)
                             Text("Команда загрузит модель размером около 5,2 ГБ. После загрузки нажмите «Обновить» и выберите точный ID. Локальное создание карточек использует память и процессор Mac.").font(.caption).foregroundStyle(.secondary)
+                        }
+                    } else if store.draft.isCLI {
+                        settingsGroup("GigaCode CLI · экспериментальный", symbol: "terminal") {
+                            Label("Использует существующий вход в GigaCode CLI", systemImage: "person.crop.circle")
+                            Text("Только ручная генерация карточек. Текст передаётся модели, настроенной в CLI. Встроенные инструменты CLI могут оставаться доступны; это не изолированная среда.").font(.caption).foregroundStyle(.secondary)
+                            Text("API-токен в Second Brain не требуется. Авторизуйтесь в GigaCode CLI отдельно; приложение не выполняет вход и не копирует его настройки.").font(.caption).foregroundStyle(.secondary)
                         }
                     } else {
                         settingsGroup("API-токен", symbol: "key.horizontal") {
@@ -79,6 +89,12 @@ struct ModelSettingsView: View {
                     }
 
                     settingsGroup("Модель", symbol: "cpu") {
+                        if store.draft.isCLI {
+                            TextField("ID модели GigaCode CLI", text: Binding(get: { store.draft.modelId }, set: { store.enterModelID($0) }), prompt: Text("default"))
+                                .textFieldStyle(.roundedBorder)
+                            Text("default — модель из настроек GigaCode CLI. Для другой модели укажите точный ID, поддерживаемый вашим CLI. Каталог не запрашивается.").font(.caption).foregroundStyle(.secondary)
+                            Text("Стоимость определяется вашим подключением GigaCode; цена неизвестна и не считается нулевой.").font(.caption).foregroundStyle(.secondary)
+                        } else {
                         HStack {
                             HStack { Image(systemName: "magnifyingglass").foregroundStyle(.secondary); TextField("Название или ID модели", text: $store.query).textFieldStyle(.plain) }
                                 .padding(7).background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
@@ -113,6 +129,7 @@ struct ModelSettingsView: View {
                                 .textFieldStyle(.roundedBorder)
                         }
                         Text(store.draft.isLocal ? "Для Ollama нужен точный ID загруженной локальной модели. Облачные модели и автоматическая загрузка не используются." : "Ручной ID подходит и для API, которые не отдают каталог. Неизвестная цена не означает бесплатную модель.").font(.caption).foregroundStyle(.secondary)
+                        }
                     }
 
                     settingsGroup("Поиск по смыслу", symbol: "sparkle.magnifyingglass") {
@@ -121,15 +138,15 @@ struct ModelSettingsView: View {
                     }
 
                     settingsGroup("Проверка подключения", symbol: "checkmark.shield") {
-                        LabeledContent("Проверка API", value: store.connection == nil ? "Не проверено" : store.connection?.status == "ok" ? "API отвечает" : "Есть замечание")
-                        Text("Проверка обращается к API, но не запускает генерацию. Доступ к генерации и её качество проверяются отдельно.").font(.caption).foregroundStyle(.secondary)
+                        LabeledContent(store.draft.isCLI ? "Проверка CLI" : "Проверка API", value: store.connection == nil ? "Не проверено" : store.connection?.status == "ok" ? (store.draft.isCLI ? "CLI доступен" : "API отвечает") : "Есть замечание")
+                        Text(store.draft.isCLI ? "Проверка читает справку CLI, без генерации. Вход и доступ к модели этим не подтверждаются." : "Проверка обращается к API, но не запускает генерацию. Доступ к генерации и её качество проверяются отдельно.").font(.caption).foregroundStyle(.secondary)
                         if let notice = store.notice { Label(notice, systemImage: store.noticeIsError ? "exclamationmark.circle" : "checkmark.circle").foregroundStyle(store.noticeIsError ? Color.orange : Color.green).textSelection(.enabled) }
                     }
                 }.padding(.horizontal, 24).padding(.vertical, 16)
             }
 
             HStack {
-                Label(store.draft.isLocal ? "Обработка на этом Mac · без API-токена" : "Секреты — в Связке ключей macOS", systemImage: store.draft.isLocal ? "desktopcomputer" : "lock.shield").font(.caption).foregroundStyle(.secondary)
+                Label(store.draft.isCLI ? "GigaCode CLI · только ручные карточки" : store.draft.isLocal ? "Обработка на этом Mac · без API-токена" : "Секреты — в Связке ключей macOS", systemImage: store.draft.isCLI ? "terminal" : store.draft.isLocal ? "desktopcomputer" : "lock.shield").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if !store.action.isEmpty { ProgressView().controlSize(.small) }
                 Button("Проверить подключение") { Task { await store.testConnection() } }.disabled(!store.action.isEmpty)
