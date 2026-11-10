@@ -103,7 +103,7 @@ class SettingsStore:
             temporary = Path(filename)
             with os.fdopen(descriptor, "w", encoding="utf-8") as output:
                 excluded = {key for key in ("allow_private_network", "requires_reauthentication",
-                                            "cli_path")
+                                            "cli_path", "gigacode_auto_cards")
                             if not getattr(settings, key)}
                 json.dump(settings.model_dump(exclude=excluded), output,
                           ensure_ascii=False, indent=2)

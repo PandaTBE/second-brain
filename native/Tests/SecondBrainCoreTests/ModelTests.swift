@@ -422,6 +422,20 @@ enum CoreChecks {
         try require(connectionPayload["cli_path"] as? String == cli.cliPath, "CLI check uses the selected executable")
         let legacySettings = try APIClient.decoder.decode(ModelSettings.self, from: Data(#"{"provider":"openai","base_url":"https://api.example.com/v1","model_id":"demo","model_name":"Demo"}"#.utf8))
         try require(legacySettings.cliPath.isEmpty, "Older settings remain decodable")
+        try require(!legacySettings.gigacodeAutoCards && !cli.gigacodeAutoCards, "Legacy and new CLI settings default to manual generation")
+        let optedCLI = cli.settingGigaCodeAutoCards(true)
+        try require(optedCLI.gigacodeAutoCards && optedCLI.connectionScopeKey != cli.connectionScopeKey, "Consent changes connection identity")
+        try require(!optedCLI.replacingCLIPath("/another/gigacode").gigacodeAutoCards, "Executable change revokes consent")
+        try require(optedCLI.replacingCLIPath(cli.cliPath).gigacodeAutoCards, "Same executable preserves consent")
+        try require(!optedCLI.replacingModel(id: "other", name: "Other").gigacodeAutoCards, "Model change revokes consent")
+        try require(optedCLI.replacingModel(id: "default", name: "Renamed").gigacodeAutoCards, "Name-only changes preserve consent")
+        let roundTrip = try APIClient.decoder.decode(ModelSettings.self, from: APIClient.encoder.encode(optedCLI))
+        try require(roundTrip == optedCLI, "CLI consent survives Codable round trip")
+        for encoded in [try APIClient.encoder.encode(ScopeRequest(optedCLI)), try APIClient.encoder.encode(ModelRequest(optedCLI, token: nil)), try APIClient.encoder.encode(SaveRequest(optedCLI, token: nil)), try APIClient.encoder.encode(ConnectionRequest(optedCLI, token: nil))] {
+            let request = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+            try require(request["gigacode_auto_cards"] as? Bool == true, "Every model request carries explicit consent")
+        }
+        try require(!ModelSettings(provider: "openai", gigacodeAutoCards: true).gigacodeAutoCards, "Consent applies only to CLI")
         let cloud = ModelSettings(provider: "qwen", baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", modelId: "qwen-flash")
         try require(!cloud.isLocal && cloud.requiresCredential, "Qwen API remains a credentialed cloud provider")
         try require(!cloud.canUseCredential(tokenSaved: false, tokenDraft: ""), "Cloud requires a real credential")

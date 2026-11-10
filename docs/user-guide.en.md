@@ -1,6 +1,6 @@
 # User guide
 
-**Second Brain 0.3.1 · updated 2026-11-10** · [Русский](user-guide.ru.md) · [Documentation index](README.md)
+**Second Brain 0.3.2 · updated 2026-11-10** · [Русский](user-guide.ru.md) · [Documentation index](README.md)
 
 ## 1. What it does and when to use it
 
@@ -30,10 +30,10 @@ this guide includes the corresponding control names where useful.
 ### Prebuilt release: no developer tools required
 
 For an **Apple Silicon Mac running macOS 14+**, download
-`Second-Brain-0.3.1-macos-arm64.zip` from this repository's **Releases → Assets**.
+`Second-Brain-0.3.2-macos-arm64.zip` from this repository's **Releases → Assets**.
 This asset includes the native application and its Python service; the recipient
 does not need Xcode, Python, uv or the source checkout. Intel Macs are not covered
-by this asset. See the [release notes](releases/0.3.1.md).
+by this asset. See the [release notes](releases/0.3.2.md).
 
 1. Compare the ZIP's SHA-256 with `SHA256SUMS` attached to the same release. A
    matching checksum detects a changed file, not whether its publisher is trusted.
@@ -121,9 +121,17 @@ provider adapter; install and authenticate GigaCode CLI separately.
 The app sends the card prompt through stdin and reads the final JSON result.
 Generation is limited to one request at a time and 180 seconds per process;
 stdout/stderr are bounded. Errors preserve the imported text for search.
-Automatic text import can continue, but automatic card generation and automatic
-card retries do not launch GigaCode CLI, even when enabled in automation. After
-requeueing failures, explicitly start a manual card batch.
+**Automatic cards since 0.3.2:** in **Model and API**, enable the separate
+GigaCode automatic-card checkbox and save. Then enable card processing and either
+scheduled reconciliation or import-triggered automation in **Memory → Edit**,
+with synchronization unpaused. Both permissions are required; the CLI opt-in is
+off by default. Saving or checking the connection never starts generation.
+Without the opt-in, text import continues and card jobs/retries require manual
+start. Existing source permissions, batch/retry budgets and provider backoff apply.
+The setting is `gigacode_auto_cards`; omitted fields from older clients mean false.
+Changing provider, executable path or model resets the checkbox in the UI. Every
+backup restore clears the permission, including restoration on the same Mac.
+Disabling it stops new automatic admissions; an already started call may finish.
 
 This is an **external-model** connection for source permissions, even though its
 CLI process runs on the Mac. Its service may charge for requests; unknown pricing
@@ -152,14 +160,14 @@ Cards contain a summary, keywords, retrieval questions, and facts supported by e
 
 Displayed pricing comes from provider catalogs when available; an unknown price does not mean free usage. Models, prices, and data-handling terms can change. The application does not enforce a provider-account spending cap.
 
-To enable automatic cards for providers other than GigaCode CLI:
+To enable automatic cards (GigaCode CLI also needs the opt-in above):
 
 1. Open automation through **Память → Изменить** (Memory → Edit).
 2. Enable automatic card creation and periodic reconciliation if appropriate.
 3. Choose the batch size and number of simultaneous requests.
 4. Read the recurring API-cost warning and save.
 
-The default batch size is 10 materials, with a range of 1–50. Default concurrency is 10 requests. Enter any positive whole number in the concurrency field; there is no application-imposed upper limit. Existing explicitly saved values are preserved. Actual parallel work cannot exceed the current batch size: for example, concurrency 1000 with a batch of 10 can run at most 10 materials simultaneously. This bounds work per run, not money spent. Repeated automatic runs and retries can also incur cloud-provider charges. Local Ollama processing is limited to one effective generation request at a time; the configured target is preserved.
+The default batch size is 10 materials, with a range of 1–50. Default concurrency is 10 requests. Enter any positive whole number in the concurrency field; there is no application-imposed upper limit. Existing explicitly saved values are preserved. Actual parallel work cannot exceed the current batch size: for example, concurrency 1000 with a batch of 10 can run at most 10 materials simultaneously. This bounds work per run, not money spent. Repeated automatic runs and retries can also incur cloud-provider charges. Local Ollama and GigaCode CLI processing are limited to one effective generation request at a time; the configured target is preserved.
 
 A failed card can receive two automatic retries, approximately 60 and 300 seconds after the respective failures. There are at most three automatic requests per material revision: the initial request and two retries. A request rejected by the local provider-pause guard is not sent and does not consume an attempt; a sent request that receives `429` does. The budget survives restarts and unchanged imports. Once exhausted, the card waits for your action. The retry panel in **Память** shows remaining automatic retries, cards needing manual action, and whether processing is enabled, disabled, paused, or waiting for the provider. **Повторить все ошибки** (Retry all errors) asks for confirmation, queues every eligible failed card and gives each a new initial attempt plus two retries. Ready cards are unchanged. With automatic cards disabled or synchronization paused, queued cards wait; this button changes neither automation settings nor the provider hold. A changed source material gets a new revision and a new budget.
 

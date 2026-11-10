@@ -2,7 +2,8 @@
 
 
 def manual_cards_only(settings_service):
-    return settings_service.store.load().provider == "gigacode_cli"
+    settings = settings_service.store.load()
+    return settings.provider == "gigacode_cli" and not settings.gigacode_auto_cards
 
 
 def execution_mode(processing_scope):

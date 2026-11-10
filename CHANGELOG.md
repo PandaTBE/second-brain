@@ -9,6 +9,19 @@ listed in the release notes; preparing local artifacts does not publish a releas
 
 No changes yet.
 
+## [0.3.2] — 2026-11-10
+
+### Added
+
+- Explicit, default-off GigaCode CLI automatic-card permission in Model and API.
+  Scheduled/import-followup generation and retries require this opt-in plus
+  enabled, unpaused Memory automation. Saving/checking never starts generation;
+  source permissions, serialized CLI calls, budgets and backoff are preserved.
+- The checkbox resets when provider/path/model changes. Older clients default to
+  false, and every backup restore clears the permission for a fresh local choice.
+  Verification uses synthetic executables; real CLI authentication and card
+  generation remain unverified. This does not change prompt/stdin transport.
+
 ## [0.3.1] — 2026-11-10
 
 ### Fixed
@@ -196,6 +209,17 @@ shared local memory server for AI assistants.
 ### Ещё не выпущено
 
 Пока нет изменений.
+
+### 0.3.2 — 2026-11-10
+
+- Добавлено отдельное, по умолчанию выключенное разрешение автокарточек GigaCode
+  CLI в «Модель и API». Генерация по расписанию/после импорта и повторы требуют
+  этого разрешения и включённой автоматизации Памяти без паузы. Сохранение/проверка
+  не запускают генерацию; политики источников, один процесс, бюджеты и паузы сохранены.
+- Смена провайдера/пути/модели сбрасывает флажок. Старые клиенты получают false;
+  любое восстановление копии очищает разрешение для нового явного выбора.
+  Проверки используют синтетические CLI; реальный вход/генерация не подтверждены.
+  Передача промпта через stdin не менялась.
 
 ### 0.3.1 — 2026-11-10
 

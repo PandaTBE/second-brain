@@ -228,7 +228,8 @@ class SettingsService:
                                           if request.provider == "gigacode_cli" else ""),
                                 model_id=request.model_id,
                                 model_name=request.model_name.strip() or request.model_id,
-                                allow_private_network=request.allow_private_network)
+                                allow_private_network=request.allow_private_network,
+                                gigacode_auto_cards=request.gigacode_auto_cards)
             with self._lock:
                 self.store.save(settings)
             return {"settings": settings.model_dump(), "token_saved": False}
@@ -246,7 +247,8 @@ class SettingsService:
                                           if request.provider == "gigacode_cli" else ""),
                                 model_id=request.model_id,
                                 model_name=request.model_name.strip() or request.model_id,
-                                allow_private_network=request.allow_private_network)
+                                allow_private_network=request.allow_private_network,
+                                gigacode_auto_cards=request.gigacode_auto_cards)
             replaced = request.token is not None
             if replaced:
                 vault_operation(self.vault, "set", scope, token)

@@ -19,7 +19,7 @@ struct ModelSettingsView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Модель для ваших карточек").font(.title2.weight(.semibold))
-                    Text(store.draft.isCLI ? "Экспериментальная ручная генерация через установленный GigaCode CLI." : store.draft.isLocal ? "Выберите загруженную модель Ollama для обработки на этом Mac." : "Выберите недорогую модель. Провайдера можно изменить в любой момент.").font(.callout).foregroundStyle(.secondary)
+                    Text(store.draft.isCLI ? "Генерация карточек через установленный GigaCode CLI." : store.draft.isLocal ? "Выберите загруженную модель Ollama для обработки на этом Mac." : "Выберите недорогую модель. Провайдера можно изменить в любой момент.").font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Label(store.isSaved ? "Сохранено" : "Есть изменения", systemImage: store.isSaved ? "checkmark.circle.fill" : "pencil.circle")
@@ -62,7 +62,10 @@ struct ModelSettingsView: View {
                     } else if store.draft.isCLI {
                         settingsGroup("GigaCode CLI · экспериментальный", symbol: "terminal") {
                             Label("Использует существующий вход в GigaCode CLI", systemImage: "person.crop.circle")
-                            Text("Только ручная генерация карточек. Текст передаётся модели, настроенной в CLI. Встроенные инструменты CLI могут оставаться доступны; это не изолированная среда.").font(.caption).foregroundStyle(.secondary)
+                            Text("По умолчанию карточки создаются вручную. Текст передаётся модели, настроенной в CLI. Встроенные инструменты CLI могут оставаться доступны; это не изолированная среда.").font(.caption).foregroundStyle(.secondary)
+                            Toggle("Разрешить автоматическое создание карточек через GigaCode CLI", isOn: Binding(get: { store.draft.gigacodeAutoCards }, set: { store.changeGigaCodeAutoCards($0) }))
+                                .toggleStyle(.checkbox)
+                            Text("Для фоновых задач также включите автогенерацию в настройках памяти. Это разрешение само не запускает задачи и сбрасывается при смене CLI или модели.").font(.caption).foregroundStyle(.secondary)
                             Text("API-токен в Second Brain не требуется. Авторизуйтесь в GigaCode CLI отдельно; приложение не выполняет вход и не копирует его настройки.").font(.caption).foregroundStyle(.secondary)
                         }
                     } else {
@@ -146,7 +149,7 @@ struct ModelSettingsView: View {
             }
 
             HStack {
-                Label(store.draft.isCLI ? "GigaCode CLI · только ручные карточки" : store.draft.isLocal ? "Обработка на этом Mac · без API-токена" : "Секреты — в Связке ключей macOS", systemImage: store.draft.isCLI ? "terminal" : store.draft.isLocal ? "desktopcomputer" : "lock.shield").font(.caption).foregroundStyle(.secondary)
+                Label(store.draft.isCLI ? "GigaCode CLI · генерация карточек" : store.draft.isLocal ? "Обработка на этом Mac · без API-токена" : "Секреты — в Связке ключей macOS", systemImage: store.draft.isCLI ? "terminal" : store.draft.isLocal ? "desktopcomputer" : "lock.shield").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if !store.action.isEmpty { ProgressView().controlSize(.small) }
                 Button("Проверить подключение") { Task { await store.testConnection() } }.disabled(!store.action.isEmpty)

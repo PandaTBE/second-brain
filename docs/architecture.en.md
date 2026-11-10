@@ -1,6 +1,6 @@
 # Architecture
 
-**Version 0.3.1 · updated 2026-11-10** · [Русский](architecture.ru.md) · [User guide](user-guide.en.md)
+**Version 0.3.2 · updated 2026-11-10** · [Русский](architecture.ru.md) · [User guide](user-guide.en.md)
 
 ## Components and data flow
 
@@ -11,7 +11,7 @@ flowchart TD
     Sources --> Import[Parse, redact, chunk]
     Import --> DB[(SQLite + FTS5)]
     API --> Cards[Bounded card queue]
-    Cards --> LLM[Selected cloud API, local Ollama or manual GigaCode CLI]
+    Cards --> LLM[Selected cloud API, local Ollama or GigaCode CLI]
     Cards --> DB
     API --> Graph[Local graph and history page]
     Graph --> API
@@ -40,8 +40,8 @@ The window and background process have different lifecycles: closing the window 
 | Evidence and provenance | `evidence.py`, `evidence_pack.py`, `evidence_passages.py`, `retrieval_filters.py`, `source_dates.py`, `session_metadata.py` | Extractive citation packets, shared pre-ranking filters and explicit date/project metadata. |
 | Facts and history | `memory_facts.py`, `fact_schema.py`, `fact_queries.py`, `fact_relations.py`, `facts_service.py` | Exact card-atom projection, revision proof snapshots, conservative relations and scoped paginated reads. |
 | Backup/recovery | `backup*.py`, `maintenance.py`, `source_relocation.py`, `source_recovery_routes.py` | Consistent allowlisted snapshots, age worker, reviewed restore/rollback and explicit post-transfer source repair. |
-| Automation | `background.py`, `memory_service.py`, `card_parallel.py`, `card_retries.py`, `card_generation_policy.py`, `provider_backoff.py` | Watching, writer ownership, batches, concurrency, retries, manual-only provider gates and durable provider admission pauses. |
-| Model calls | `llm_cards.py`, `providers.py`, `transport.py`, `ollama.py`, `gigacode_cli.py`, `gigacode_output.py` | Provider settings, bounded HTTPS/Ollama or manual CLI calls, response normalization and card/evidence validation. |
+| Automation | `background.py`, `memory_service.py`, `card_parallel.py`, `card_retries.py`, `card_generation_policy.py`, `provider_backoff.py` | Watching, writer ownership, batches, concurrency, retries, explicit provider automation opt-ins and durable provider admission pauses. |
+| Model calls | `llm_cards.py`, `providers.py`, `transport.py`, `ollama.py`, `gigacode_cli.py`, `gigacode_output.py` | Provider settings, bounded HTTPS/Ollama or CLI calls, response normalization and card/evidence validation. |
 | MCP | `mcp_server.py`, `mcp_config.py`, `scripts/mcp-server.command` | Four original tools, evidence/facts/history tools (seven total), and client-configuration generation. |
 | Graph and compatible web UI | `static/` | Local assets without CDNs; the browser graph is separate from native settings. |
 
@@ -104,10 +104,14 @@ activity is not prevention. CLI network traffic follows its own client/config.
 `gigacode_output.py` parses the bounded observed event array, takes the sole final
 successful `result` string, and maps reported usage into the existing card contract.
 Missing usage stays unknown. Existing JSON/card/quote checks still apply. The
-connection is `model_external`; effective concurrency is one. The manual-only
-gate in `card_generation_policy.py`/`memory_service.py` blocks scheduled generation,
-import-followup generation and automatic retries while keeping text import and
-explicit manual jobs available. Foreign restore clears the old executable path
+connection is `model_external`; effective concurrency is one. The default-false
+`gigacode_auto_cards` setting admits scheduled/import-followup generation and
+automatic retries only with existing enabled, unpaused Memory automation.
+`card_generation_policy.py`/`memory_service.py` enforce this at admission; manual
+jobs and text import remain available without opt-in. Saving/checking is inert.
+UI provider/path/model changes reset the checkbox, older clients default false,
+and every backup restore clears the opt-in. Source permissions, budgets and
+backoff remain unchanged. Foreign restore clears the old executable path
 and model selection; the CLI's own credentials/configuration are not exported or bundled.
 Synthetic executable tests cover the adapter and the frozen helper-to-CLI path;
 web settings checks use disposable data. Real CLI authentication/model generation

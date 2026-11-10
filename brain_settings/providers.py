@@ -73,7 +73,7 @@ PROVIDERS = (
     ),
     Provider(
         "gigacode_cli", "GigaCode CLI · экспериментальный", "gigacode://local",
-        "Существующий вход в CLI; только ручные карточки. "
+        "Существующий вход в CLI; автогенерация включается отдельно. "
         "Встроенные инструменты остаются доступны.",
         "", requires_token=False,
     ),
@@ -169,6 +169,7 @@ class EndpointRequest(BaseModel):
     base_url: str = Field(max_length=2048)
     cli_path: str = Field(default="", max_length=4096)
     allow_private_network: StrictBool = False
+    gigacode_auto_cards: StrictBool = False
 
     @field_validator("cli_path")
     @classmethod
@@ -179,6 +180,8 @@ class EndpointRequest(BaseModel):
     def private_network_requires_custom(self):
         if self.allow_private_network and self.provider != "custom":
             raise ValueError("Внутренняя сеть доступна только для своего API.")
+        if self.gigacode_auto_cards and self.provider != "gigacode_cli":
+            raise ValueError("Автогенерация GigaCode доступна только для GigaCode CLI.")
         _validate_cli_model(self.provider, getattr(self, "model_id", ""))
         return self
 
@@ -215,6 +218,7 @@ class Settings(BaseModel):
     base_url: str = "https://openrouter.ai/api/v1"
     cli_path: str = Field(default="", max_length=4096)
     allow_private_network: StrictBool = False
+    gigacode_auto_cards: StrictBool = False
     model_id: str = ""
     model_name: str = ""
     requires_reauthentication: StrictBool = False
@@ -228,6 +232,8 @@ class Settings(BaseModel):
     def private_network_requires_custom(self):
         if self.allow_private_network and self.provider != "custom":
             raise ValueError("Внутренняя сеть доступна только для своего API.")
+        if self.gigacode_auto_cards and self.provider != "gigacode_cli":
+            raise ValueError("Автогенерация GigaCode доступна только для GigaCode CLI.")
         _validate_cli_model(self.provider, getattr(self, "model_id", ""))
         return self
 

@@ -6,19 +6,36 @@ public extension ModelSettings {
     var requiresCredential: Bool { !isLocal && !isCLI }
     var privateNetworkAccessAllowed: Bool { provider == "custom" && allowPrivateNetwork }
     var connectionScopeKey: String {
-        "\(provider)|\(baseUrl.trimmingCharacters(in: .whitespacesAndNewlines))|\(privateNetworkAccessAllowed)" + (isCLI ? "|\(cliPath.trimmingCharacters(in: .whitespacesAndNewlines))" : "")
+        "\(provider)|\(baseUrl.trimmingCharacters(in: .whitespacesAndNewlines))|\(privateNetworkAccessAllowed)" + (isCLI ? "|\(cliPath.trimmingCharacters(in: .whitespacesAndNewlines))|\(gigacodeAutoCards)" : "")
     }
 
     func replacingBaseURL(_ value: String) -> ModelSettings {
         let sameEndpoint = baseUrl.trimmingCharacters(in: .whitespacesAndNewlines)
             == value.trimmingCharacters(in: .whitespacesAndNewlines)
         return ModelSettings(provider: provider, baseUrl: value, modelId: modelId, modelName: modelName,
-                             allowPrivateNetwork: sameEndpoint && privateNetworkAccessAllowed, cliPath: cliPath)
+                             allowPrivateNetwork: sameEndpoint && privateNetworkAccessAllowed, cliPath: cliPath, gigacodeAutoCards: gigacodeAutoCards)
     }
 
     func settingPrivateNetworkAccess(_ allowed: Bool) -> ModelSettings {
         ModelSettings(provider: provider, baseUrl: baseUrl, modelId: modelId, modelName: modelName,
-                      allowPrivateNetwork: allowed, cliPath: cliPath)
+                      allowPrivateNetwork: allowed, cliPath: cliPath, gigacodeAutoCards: gigacodeAutoCards)
+    }
+
+    func replacingCLIPath(_ value: String) -> ModelSettings {
+        ModelSettings(provider: provider, baseUrl: baseUrl, modelId: modelId, modelName: modelName,
+                      allowPrivateNetwork: privateNetworkAccessAllowed, cliPath: value,
+                      gigacodeAutoCards: value == cliPath && gigacodeAutoCards)
+    }
+
+    func replacingModel(id: String, name: String) -> ModelSettings {
+        ModelSettings(provider: provider, baseUrl: baseUrl, modelId: id, modelName: name,
+                      allowPrivateNetwork: privateNetworkAccessAllowed, cliPath: cliPath,
+                      gigacodeAutoCards: id == modelId && gigacodeAutoCards)
+    }
+
+    func settingGigaCodeAutoCards(_ enabled: Bool) -> ModelSettings {
+        ModelSettings(provider: provider, baseUrl: baseUrl, modelId: modelId, modelName: modelName,
+                      allowPrivateNetwork: privateNetworkAccessAllowed, cliPath: cliPath, gigacodeAutoCards: enabled)
     }
 
     var customEndpointValidationMessage: String? {

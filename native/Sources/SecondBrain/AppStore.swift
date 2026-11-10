@@ -132,9 +132,15 @@ final class AppStore: ObservableObject {
     func changeCLIPath(_ value: String) {
         guard draft.isCLI, value != draft.cliPath else { return }
         credentialTask?.cancel()
-        draft.cliPath = value; tokenDraft = ""; tokenSaved = false; storageWarning = nil
+        draft = draft.replacingCLIPath(value); tokenDraft = ""; tokenSaved = false; storageWarning = nil
         scopeRevision += 1; catalogRevision += 1; catalogLoading = false
         models = []; catalogError = nil; catalogWarning = nil; catalogUpdated = nil; changed()
+    }
+
+    func changeGigaCodeAutoCards(_ enabled: Bool) {
+        let updated = draft.settingGigaCodeAutoCards(enabled)
+        guard updated != draft else { return }
+        draft = updated; scopeRevision += 1; changed()
     }
 
     func changeToken(_ value: String) {
@@ -144,9 +150,9 @@ final class AppStore: ObservableObject {
     }
 
     func selectModel(_ model: ModelInfo) {
-        draft.modelId = model.id; draft.modelName = model.name; changed()
+        draft = draft.replacingModel(id: model.id, name: model.name); changed()
     }
-    func enterModelID(_ value: String) { draft.modelId = value; draft.modelName = value; changed() }
+    func enterModelID(_ value: String) { draft = draft.replacingModel(id: value, name: value); changed() }
 
     func refreshCredential() async {
         guard !isRestoring else { return }
@@ -218,7 +224,7 @@ final class AppStore: ObservableObject {
             if savingScope == scopeRevision { tokenSaved = result.tokenSaved; storageWarning = nil }
             guard revision == draftRevision else { notice = "Предыдущие настройки сохранены. Текущие изменения ещё не сохранены."; noticeIsError = false; return }
             draft = result.settings; tokenSaved = result.tokenSaved; tokenDraft = ""
-            notice = result.settings.isCLI ? "GigaCode CLI сохранён. Доступна только ручная генерация карточек; вход используется из CLI." : result.settings.isLocal ? "Локальная модель сохранена. API-токен не требуется." : "Настройки сохранены. Токен — в Связке ключей macOS."; noticeIsError = false
+            notice = result.settings.isCLI ? "GigaCode CLI сохранён. Для фоновых карточек нужны разрешение CLI и автогенерация в настройках памяти." : result.settings.isLocal ? "Локальная модель сохранена. API-токен не требуется." : "Настройки сохранены. Токен — в Связке ключей macOS."; noticeIsError = false
         } catch { if lifetime == restoreEpoch, revision == draftRevision { showError(error.localizedDescription) } }
     }
 

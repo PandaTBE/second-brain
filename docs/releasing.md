@@ -5,7 +5,7 @@ not create a remote repository, upload files, push commits, or publish a release
 
 ## Release formats
 
-The portable Apple Silicon asset is `Second-Brain-0.3.1-macos-arm64.zip`. It
+The portable Apple Silicon asset is `Second-Brain-0.3.2-macos-arm64.zip`. It
 contains **Second Brain.app**, its frozen Python service and dependencies. The
 recipient needs macOS 14+, with no Xcode, Python, uv or source checkout. This is
 separate from `scripts/build-app.sh`, whose development app depends on its
@@ -105,12 +105,12 @@ private vulnerability reporting or provide a working private contact in
 rules where available. Local source files cannot enable these account settings.
 
 After authorization to publish, push only the reviewed history to the intended
-remote and choose the tested commit for tag `v0.3.1`. Inspect an existing `origin`
+remote and choose the tested commit for tag `v0.3.2`. Inspect an existing `origin`
 before changing it, and never put a token in the remote URL. Pushing, tagging and
 publishing are separate actions; preparation does not authorize them by itself.
 
 In GitHub **Releases**, create a **draft**, select the intended tag/commit, paste
-[the release notes](releases/0.3.1.md), and attach the portable ZIP plus
+[the release notes](releases/0.3.2.md), and attach the portable ZIP plus
 `SHA256SUMS`. Offer the source ZIP separately if desired. GitHub's automatic
 **Source code** download is not the compiled application. Review the draft and its
 attached file hashes before publishing. See [GitHub's release instructions](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository).
@@ -128,11 +128,16 @@ CI run or external-account verification that did not occur.
 
 ## GigaCode CLI release checks
 
-The 0.3.1 bundle includes the CLI adapter, not the GigaCode executable or its
+The 0.3.2 bundle includes the CLI adapter, not the GigaCode executable or its
 runtime/authentication. Check a disposable synthetic executable through the
 actual frozen helper: capability check, stdin input, final-result parsing, quote
-validation and usage. Verify that automatic import keeps text without launching
-CLI generation and that an explicit manual card job invokes it once. Keep test
+validation and usage. Verify default-off automatic import preserves text without
+CLI generation, opt-in plus enabled/unpaused Memory automation admits generation
+and retries, and explicit manual jobs remain available. Check UI context changes
+reset opt-in, old clients default false and every backup restore clears it.
+Verify source permissions, serialization, budgets and backoff with fake executables.
+Saving/checking must not trigger inference. Do not run real-model requests for
+release verification without separate authorization. Keep test
 executables, logs and temporary data outside the shipped app/source tree.
 Real corporate CLI login/model generation and native GUI behavior require a
 separate authenticated installation; a fake executable does not verify them.

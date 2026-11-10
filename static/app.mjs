@@ -1,12 +1,12 @@
 import { apiRequest } from './api.mjs';
 import { createCatalog } from './catalog.mjs';
-import { endpointScope, changeEndpoint, changePrivateNetwork, sameEndpoint, requiresToken, cliPathIssue } from './endpoint-policy.mjs';
+import { endpointScope, changeEndpoint, changePrivateNetwork, sameEndpoint, requiresToken, cliPathIssue, changeCLIPath, changeModel, changeGigaCodeAutoCards } from './endpoint-policy.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const tokenInput = $('#api-token');
 const symbols = { gigacode_cli: '⌘', ollama: '◉', openrouter: '↗', simpleclaw: 'S', deepseek: '≈', openai: '✳', custom: '⌘' };
 let state = {
-  csrf: '', providers: [], draft: { provider: 'openrouter', base_url: '', model_id: '', model_name: '', allow_private_network: false, cli_path: '' },
+  csrf: '', providers: [], draft: { provider: 'openrouter', base_url: '', model_id: '', model_name: '', allow_private_network: false, cli_path: '', gigacode_auto_cards: false },
   tokenSaved: false, storageAvailable: true, ready: false, busy: '', scopeVersion: 0,
   draftVersion: 0, catalogRequest: 0, credentialRequest: 0, connection: null, savedSettings: null,
   mutationScope: null,
@@ -115,6 +115,7 @@ function updateProviderFields() {
   const cli = state.draft.provider === 'gigacode_cli';
   $('#cli-settings').hidden = !cli;
   $('#cli-path').value = state.draft.cli_path || '';
+  $('#gigacode-auto-cards').checked = scope().gigacode_auto_cards;
   $('#token-panel').hidden = !requiresToken(provider());
   $('#storage-warning').hidden = !requiresToken(provider()) || (state.storageAvailable && !state.storageWarning);
   for (const selector of ['.catalog-toolbar', '.catalog-caption', '.catalog-columns', '#model-list', '.pricing-note', '.sort-note']) $(selector).hidden = cli;
@@ -169,7 +170,7 @@ async function chooseProvider(id) {
 }
 
 function selectModel(model) {
-  state = { ...state, draft: { ...state.draft, model_id: model.id, model_name: model.name || model.id } };
+  state = { ...state, draft: changeModel(state.draft, model.id, model.name || model.id) };
   $('#model-id').value = model.id;
   changed();
 }
@@ -218,7 +219,7 @@ async function saveSettings(event) {
     state = { ...state, draft: { ...result.settings }, tokenSaved: result.token_saved };
     resetTokenField();
     updateProviderFields();
-    actionMessage(state.draft.provider === 'gigacode_cli' ? 'GigaCode CLI сохранён. Доступна только ручная генерация карточек; вход используется из CLI.' : requiresToken(provider()) ? 'Настройки сохранены. Токен находится в Связке ключей macOS.' : 'Настройки сохранены. API-токен не требуется.');
+    actionMessage(state.draft.provider === 'gigacode_cli' ? 'GigaCode CLI сохранён. Для фоновых карточек нужны разрешение CLI и автогенерация в настройках памяти.' : requiresToken(provider()) ? 'Настройки сохранены. Токен находится в Связке ключей macOS.' : 'Настройки сохранены. API-токен не требуется.');
   } catch (error) { if (version === state.draftVersion) actionMessage(error.message, 'error'); }
   finally { setBusy(''); }
 }
@@ -283,8 +284,13 @@ $('#base-url').addEventListener('input', () => {
 });
 $('#base-url').addEventListener('blur', checkCredential);
 $('#cli-path').addEventListener('input', () => {
-  state = { ...state, draft: { ...state.draft, cli_path: $('#cli-path').value }, tokenSaved: false, scopeVersion: state.scopeVersion + 1, catalogRequest: state.catalogRequest + 1 };
+  state = { ...state, draft: changeCLIPath(state.draft, $('#cli-path').value), tokenSaved: false, scopeVersion: state.scopeVersion + 1, catalogRequest: state.catalogRequest + 1 };
+  $('#gigacode-auto-cards').checked = scope().gigacode_auto_cards;
   resetTokenField(); changed(); catalog.clear(); catalog.loading(false);
+});
+$('#gigacode-auto-cards').addEventListener('change', () => {
+  state = { ...state, draft: changeGigaCodeAutoCards(state.draft, $('#gigacode-auto-cards').checked), scopeVersion: state.scopeVersion + 1 };
+  changed();
 });
 $('#allow-private-network').addEventListener('change', () => {
   state = { ...state, draft: changePrivateNetwork(state.draft, $('#allow-private-network').checked), scopeVersion: state.scopeVersion + 1, catalogRequest: state.catalogRequest + 1 };
@@ -300,7 +306,7 @@ tokenInput.addEventListener('input', () => {
   changed();
 });
 $('#toggle-token').addEventListener('click', () => { const visible = tokenInput.type === 'password'; tokenInput.type = visible ? 'text' : 'password'; $('#toggle-token').setAttribute('aria-pressed', String(visible)); $('#toggle-token').setAttribute('aria-label', visible ? 'Скрыть введённый токен' : 'Показать введённый токен'); });
-$('#model-id').addEventListener('input', () => { state = { ...state, draft: { ...state.draft, model_id: $('#model-id').value, model_name: $('#model-id').value } }; changed(); });
+$('#model-id').addEventListener('input', () => { state = { ...state, draft: changeModel(state.draft, $('#model-id').value, $('#model-id').value) }; $('#gigacode-auto-cards').checked = scope().gigacode_auto_cards; changed(); });
 $('#settings-form').addEventListener('submit', saveSettings);
 $('#test-connection').addEventListener('click', testConnection);
 $('#delete-token').addEventListener('click', () => { $('#delete-confirm').hidden = false; $('#cancel-delete').focus(); });

@@ -50,10 +50,12 @@ user-registered Client ID and delegated read permissions. Outlook credentials
 are stored in Keychain; no client secret is required. Both connectors ship in 0.2.0. See [Outlook setup](docs/outlook-setup.md#english) and
 [source access boundaries](docs/security.en.md#outbound-connections-and-source-access).
 
-**Version 0.3.0** includes an experimental manual-only GigaCode CLI provider.
+**Version 0.3.0** introduced the experimental GigaCode CLI provider; **0.3.2**
+adds a separate, default-off permission for automatic cards/retries.
 The separately installed CLI uses its existing login; Second Brain requests no
 model API token and treats the connection as external-model processing. Automatic
-card generation/retries do not launch it. Built-in file, shell and network tools
+cards/retries launch it only with that permission and enabled, unpaused Memory
+automation. Every backup restore clears this permission. Built-in file, shell and network tools
 may remain available despite `--safe-mode`; a private working directory and
 process limits are not a sandbox. CLI history/configuration and traffic follow
 its own client. See the [CLI boundary](docs/security.en.md#experimental-gigacode-cli-boundary-since-030).
@@ -115,10 +117,11 @@ Microsoft по коду, собственным Client ID и делегиров�
 Секреты Outlook хранятся в Keychain; client secret не нужен. Оба источника входят в 0.2.0. См. [настройку Outlook](docs/outlook-setup.md#russian) и
 [границы доступа](docs/security.ru.md).
 
-**В версии 0.3.0** добавлен экспериментальный провайдер GigaCode CLI только для
-ручных карточек. Отдельно установленный CLI использует текущий вход; API-токен
+**В версии 0.3.0** добавлен экспериментальный провайдер GigaCode CLI; **0.3.2**
+добавляет отдельное, по умолчанию выключенное разрешение автокарточек/повторов. Отдельно установленный CLI использует текущий вход; API-токен
 модели в Second Brain не вводится, обработка считается внешней. Автогенерация и
-автоповторы CLI не запускают. Встроенные файловые, shell- и сетевые инструменты
+автоповторы запускают CLI только с этим разрешением и включённой автоматизацией
+Памяти без паузы. Любое восстановление копии сбрасывает разрешение. Встроенные файловые, shell- и сетевые инструменты
 могут оставаться доступны при `--safe-mode`; рабочая папка и лимиты процесса не
 являются sandbox. История/конфигурация и сеть определяются самим CLI. Подробнее —
 [граница CLI](docs/security.ru.md#граница-экспериментального-gigacode-cli-с-030).

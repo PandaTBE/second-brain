@@ -2,7 +2,7 @@
 
 [Русский](security.ru.md) · [User guide](user-guide.en.md) · [Reporting vulnerabilities](../SECURITY.md)
 
-**Updated 2026-11-10.** This document describes the protections and limits of **Second Brain 0.3.1**. It describes the implementation, not an independent security audit or a promise of complete confidentiality.
+**Updated 2026-11-10.** This document describes the protections and limits of **Second Brain 0.3.2**. It describes the implementation, not an independent security audit or a promise of complete confidentiality.
 
 ## The security model
 
@@ -28,7 +28,7 @@ agent. Connect only clients that you permit to read that memory.
 | MCP retrieval | A connected client receives bounded excerpts and source metadata from local memory. That client's later handling of the data is controlled by the client and its model provider. |
 | Create cloud cards | When explicitly requested or enabled in automation, masked source text is sent to the selected cloud model API, including Qwen API. Requests can incur provider charges. |
 | Create local Ollama cards | Masked source text is sent only to the fixed local Ollama service and a downloaded local model. No cloud fallback or model API token is used; computation uses the Mac's resources. |
-| GigaCode CLI cards (since 0.3.0) | An explicit manual job passes masked source text through stdin to a separately installed, already authenticated CLI. Its selected backend receives the prompt and can charge for inference. This is an external-model permission, not local-only processing. |
+| GigaCode CLI cards (since 0.3.0) | A manual job, or separately opted-in automation, passes masked source text through stdin to a separately installed, already authenticated CLI. Its selected backend receives the prompt and can charge for inference. This is an external-model permission, not local-only processing. |
 | Project/read facts and history | Validated saved card atoms are grouped locally with quotation snapshots. Projection and reads call no model; new-card extraction still uses the selected provider and its normal billing/attempt budget. |
 | Backup/export/restore | SQLite/configuration snapshots and inspection run locally. Managed copies are unencrypted; optional age export encrypts a separate archive with a transient password. No Keychain credentials or model weights are exported. |
 | Load a catalog or check a connection | Some checks make network requests even while card generation is disabled. A public catalog response may not prove that a credential is valid. |
@@ -43,9 +43,16 @@ data flows.
 
 ## Experimental GigaCode CLI boundary (since 0.3.0)
 
-The 0.3.1 portable bundle includes the experimental GigaCode provider adapter.
-It is enabled by explicit provider selection and manual card jobs. Scheduled
-imports may continue, but automatic card generation/retries do not invoke it.
+The 0.3.2 portable bundle includes the experimental GigaCode provider adapter.
+Manual card jobs require explicit provider selection. Automatic generation and
+retries additionally require the default-off `gigacode_auto_cards` permission
+and enabled, unpaused Memory automation. Saving/checking does not start calls.
+The UI resets the checkbox on provider/path/model changes; all backup restores
+clear the opt-in, including same-installation restores. Existing source
+permissions, one effective concurrent request, retry budgets and backoff apply.
+Automatic calls can repeat charges and expose permitted text to the CLI backend;
+unknown pricing is not zero cost. Disabling opt-in stops new admissions, while
+an already started request may finish. Text import remains independent.
 CLI, credentials, sessions and model weights are not bundled or exported. A
 foreign-installation restore clears the executable path/model selection and
 requires explicit configuration on the receiving Mac.
@@ -252,7 +259,7 @@ Successful source disconnection removes the source's active local materials and 
 
 ## Release and operational limits
 
-Version 0.3.1 is not a security-certified product. Automated tests and code review cover many boundaries but cannot establish the absence of vulnerabilities. There is no promise of a completed independent penetration test, notarized standalone distribution, enterprise isolation, or regulatory compliance.
+Version 0.3.2 is not a security-certified product. Automated tests and code review cover many boundaries but cannot establish the absence of vulnerabilities. There is no promise of a completed independent penetration test, notarized standalone distribution, enterprise isolation, or regulatory compliance.
 
 Source builds use a local ad-hoc signature and depend on the checkout and Python environment. Inspect code and dependencies before building, keep locked dependencies under review, and use supported OS updates. A green menu-bar icon means that the local service is available; it is not an audit result, proof of upstream access, or a guarantee that every import/card succeeded.
 
