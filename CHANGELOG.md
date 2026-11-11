@@ -9,6 +9,20 @@ listed in the release notes; preparing local artifacts does not publish a releas
 
 No changes yet.
 
+## [0.3.3] — 2026-11-11
+
+### Fixed
+
+- Prevent GigaCode headless card-generation sessions from feeding back through
+  Qwen history import. Service prompts are marked; recognized service sessions
+  are excluded as a whole in both buffered and streaming import. Existing
+  recognizable service records are blocked at card admission. A parser-cache
+  refresh lets a complete source reimport remove previously imported service
+  chunks without changing the original chat files.
+- Recovery from an existing loop: pause automation, update, fully reimport the
+  affected source, then resume. Old assistant-only chunks require reimport;
+  their text alone cannot establish service provenance.
+
 ## [0.3.2] — 2026-11-10
 
 ### Added

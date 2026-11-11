@@ -2,7 +2,8 @@
 
 The selected executable inherits the user's login environment for CLI-owned
 authentication. Built-in agent tools may remain available. Callers must admit
-only explicitly requested manual card jobs under external-model source policy.
+only manual or explicitly enabled automatic card jobs under external-model source policy.
+Service sessions are marked so transcript import cannot feed them back into generation.
 """
 
 import json
@@ -22,11 +23,12 @@ from pathlib import Path
 
 from .errors import AppError
 from .gigacode_output import normalize_gigacode_output
+from .service_sessions import CARD_PROMPT
 
 MAX_STDOUT = 1_048_576
 MAX_STDERR = 65_536
 MAX_INPUT = 131_072
-PROMPT = "Generate the requested search card from standard input. Do not use tools."
+PROMPT = CARD_PROMPT
 _LOCK = threading.Lock()
 
 

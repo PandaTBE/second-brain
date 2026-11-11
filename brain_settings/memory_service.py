@@ -32,6 +32,7 @@ from .notion_import import import_notion
 from .outlook_import import import_outlook
 from .provider_backoff import ProviderBackoff, paused_error
 from .retrieval import Retrieval
+from .service_sessions import is_service_record
 
 logger = logging.getLogger(__name__)
 MAX_IMPORT_BATCHES = 8
@@ -709,7 +710,8 @@ class MemoryService(FactsServiceMixin):
             if error.status_code == 404:
                 return None
             raise
-        if current["revision"] != record["revision"] or current.get("card_status") == "ready":
+        if (current["revision"] != record["revision"] or current.get("card_status") == "ready"
+                or is_service_record(current)):
             return None
         return current
 

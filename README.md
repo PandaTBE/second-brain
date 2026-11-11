@@ -2,7 +2,7 @@
 
 **A shared, source-backed memory for AI assistants, stored on your Mac.**
 
-**0.3.2 · macOS 14+ · Native SwiftUI app · MIT**
+**0.3.3 · macOS 14+ · Native SwiftUI app · MIT**
 
 [English](#english) · [Русский](#russian) · [Documentation](docs/README.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
 
@@ -94,6 +94,11 @@ can continue independently. It uses external-model source permissions. Built-in 
 may remain available: `--safe-mode` and a private working directory are not a
 sandbox. See [setup and limits](docs/user-guide.en.md#gigacode-cli-experimental-manual-cards).
 
+**Fixed in 0.3.3:** recognized GigaCode service chats are excluded from Qwen
+history import to stop card-generation feedback loops. For an existing loop,
+disable automatic cards, update, fully reimport the affected source, then resume.
+Original chat files stay unchanged; see [recovery steps](docs/user-guide.en.md#when-gigacode-imports-its-own-service-chats).
+
 ### Sources
 
 | Source | Imported content | Scope |
@@ -122,7 +127,7 @@ implicitly purge its imported copy.
 
 ### Install and launch
 
-**Prebuilt application:** use `Second-Brain-0.3.2-macos-arm64.zip` from the
+**Prebuilt application:** use `Second-Brain-0.3.3-macos-arm64.zip` from the
 repository's **Releases → Assets**. It contains the native app and its Python
 service. On an **Apple Silicon Mac with macOS 14+**, extract it, move
 **Second Brain.app** to **Applications**, and open it. **Xcode, Python, uv and a
@@ -134,7 +139,7 @@ notarization**. macOS can block an app downloaded from the internet. If you trus
 the release and have checked its checksum, use Apple's documented **System
 Settings → Privacy & Security → Open Anyway** flow. Do not disable Gatekeeper.
 See the [installation guide](docs/user-guide.en.md#2-requirements-and-installation)
-and [release notes](docs/releases/0.3.2.md) for the package's limits.
+and [release notes](docs/releases/0.3.3.md) for the package's limits.
 
 The release starts with a separate local archive in
 `~/Library/Application Support/Second Brain`. It does not include a maintainer's
@@ -365,6 +370,11 @@ Brain. `default` использует модель из настроек CLI; м
 Встроенные инструменты CLI могут оставаться доступны: `--safe-mode` и приватная
 рабочая папка не являются sandbox. См. [настройку и ограничения](docs/user-guide.ru.md#gigacode-cli-экспериментальные-ручные-карточки).
 
+**Исправлено в 0.3.3:** распознанные служебные чаты GigaCode исключаются из
+импорта истории Qwen, останавливая цикл генерации карточек. Если цикл уже возник,
+выключите автокарточки, обновитесь, полностью повторите импорт источника и лишь
+затем включайте автоматизацию. Исходные чаты не меняются; см. [порядок восстановления](docs/user-guide.ru.md#если-gigacode-импортирует-собственные-служебные-чаты).
+
 ### Источники
 
 | Источник | Что попадает в память | Область |
@@ -393,7 +403,7 @@ Brain. `default` использует модель из настроек CLI; м
 ### Установка
 
 **Готовое приложение:** в **Releases → Assets** этого репозитория выберите
-`Second-Brain-0.3.2-macos-arm64.zip`. Архив содержит нативное приложение и его
+`Second-Brain-0.3.3-macos-arm64.zip`. Архив содержит нативное приложение и его
 Python-сервис. На **Mac с Apple Silicon и macOS 14+** распакуйте его, перенесите
 **Second Brain.app** в **Программы** и откройте. **Устанавливать Xcode, Python, uv
 или исходники пользователю не требуется.** Сборки для Intel в этом архиве нет.
@@ -403,7 +413,7 @@ Apple**. macOS может заблокировать загруженное из
 доверяете выпуску и проверили контрольную сумму, используйте описанный Apple путь
 **Системные настройки → Конфиденциальность и безопасность → Всё равно открыть**.
 Не отключайте Gatekeeper. Подробнее — в [руководстве по установке](docs/user-guide.ru.md#2-требования-и-установка)
-и [примечаниях к выпуску](docs/releases/0.3.2.md).
+и [примечаниях к выпуску](docs/releases/0.3.3.md).
 
 Готовая сборка создаёт отдельный архив в
 `~/Library/Application Support/Second Brain`. Она не содержит памяти,
@@ -504,6 +514,6 @@ CSRF. Известные форматы секретов маскируются 
 [инструкции разработчика](docs/development.md). Тесты используют синтетические
 источники и подставные credentials; отдельные CoreChecks проверяют Swift-логику.
 
-Лицензия — [MIT](LICENSE). Изменения `0.3.2`: [CHANGELOG](CHANGELOG.md).
+Лицензия — [MIT](LICENSE). Изменения `0.3.3`: [CHANGELOG](CHANGELOG.md).
 Порядок публикации: [руководство по релизу](docs/releasing.md).
 Правила общения: [кодекс поведения](CODE_OF_CONDUCT.md).

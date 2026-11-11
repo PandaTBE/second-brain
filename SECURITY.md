@@ -60,6 +60,14 @@ may remain available despite `--safe-mode`; a private working directory and
 process limits are not a sandbox. CLI history/configuration and traffic follow
 its own client. See the [CLI boundary](docs/security.en.md#experimental-gigacode-cli-boundary-since-030).
 
+**Version 0.3.3** excludes recognized GigaCode card-generation sessions from
+Qwen history import to prevent repeated external-model requests. New prompts
+carry a service marker; legacy prompts and reserved standard temporary-workspace
+metadata are also recognized. Original logs stay unchanged. Pause automatic
+cards and fully reimport affected sources before resuming an existing loop;
+old assistant-only chunks or missing/unsupported logs need explicit exclusions
+when provenance cannot be recovered. See [recovery](docs/user-guide.en.md#when-gigacode-imports-its-own-service-chats).
+
 Source permissions apply to every connected MCP client; an agent may still send
 permitted text to its cloud model. The semantic index requires separate local
 opt-in and installed weights. Managed backups include the whole cache, including
@@ -125,6 +133,14 @@ Microsoft по коду, собственным Client ID и делегиров�
 могут оставаться доступны при `--safe-mode`; рабочая папка и лимиты процесса не
 являются sandbox. История/конфигурация и сеть определяются самим CLI. Подробнее —
 [граница CLI](docs/security.ru.md#граница-экспериментального-gigacode-cli-с-030).
+
+**Версия 0.3.3** исключает распознанные сессии генерации карточек GigaCode из
+импорта истории Qwen, предотвращая повторные запросы внешней модели. Новые
+запросы помечаются; распознаются также старый фиксированный запрос и метаданные
+служебного каталога в стандартной временной папке. Исходные журналы не меняются.
+При уже возникшем цикле выключите автокарточки и полностью повторите импорт
+источника до возобновления. Для старых ответов без запроса, отсутствующих или
+неподдерживаемых журналов могут потребоваться явные исключения. См. [восстановление](docs/user-guide.ru.md#если-gigacode-импортирует-собственные-служебные-чаты).
 
 Разрешения источника действуют для всех MCP-клиентов; агент может передавать
 разрешённый текст своей облачной модели. Семантический индекс включается отдельно

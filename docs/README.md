@@ -1,6 +1,6 @@
 # Documentation / Документация
 
-Version / Версия: **0.3.2** · Updated / Обновлено: **2026-11-10**
+Version / Версия: **0.3.3** · Updated / Обновлено: **2026-11-11**
 
 | Document / Документ | Русский | English |
 | --- | --- | --- |
@@ -10,9 +10,9 @@ Version / Версия: **0.3.2** · Updated / Обновлено: **2026-11-10*
 
 The [project README](../README.md) introduces Second Brain. Read the [security policy](../SECURITY.md) before connecting private sources or a model provider. See the [changelog](../CHANGELOG.md) for release history.
 
-Current release / Текущий выпуск: [0.3.2 release notes / примечания к выпуску](releases/0.3.2.md).
+Current release / Текущий выпуск: [0.3.3 release notes / примечания к выпуску](releases/0.3.3.md).
 
-Previous releases / Предыдущие выпуски: [0.3.1](releases/0.3.1.md), [0.3.0](releases/0.3.0.md), [0.2.0](releases/0.2.0.md).
+Previous releases / Предыдущие выпуски: [0.3.2](releases/0.3.2.md), [0.3.1](releases/0.3.1.md), [0.3.0](releases/0.3.0.md), [0.2.0](releases/0.2.0.md).
 
 [README проекта](../README.md) знакомит с Second Brain. Перед подключением личных источников и провайдера модели прочитайте [описание безопасности](../SECURITY.md). Изменения выпусков перечислены в [changelog](../CHANGELOG.md).
 

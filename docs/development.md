@@ -1,7 +1,7 @@
 # Development
 
 Second Brain is a macOS application with a local Python service and a separate
-read-only MCP process. The published 0.3.2 Apple Silicon bundle embeds its Python
+read-only MCP process. The published 0.3.3 Apple Silicon bundle embeds its Python
 runtime; development builds use the checkout's environment. This is not a published Python SDK.
 
 ## Tools and setup

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from .dialogue_parsers import Turn, parse_session
 from .errors import AppError
+from .service_sessions import is_service_session_row
 from .session_metadata import session_project
 
 MAX_LINE_BYTES = 1024 * 1024
@@ -85,6 +86,9 @@ def read_session(stream, kind: str, size: int) -> StreamedSession:
         if not isinstance(row, dict):
             skipped += 1
             continue
+        if is_service_session_row(row, kind):
+            return StreamedSession((), True, skipped + 1,
+                                   ("Служебная сессия создания карточки пропущена.",), consumed)
         project = session_project(row, kind, project)
         if kind == "codex":
             payload = row.get("payload")

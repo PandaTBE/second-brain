@@ -7,6 +7,7 @@ from datetime import datetime
 
 from .memory_text import redact_text
 from .qwen_sessions import qwen_dialogue
+from .service_sessions import is_service_session_row
 from .session_metadata import session_project
 
 
@@ -56,6 +57,8 @@ def parse_session(raw: str, kind: str) -> tuple[list[Turn], bool, int]:
                 continue
             raise ValueError("Не удалось разобрать завершённую строку JSONL.") from error
         if isinstance(row, dict):
+            if is_service_session_row(row, kind):
+                return [], True, skipped + 1
             rows = [*rows, (index, row)]
     response_turns, event_turns = [], []
     project = None

@@ -257,6 +257,27 @@ Choose **Добавить источник → Qwen Code** and select `~/.qwen/p
 
 The importer keeps user and assistant text, skips system events, tool payloads, and thinking parts, and uses the same redaction, SQLite index, and card queue as other sources. Automatic import waits about 90 seconds without writes, checked roughly every 30 seconds. The source must be added, auto-import enabled, and synchronization running. Incomplete lines wait for a later pass. The reader follows the [official Qwen Code recording format](https://github.com/QwenLM/qwen-code/blob/main/packages/core/src/services/chatRecordingService.ts); future format changes may need an update.
 
+#### When GigaCode imports its own service chats
+
+The CLI may persist headless card requests in the watched `projects` directory.
+Second Brain marks new requests and excludes recognized service sessions as a
+whole, including assistant output. It also recognizes the legacy fixed card
+prompt and reserved workspace under standard macOS/Linux temporary directories
+when present in transcript metadata. Custom temporary locations require prompt
+or marker evidence.
+Ordinary conversations merely discussing these strings remain importable.
+Original JSONL files are never modified.
+
+To recover an existing loop, disable GigaCode automatic cards or pause global
+synchronization, install the fixed build, and fully reimport the affected source.
+Wait for all batches to finish without errors before resuming automation. The
+updated parser cache rechecks unchanged logs; recognized service documents and
+their cards are removed from memory. Old assistant-only chunks cannot reliably
+establish service provenance on their own and may remain until reimport. If
+the original log is missing or its format is unsupported, exclude its service
+file/directory through source permissions before resuming. An already admitted
+model request may finish.
+
 ### Notes directory
 
 Markdown, TXT, and JSONL are supported. Scanning and import do not follow symlinks. A generic notes directory retains limits of 16 MiB per file, 128 MiB per pass, and bounded traversal. Later passes handle deferred files; individually oversized files are skipped with a warning. Select a dedicated directory with relevant notes rather than your entire home directory.

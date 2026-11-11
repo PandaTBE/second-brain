@@ -53,6 +53,7 @@ def test_generation_keeps_prompt_off_argv_and_uses_private_cwd(tmp_path, monkeyp
     assert json.loads(captured["stdin"])["messages"] == PAYLOAD["messages"]
     assert "synthetic private source" not in " ".join(captured["argv"])
     assert captured["argv"][1:] == ["--safe-mode", "-p",
+        "[SECOND_BRAIN_INTERNAL_CARD_GENERATION_V1]\n"
         "Generate the requested search card from standard input. Do not use tools.",
         "--output-format", "json", "--model", "model-name"]
     assert captured["auth"] == "present" and captured["mode"] == 0o700
