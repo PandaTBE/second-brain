@@ -2,7 +2,7 @@
 
 [Русский](security.ru.md) · [User guide](user-guide.en.md) · [Reporting vulnerabilities](../SECURITY.md)
 
-**Updated 2026-11-06.** This document describes the protections and limits of **Second Brain 0.2.0**. It describes the implementation, not an independent security audit or a promise of complete confidentiality.
+**Updated 2026-11-10.** This document describes the protections and limits of **Second Brain 0.3.2**. It describes the implementation, not an independent security audit or a promise of complete confidentiality.
 
 ## The security model
 
@@ -28,6 +28,7 @@ agent. Connect only clients that you permit to read that memory.
 | MCP retrieval | A connected client receives bounded excerpts and source metadata from local memory. That client's later handling of the data is controlled by the client and its model provider. |
 | Create cloud cards | When explicitly requested or enabled in automation, masked source text is sent to the selected cloud model API, including Qwen API. Requests can incur provider charges. |
 | Create local Ollama cards | Masked source text is sent only to the fixed local Ollama service and a downloaded local model. No cloud fallback or model API token is used; computation uses the Mac's resources. |
+| GigaCode CLI cards (since 0.3.0) | A manual job, or separately opted-in automation, passes masked source text through stdin to a separately installed, already authenticated CLI. Its selected backend receives the prompt and can charge for inference. This is an external-model permission, not local-only processing. |
 | Project/read facts and history | Validated saved card atoms are grouped locally with quotation snapshots. Projection and reads call no model; new-card extraction still uses the selected provider and its normal billing/attempt budget. |
 | Backup/export/restore | SQLite/configuration snapshots and inspection run locally. Managed copies are unencrypted; optional age export encrypts a separate archive with a transient password. No Keychain credentials or model weights are exported. |
 | Load a catalog or check a connection | Some checks make network requests even while card generation is disabled. A public catalog response may not prove that a credential is valid. |
@@ -39,6 +40,44 @@ the application cannot guarantee deletion after a request has been sent. The
 card-provider choice and embedding-model opt-in are separate.
 Remote-source imports and a connected MCP client's own model are also separate
 data flows.
+
+## Experimental GigaCode CLI boundary (since 0.3.0)
+
+The 0.3.2 portable bundle includes the experimental GigaCode provider adapter.
+Manual card jobs require explicit provider selection. Automatic generation and
+retries additionally require the default-off `gigacode_auto_cards` permission
+and enabled, unpaused Memory automation. Saving/checking does not start calls.
+The UI resets the checkbox on provider/path/model changes; all backup restores
+clear the opt-in, including same-installation restores. Existing source
+permissions, one effective concurrent request, retry budgets and backoff apply.
+Automatic calls can repeat charges and expose permitted text to the CLI backend;
+unknown pricing is not zero cost. Disabling opt-in stops new admissions, while
+an already started request may finish. Text import remains independent.
+CLI, credentials, sessions and model weights are not bundled or exported. A
+foreign-installation restore clears the executable path/model selection and
+requires explicit configuration on the receiving Mac.
+
+Second Brain invokes a fixed argument vector without a shell, passes source text
+through stdin rather than argv, bounds stdout/stderr and time, and cleans up its
+private temporary working directory/process group. The normal user environment
+and authentication remain available so the CLI can use its existing login. The
+CLI may independently persist history or diagnostics in its usual user directory.
+The app does not persist raw process stdout/stderr or include them in card errors.
+
+`--safe-mode` disables custom context, hooks, extensions, skills and MCP servers;
+it does **not** establish a verified denial of built-in file, shell or network
+tools. The adapter and working directory are **not an OS sandbox**. Source text
+is untrusted; a prompt-injection instruction can still induce a CLI action.
+Rejecting a result that reports tool activity happens after execution and cannot
+prevent or undo its effects. Source permissions gate the text admitted by Second
+Brain, not all files or network destinations that an independently running CLI
+can access. The app's cloud-HTTP transport restrictions do not wrap CLI traffic.
+
+Only use a trusted CLI and OS account with material you permit that backend to
+process. A help-based connection check confirms required flags, not login or
+successful inference. No API token is entered in the app for this provider;
+this does not mean offline or free use. Missing price/usage remains unknown.
+Synthetic process tests do not establish the behavior of a real CLI installation.
 
 ## Credentials and local storage
 
@@ -96,8 +135,11 @@ data later deleted from working memory.
 A different installation UUID requires explicit source relocation/new login,
 disables import and leaves automatic/model work paused. Cloud credentials must be
 newly entered even if a same-name Keychain entry exists; local Ollama can be chosen
-explicitly without a cloud token. The UUID is a local installation marker, not
-proof of device/user identity. Source-aware original targets validate current
+explicitly without a cloud token.
+For the GigaCode CLI provider, the old executable path and model
+selection are cleared; its independent authentication is not transferred.
+The UUID is a local installation marker, not proof of device/user identity.
+Source-aware original targets validate current
 record ID/revision, source ID/kind, object ID, stored URI and selected scope; old
 file URIs are not automatically trusted. Local files must resolve without symlinks
 under the selected root; remote targets use only the corresponding allowlisted
@@ -217,7 +259,7 @@ Successful source disconnection removes the source's active local materials and 
 
 ## Release and operational limits
 
-Version 0.2.0 is not a security-certified product. Automated tests and code review cover many boundaries but cannot establish the absence of vulnerabilities. There is no promise of a completed independent penetration test, notarized standalone distribution, enterprise isolation, or regulatory compliance.
+Version 0.3.2 is not a security-certified product. Automated tests and code review cover many boundaries but cannot establish the absence of vulnerabilities. There is no promise of a completed independent penetration test, notarized standalone distribution, enterprise isolation, or regulatory compliance.
 
 Source builds use a local ad-hoc signature and depend on the checkout and Python environment. Inspect code and dependencies before building, keep locked dependencies under review, and use supported OS updates. A green menu-bar icon means that the local service is available; it is not an audit result, proof of upstream access, or a guarantee that every import/card succeeded.
 

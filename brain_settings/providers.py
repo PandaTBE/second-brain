@@ -5,6 +5,7 @@ import math
 import re
 from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import (
@@ -71,6 +72,12 @@ PROVIDERS = (
         requires_token=False,
     ),
     Provider(
+        "gigacode_cli", "GigaCode CLI · экспериментальный", "gigacode://local",
+        "Существующий вход в CLI; автогенерация включается отдельно. "
+        "Встроенные инструменты остаются доступны.",
+        "", requires_token=False,
+    ),
+    Provider(
         "custom", "Свой API · OpenAI-совместимый", "",
         "Базовый HTTPS-адрес, API-токен и точный ID текстовой модели", ""
     ),
@@ -88,6 +95,10 @@ def normalize_endpoint(provider: str, base_url: str, *, allow_private_network: b
     if known is None:
         raise AppError("invalid_provider", "Выберите провайдера из списка.")
     candidate = base_url.strip() or known.base_url
+    if provider == "gigacode_cli":
+        if candidate.rstrip("/") != known.base_url:
+            raise AppError("invalid_endpoint", "Для GigaCode CLI адрес API не используется.")
+        return known.base_url
     if provider == "ollama":
         if candidate.rstrip("/") != known.base_url:
             raise AppError("invalid_endpoint", "Локальный Ollama доступен только по "
@@ -138,16 +149,40 @@ def normalize_endpoint(provider: str, base_url: str, *, allow_private_network: b
     return normalized
 
 
+def _validated_cli_path(value: str) -> str:
+    if value and (not Path(value).is_absolute() or any(ord(char) < 32 or ord(char) == 127
+                                                    for char in value)):
+        raise ValueError("Укажите абсолютный путь к GigaCode CLI без аргументов команды.")
+    return value
+
+
+def _validate_cli_model(provider: str, model_id: str) -> None:
+    if provider == "gigacode_cli" and (model_id.startswith("-") or any(
+        ord(char) < 32 or ord(char) == 127 for char in model_id
+    )):
+        raise ValueError("Введите ID модели GigaCode без аргументов команды.")
+
+
 class EndpointRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     provider: str = Field(max_length=32)
     base_url: str = Field(max_length=2048)
+    cli_path: str = Field(default="", max_length=4096)
     allow_private_network: StrictBool = False
+    gigacode_auto_cards: StrictBool = False
+
+    @field_validator("cli_path")
+    @classmethod
+    def cli_path_is_absolute(cls, value: str) -> str:
+        return _validated_cli_path(value)
 
     @model_validator(mode="after")
     def private_network_requires_custom(self):
         if self.allow_private_network and self.provider != "custom":
             raise ValueError("Внутренняя сеть доступна только для своего API.")
+        if self.gigacode_auto_cards and self.provider != "gigacode_cli":
+            raise ValueError("Автогенерация GigaCode доступна только для GigaCode CLI.")
+        _validate_cli_model(self.provider, getattr(self, "model_id", ""))
         return self
 
 
@@ -181,15 +216,25 @@ class Settings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     provider: str = "openrouter"
     base_url: str = "https://openrouter.ai/api/v1"
+    cli_path: str = Field(default="", max_length=4096)
     allow_private_network: StrictBool = False
+    gigacode_auto_cards: StrictBool = False
     model_id: str = ""
     model_name: str = ""
     requires_reauthentication: StrictBool = False
+
+    @field_validator("cli_path")
+    @classmethod
+    def cli_path_is_absolute(cls, value: str) -> str:
+        return _validated_cli_path(value)
 
     @model_validator(mode="after")
     def private_network_requires_custom(self):
         if self.allow_private_network and self.provider != "custom":
             raise ValueError("Внутренняя сеть доступна только для своего API.")
+        if self.gigacode_auto_cards and self.provider != "gigacode_cli":
+            raise ValueError("Автогенерация GigaCode доступна только для GigaCode CLI.")
+        _validate_cli_model(self.provider, getattr(self, "model_id", ""))
         return self
 
 

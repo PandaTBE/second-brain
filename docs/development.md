@@ -1,7 +1,7 @@
 # Development
 
 Second Brain is a macOS application with a local Python service and a separate
-read-only MCP process. The published 0.2.0 Apple Silicon bundle embeds its Python
+read-only MCP process. The published 0.4.0 Apple Silicon bundle embeds its Python
 runtime; development builds use the checkout's environment. This is not a published Python SDK.
 
 ## Tools and setup
@@ -33,6 +33,7 @@ No environment file or real provider token is required for tests. Application cr
 | `brain_settings/evidence*.py`, `retrieval_filters.py`, `source_dates.py`, `session_metadata.py` | extractive packets, pre-ranking filters and explicit date/project provenance |
 | `brain_settings/memory_facts.py`, `fact_schema.py`, `fact_queries.py`, `fact_relations.py`, `facts_service.py` | exact card projection, revision snapshots, conservative relations and scoped facts/history reads |
 | `brain_settings/backup*.py`, `maintenance.py`, `source_relocation.py` | snapshots, constrained age worker, inspected restore/rollback, operation isolation and explicit source repair |
+| `brain_settings/tasks.py`, `static/tasks*`, native `TasksView*` / `TaskModels.swift` | shared local kanban, daily periods, derived XP, native/web views and restore-aware lifecycle |
 | `brain_settings/mcp_server.py` | Read-only stdio memory tools |
 | `brain_settings/*_client.py`, `*_import.py` | Source-specific read-only access and ingestion |
 | `static/` | Local memory atlas and optional browser settings interface |
@@ -153,7 +154,8 @@ do not infer them from the build, CoreChecks or automated menu navigation.
 
 Backup tests use temporary synthetic databases/configuration and fake or explicit
 test crypto; never export a user's live data or read Keychain during development.
-Keep the v1 allowlist, exact current-schema fingerprint and 128 MiB raw/archive/
+Keep the v1 allowlist, exact current-schema fingerprint (or exact pre-tracker
+schema, migrated only in staging) and 128 MiB raw/archive/
 total-unpacked limits. Invalid manifests, symlinks/traversal, corrupt SQLite,
 wrong passwords and expired inspections must fail before live-state changes.
 Inspect staged bytes, not a mutable path at restore time. Cover cooperative

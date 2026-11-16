@@ -113,12 +113,14 @@ class MemoryStore:
                 from .fact_schema import migrate as migrate_facts
                 from .source_dates import migrate as migrate_dates
                 from .source_policy import migrate as migrate_policy
+                from .tasks import migrate as migrate_tasks
 
                 migrate(connection)
                 migrate_policy(connection)
                 migrate_embeddings(connection)
                 migrate_dates(connection)
                 migrate_facts(connection)
+                migrate_tasks(connection)
 
     @contextmanager
     def _database_connection(self, write=False):

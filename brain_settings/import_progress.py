@@ -3,7 +3,7 @@
 import hashlib
 import json
 
-PARSER_VERSION = "bounded-stream-v1"
+PARSER_VERSION = "bounded-stream-v2-service-sessions"
 
 
 def file_identity(relative) -> str:

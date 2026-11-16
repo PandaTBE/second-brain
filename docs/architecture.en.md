@@ -1,6 +1,6 @@
 # Architecture
 
-**Version 0.2.0 · updated 2026-11-06** · [Русский](architecture.ru.md) · [User guide](user-guide.en.md)
+**Version 0.3.2 · updated 2026-11-10** · [Русский](architecture.ru.md) · [User guide](user-guide.en.md)
 
 ## Components and data flow
 
@@ -11,7 +11,7 @@ flowchart TD
     Sources --> Import[Parse, redact, chunk]
     Import --> DB[(SQLite + FTS5)]
     API --> Cards[Bounded card queue]
-    Cards --> LLM[Selected cloud API or local Ollama]
+    Cards --> LLM[Selected cloud API, local Ollama or GigaCode CLI]
     Cards --> DB
     API --> Graph[Local graph and history page]
     Graph --> API
@@ -40,8 +40,8 @@ The window and background process have different lifecycles: closing the window 
 | Evidence and provenance | `evidence.py`, `evidence_pack.py`, `evidence_passages.py`, `retrieval_filters.py`, `source_dates.py`, `session_metadata.py` | Extractive citation packets, shared pre-ranking filters and explicit date/project metadata. |
 | Facts and history | `memory_facts.py`, `fact_schema.py`, `fact_queries.py`, `fact_relations.py`, `facts_service.py` | Exact card-atom projection, revision proof snapshots, conservative relations and scoped paginated reads. |
 | Backup/recovery | `backup*.py`, `maintenance.py`, `source_relocation.py`, `source_recovery_routes.py` | Consistent allowlisted snapshots, age worker, reviewed restore/rollback and explicit post-transfer source repair. |
-| Automation | `background.py`, `memory_service.py`, `card_parallel.py`, `card_retries.py`, `provider_backoff.py` | Watching, writer ownership, batches, concurrency, retries, and durable provider admission pauses. |
-| Model calls | `llm_cards.py`, `providers.py`, `transport.py`, `ollama.py` | Cloud provider settings, bounded public HTTPS and fixed-loopback Ollama calls, card and evidence validation. |
+| Automation | `background.py`, `memory_service.py`, `card_parallel.py`, `card_retries.py`, `card_generation_policy.py`, `provider_backoff.py` | Watching, writer ownership, batches, concurrency, retries, explicit provider automation opt-ins and durable provider admission pauses. |
+| Model calls | `llm_cards.py`, `providers.py`, `transport.py`, `ollama.py`, `gigacode_cli.py`, `gigacode_output.py` | Provider settings, bounded HTTPS/Ollama or CLI calls, response normalization and card/evidence validation. |
 | MCP | `mcp_server.py`, `mcp_config.py`, `scripts/mcp-server.command` | Four original tools, evidence/facts/history tools (seven total), and client-configuration generation. |
 | Graph and compatible web UI | `static/` | Local assets without CDNs; the browser graph is separate from native settings. |
 
@@ -82,6 +82,40 @@ identity/digest, probes embedding support/dimensions, and uses `/api/embed` with
 `truncate: false`. It does not download weights or fall back to cloud inference.
 Prepared input is the title plus newline plus saved text; more than 12,000
 characters produces an explicit indexing error while BM25 remains available.
+
+### GigaCode CLI (since 0.3.0)
+
+`gigacode_cli` uses canonical connection identity `gigacode://local`, optional
+absolute `cli_path`, and model ID `default` for the CLI's configured model or an
+explicit ID. It requires no application model token and does not access the
+cloud-credential branch. A bounded ten-second `--help` check validates supported
+headless/JSON/model/safe-mode flags, without version pinning or an inference/auth
+claim. The model list represents configuration choices, not a fetched catalog.
+
+`gigacode_cli.py` starts a fixed argv without a shell; a static `-p` instruction
+is appended to the card prompt supplied on stdin. The CLI uses `--safe-mode` and
+`--output-format json`, plus `--model` only for an explicit ID. Generation is
+serialized and bounded to 180 seconds, 128 KiB stdin, 1 MiB stdout and 64 KiB stderr.
+Process-group cleanup precedes removal of the private temporary cwd. Normal
+authentication/HOME remain available, so this is not filesystem/network isolation.
+Built-in tools can remain exposed; post-execution rejection of reported tool
+activity is not prevention. CLI network traffic follows its own client/config.
+
+`gigacode_output.py` parses the bounded observed event array, takes the sole final
+successful `result` string, and maps reported usage into the existing card contract.
+Missing usage stays unknown. Existing JSON/card/quote checks still apply. The
+connection is `model_external`; effective concurrency is one. The default-false
+`gigacode_auto_cards` setting admits scheduled/import-followup generation and
+automatic retries only with existing enabled, unpaused Memory automation.
+`card_generation_policy.py`/`memory_service.py` enforce this at admission; manual
+jobs and text import remain available without opt-in. Saving/checking is inert.
+UI provider/path/model changes reset the checkbox, older clients default false,
+and every backup restore clears the opt-in. Source permissions, budgets and
+backoff remain unchanged. Foreign restore clears the old executable path
+and model selection; the CLI's own credentials/configuration are not exported or bundled.
+Synthetic executable tests cover the adapter and the frozen helper-to-CLI path;
+web settings checks use disposable data. Real CLI authentication/model generation
+and the native GUI workflow still require verification on an authenticated installation.
 
 ## Local retrieval in 0.2.0
 
@@ -237,7 +271,8 @@ under the same boundary. Its v1 ZIP contains exactly `manifest.json`,
 is `memory_schedule.json`). The manifest records app/format versions, timezone-aware
 creation time, random installation UUID, exact schema fingerprint and per-file
 sizes/SHA-256. Known lazy progress tables are normalized before snapshotting;
-unknown/different schemas are rejected rather than migrated from untrusted input.
+Only the exact current schema or the exact pre-tracker 0.3.x schema is accepted.
+The latter is migrated in the extracted staging copy; unknown schemas are rejected.
 Policies, vectors and fact snapshots live in the database. Keychain contents,
 model weights and machine-local backup preferences/inventory are not exported.
 
@@ -325,6 +360,24 @@ checks policy and revision inside its write transaction. Revocation cannot
 cancel a disclosure that already occurred. MCP visibility remains a separate
 recipient decision: local card processing does not make an agent's own model
 local. There is no verified per-client identity or project authorization layer.
+
+## Tasks and progression in 0.4.0
+
+`tasks.py` adds `tracker_tasks` and `tracker_progress` in `memory.sqlite3` under
+the existing store schema/write/maintenance locks. Tasks never enter memory
+retrieval, card generation or MCP. Native `TasksViewModel` and `static/tasks.mjs`
+replace their board from the same HTTP response; no XP arithmetic is duplicated
+in clients. Ordinary tasks use a single progress period; daily tasks use the
+client's local ISO calendar date, validated within one day of the UTC date.
+A new daily period starts implicitly in To Do, without a scheduler.
+
+The primary key `(task_id, period)` makes completion idempotent. Total and per-stat
+XP are derived from completed progress rows; undo removes the current reward,
+while soft deletion preserves earned history. Level/rank derive from total XP.
+Backups include the tracker. Restoring the exact pre-tracker schema initializes
+empty tracker tables in staging; restoring any backup replaces task progress.
+The native view invalidates pending requests at restore, and both clients refresh
+the local day after midnight or returning to the foreground.
 
 ## Trust boundaries
 

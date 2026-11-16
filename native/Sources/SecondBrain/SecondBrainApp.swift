@@ -41,6 +41,10 @@ struct SecondBrainApp: App {
                 Button("Быстрый поиск…") { store.quickSearch.show() }
                 Button("Сочетание быстрого поиска…") { store.quickSearch.showSettings() }
             }
+            CommandMenu("Задачи") {
+                Button("Задачи…") { store.section = .tasks; delegate.showMainWindow?() }
+                    .keyboardShortcut("t", modifiers: [.command, .shift])
+            }
             CommandGroup(replacing: .appSettings) {
                 Button("Настройки…") { store.section = .model; delegate.showMainWindow?() }
                     .keyboardShortcut(",", modifiers: .command)
@@ -88,6 +92,7 @@ struct StatusMenu: View {
         Button("Открыть Second Brain") { openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
             .keyboardShortcut("o")
         Button("Модель и API…") { store.section = .model; openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
+        Button("Задачи…") { store.section = .tasks; openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
         Button("Память…") { store.section = .memory; openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
         Button("Источники…") { store.section = .sources; openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
         Divider()
@@ -136,6 +141,7 @@ struct MainView: View {
                     switch store.section {
                     case .overview: OverviewView(store: store)
                     case .memory: MemoryView(store: store)
+                    case .tasks: TasksView(model: store.tasks)
                     case .model: ModelSettingsView(store: store)
                     case .sources: SourcesView(store: store)
                     case .backups: BackupSettingsView(store: store)

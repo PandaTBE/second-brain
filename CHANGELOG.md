@@ -9,6 +9,94 @@ listed in the release notes; preparing local artifacts does not publish a releas
 
 No changes yet.
 
+## [0.4.0] — 2026-11-16
+
+### Added
+
+- Local kanban in the native macOS app and web interface: ordinary tasks and
+  daily tasks, three status columns, drag and drop and keyboard-accessible actions.
+- Completion awards 10/25/50 XP by difficulty, increases one of five stats, and
+  raises the player's level and rank. Repeating completion never duplicates XP;
+  moving out of Done reverses that completion's reward. Deleting preserves earned XP.
+- Daily tasks start fresh each local calendar day without losing earlier rewards.
+  Tasks and progress persist in the existing SQLite database and managed backups;
+  they are not exposed through memory search, cards or MCP.
+
+### Compatibility
+
+- Backup v1 now accepts the exact pre-tracker 0.3.x schema and migrates only the
+  inspected staging copy. Restoring such a backup replaces current tasks/progress
+  with an empty tracker. Unknown schemas remain rejected. Older applications
+  cannot restore 0.4.0 backups.
+- Existing 0.3.3 GigaCode feedback-loop protections remain included.
+
+## [0.3.3] — 2026-11-11
+
+### Fixed
+
+- Prevent GigaCode headless card-generation sessions from feeding back through
+  Qwen history import. Service prompts are marked; recognized service sessions
+  are excluded as a whole in both buffered and streaming import. Existing
+  recognizable service records are blocked at card admission. A parser-cache
+  refresh lets a complete source reimport remove previously imported service
+  chunks without changing the original chat files.
+- Recovery from an existing loop: pause automation, update, fully reimport the
+  affected source, then resume. Old assistant-only chunks require reimport;
+  their text alone cannot establish service provenance.
+
+## [0.3.2] — 2026-11-10
+
+### Added
+
+- Explicit, default-off GigaCode CLI automatic-card permission in Model and API.
+  Scheduled/import-followup generation and retries require this opt-in plus
+  enabled, unpaused Memory automation. Saving/checking never starts generation;
+  source permissions, serialized CLI calls, budgets and backoff are preserved.
+- The checkbox resets when provider/path/model changes. Older clients default to
+  false, and every backup restore clears the permission for a fresh local choice.
+  Verification uses synthetic executables; real CLI authentication and card
+  generation remain unverified. This does not change prompt/stdin transport.
+
+## [0.3.1] — 2026-11-10
+
+### Fixed
+
+- Accept GigaCode CLI's `stats.tools.totalDecisions` dictionary when its known
+  decision counters are integer zeros. This metadata previously caused a false
+  unsupported-response error. Nonzero activity, unknown decision names and
+  malformed values remain rejected; other response and card checks are unchanged.
+- This patch changes only CLI response validation. Prompt/stdin transport,
+  permissions, manual-only generation and process limits are unchanged. It does
+  not establish that a particular CLI session generated a valid card.
+
+Verification includes 77 parser tests with 100% module coverage and a synthetic
+frozen-helper card flow containing the zero-valued decision dictionary. No new
+requests to a real GigaCode model were made for this fix.
+
+## [0.3.0] — 2026-11-10
+
+### Added
+
+- Experimental **GigaCode CLI** card provider using an already authenticated,
+  separately installed headless CLI, with an optional absolute executable path
+  and either its configured default model or an explicit model ID. No model API
+  token is entered in Second Brain. Compatibility is checked from supported
+  flags rather than a pinned CLI version; the connection check does not prove
+  authentication or run inference.
+- Explicit manual card generation through bounded CLI processes and the existing
+  card/evidence validator. Prompts use stdin, with no shell command template;
+  source permissions remain those for an external model. Automatic import can
+  continue, but automatic card creation and retries do not invoke GigaCode CLI.
+  `--safe-mode` disables customizations and MCP, not all built-in tools; process
+  limits and a private working directory are not a sandbox. Provider pricing can
+  remain unknown and usage is recorded only when reported.
+
+The 0.3.0 portable bundle includes this provider; GigaCode CLI remains a separate
+installation. Verification includes 1,709 Python tests (90.44% coverage), 31
+JavaScript tests, 53 native CoreChecks, synthetic frozen-helper-to-CLI card
+generation and the web settings flow. Real corporate CLI authentication/model
+generation and the native GUI workflow remain unverified.
+
 ## [0.2.0] — 2026-11-06
 
 ### Added
@@ -156,6 +244,46 @@ shared local memory server for AI assistants.
 ### Ещё не выпущено
 
 Пока нет изменений.
+
+### 0.3.2 — 2026-11-10
+
+- Добавлено отдельное, по умолчанию выключенное разрешение автокарточек GigaCode
+  CLI в «Модель и API». Генерация по расписанию/после импорта и повторы требуют
+  этого разрешения и включённой автоматизации Памяти без паузы. Сохранение/проверка
+  не запускают генерацию; политики источников, один процесс, бюджеты и паузы сохранены.
+- Смена провайдера/пути/модели сбрасывает флажок. Старые клиенты получают false;
+  любое восстановление копии очищает разрешение для нового явного выбора.
+  Проверки используют синтетические CLI; реальный вход/генерация не подтверждены.
+  Передача промпта через stdin не менялась.
+
+### 0.3.1 — 2026-11-10
+
+- Исправлена ложная ошибка неподдерживаемого ответа GigaCode CLI: словарь
+  `stats.tools.totalDecisions` с известными нулевыми целочисленными счётчиками
+  теперь принимается. Ненулевая активность, неизвестные имена и некорректные
+  значения по-прежнему отклоняются; остальные проверки ответа/карточки сохранены.
+- Изменена только проверка ответа CLI. Промпт/stdin, разрешения, ручной запуск
+  и лимиты процесса не менялись. Принятая оболочка ответа сама по себе не
+  подтверждает создание корректной карточки конкретной сессией.
+- Прошли 77 тестов парсера с покрытием модуля 100% и синтетическая цепочка
+  frozen helper → CLI → карточка с нулевым словарём решений. Новых запросов
+  к настоящей модели GigaCode для этого исправления не выполнялось.
+
+### 0.3.0 — 2026-11-10
+
+- Экспериментальный провайдер карточек **GigaCode CLI** с текущим входом отдельно
+  установленного headless CLI. В приложении не нужен API-токен модели; доступны
+  путь к исполняемому файлу, модель из настроек CLI (`default`) или явный ID.
+  Совместимость проверяется по флагам, без привязки к номеру версии; справка не
+  подтверждает авторизацию и не запускает генерацию.
+- Только явные ручные задачи карточек: автоимпорт текста сохраняется, автоматическая
+  генерация и автоповторы CLI не запускают. Текст идёт через stdin; применяются
+  существующие проверки карточки/цитат и разрешения внешней модели. Один процесс,
+  лимиты вывода/времени и `--safe-mode` не являются sandbox: встроенные инструменты
+  могут оставаться доступны. Неизвестные цена/usage не означают бесплатность.
+- Проверены 1709 Python-тестов (покрытие 90,44%), 31 JS-тест, 53 CoreChecks,
+  синтетическая цепочка frozen helper → CLI → карточка и веб-настройки. Реальные
+  корпоративный вход/модель и нативный GUI-процесс ещё требуют проверки.
 
 ### 0.2.0 — 2026-11-06
 

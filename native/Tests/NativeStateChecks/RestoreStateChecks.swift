@@ -27,6 +27,7 @@ private final class RestoreProtocol: URLProtocol {
                 "backups": [], "limits": ["max_archive_bytes": 134_217_728]
             ]
             case "/api/sources": payload = ["sources": []]
+            case "/api/tasks": payload = taskBoardBody(xp: 0, empty: true)
             case "/api/memory/status": payload = statusBody(records: 0, paused: true)
             case "/api/memory/browse": payload = ["results": [], "has_more": false]
             case "/api/memory/mcp": payload = ["command": "synthetic", "args": [], "claude_json": "", "codex_toml": "", "instructions": ""]
@@ -50,10 +51,10 @@ private final class RestoreProtocol: URLProtocol {
     static func allowFreshResponses() {
         lock.lock(); defer { lock.unlock() }; automatic = true
     }
-    static func respond(_ path: String, data: [String: Any], failed: Bool = false) throws {
+    static func respond(_ path: String, data: [String: Any], failed: Bool = false, index: Int = 0) throws {
         lock.lock()
         guard var requests = pending[path], !requests.isEmpty else { lock.unlock(); throw StateFailure(message: "Missing held response \(path)") }
-        let next = requests.removeFirst(); pending[path] = requests; lock.unlock()
+        let next = requests.remove(at: index); pending[path] = requests; lock.unlock()
         next.send(failed ? ["success": false, "error": ["code": "synthetic", "message": "Synthetic bootstrap failure"]] : ["success": true, "data": data], status: failed ? 503 : 200)
     }
     static func timeout(_ path: String) throws {
@@ -73,6 +74,15 @@ private func sourceBody(id: String = "source", kind: String = "folder") -> [Stri
     ["id": id, "name": "Old source", "kind": kind, "enabled": true,
      "credential_saved": false, "status": "ok", "mail_import_enabled": true]
 }
+private func taskBoardBody(xp: Int = 125, empty: Bool = false, day: String = TaskDay.string(from: Date()), status: String = "todo") -> [String: Any] {
+    ["day": day, "tasks": empty ? [] : [
+        ["id": "synthetic-task", "title": "Synthetic task", "kind": "daily", "stat": "vitality",
+         "difficulty": 2, "status": status, "xp": 25]
+    ], "player": ["xp": xp, "level": xp == 0 ? 1 : 2, "rank": "E", "level_xp": xp == 0 ? 0 : 50,
+                  "next_level_xp": xp == 0 ? 50 : 200,
+                  "stats": ["strength": 0, "agility": 0, "intelligence": 0, "vitality": 0, "perception": 0]]]
+}
+
 private let recordBody: [String: Any] = ["id": "same-record", "revision": 1, "source_id": "source",
     "source_kind": "folder", "source_object_id": "note.md", "source_uri": "file:///synthetic/note.md",
     "title": "Old material", "text": "Old source text"]
@@ -96,8 +106,102 @@ enum NativeRestoreStateChecks {
         for outcome in [Outcome.bootstrapFailure, .timeout, .rejected, .success] {
             try await checkRestore(outcome)
         }
+        try await checkTasksRequests()
+        try await checkTaskDayRollover()
         try await checkInspectionLifecycle()
         try checkPassphraseControl()
+    }
+
+    @MainActor private static func checkTasksRequests() async throws {
+        RestoreProtocol.reset()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RestoreProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let client = APIClient(baseURL: URL(string: "http://127.0.0.1:50321")!, csrf: "synthetic", session: session)
+        let tasks = TasksViewModel(client: client)
+        let blank = await tasks.create(title: "  ", kind: .todo, stat: .strength, difficulty: 1)
+        let tooLong = await tasks.create(title: String(repeating: "e\u{301}", count: 101), kind: .todo, stat: .strength, difficulty: 1)
+        let invalidDifficulty = await tasks.create(title: "Synthetic", kind: .todo, stat: .strength, difficulty: 4)
+        await tasks.move("foreign-id", to: .done); await tasks.delete("foreign-id")
+        try requireState(!blank && !tooLong && !invalidDifficulty && RestoreProtocol.count("/api/tasks") == 0, "Invalid titles, difficulty and foreign cards never reach the backend")
+        let oldLoad = Task { await tasks.load() }
+        try await waitFor { RestoreProtocol.count("/api/tasks") == 1 }
+        let newLoad = Task { await tasks.load() }
+        try await waitFor { RestoreProtocol.count("/api/tasks") == 2 }
+        try RestoreProtocol.respond("/api/tasks", data: taskBoardBody(xp: 200), index: 1)
+        await newLoad.value
+        try RestoreProtocol.respond("/api/tasks", data: taskBoardBody(xp: 25))
+        await oldLoad.value
+        try requireState(tasks.board?.player.xp == 200 && !tasks.isLoading, "Older GETs cannot overwrite a newer board")
+
+        let move = Task { await tasks.move("synthetic-task", to: .done) }
+        try await waitFor { RestoreProtocol.count("/api/tasks/synthetic-task/status") == 1 }
+        try RestoreProtocol.respond("/api/tasks/synthetic-task/status", data: taskBoardBody(xp: 250, status: "done"))
+        await move.value
+        try requireState(tasks.board?.tasks.first?.status == .done && tasks.board?.player.xp == 250 && tasks.action.isEmpty, "Moves replace both tasks and player with the returned board")
+        let deletion = Task { await tasks.delete("synthetic-task") }
+        try await waitFor { RestoreProtocol.count("/api/tasks/synthetic-task") == 1 }
+        try RestoreProtocol.respond("/api/tasks/synthetic-task", data: taskBoardBody(xp: 250, empty: true))
+        await deletion.value
+        try requireState(tasks.board?.tasks.isEmpty == true && tasks.board?.player.xp == 250, "Deletion renders the server's preserved XP and empty board")
+
+        let create = Task { await tasks.create(title: "Synthetic new", kind: .todo, stat: .strength, difficulty: 1) }
+        try await waitFor { RestoreProtocol.count("/api/tasks") == 1 }
+        await tasks.load()
+        let duplicate = await tasks.create(title: "Duplicate", kind: .todo, stat: .strength, difficulty: 1)
+        try requireState(!duplicate && RestoreProtocol.count("/api/tasks") == 1, "Mutations serialize and refresh cannot race their full-board response")
+        tasks.invalidateForRestore()
+        try requireState(tasks.board == nil && tasks.isRestoring && !tasks.isLoading && tasks.action.isEmpty, "Restore clears cached task and player state immediately")
+        await tasks.load()
+        let blocked = await tasks.create(title: "Blocked", kind: .todo, stat: .strength, difficulty: 1)
+        try requireState(!blocked && RestoreProtocol.count("/api/tasks") == 1, "Restore blocks all task backend access")
+        let fresh = Task { await tasks.restoreDidComplete(client) }
+        try await waitFor { RestoreProtocol.count("/api/tasks") == 2 }
+        try RestoreProtocol.respond("/api/tasks", data: taskBoardBody(xp: 999))
+        let accepted = await create.value
+        try requireState(!accepted && tasks.board == nil && tasks.isLoading, "An old mutation and its defer cannot change a fresh request")
+        try RestoreProtocol.respond("/api/tasks", data: taskBoardBody(xp: 0, empty: true))
+        await fresh.value
+        try requireState(!tasks.isRestoring && tasks.board?.player.xp == 0 && tasks.board?.tasks.isEmpty == true && !tasks.isLoading, "Only a fresh board is admitted after restore")
+        print("PASS: Task request ordering, serialized writes and restore admission preserve current state")
+    }
+
+    @MainActor private static func checkTaskDayRollover() async throws {
+        RestoreProtocol.reset()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RestoreProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let client = APIClient(baseURL: URL(string: "http://127.0.0.1:50321")!, csrf: "synthetic", session: session)
+        let calendar = Calendar(identifier: .gregorian)
+        var now = calendar.startOfDay(for: Date()).addingTimeInterval(3600)
+        let tasks = TasksViewModel(client: client, now: { now })
+        let oldDay = TaskDay.string(from: now)
+        let loading = Task { await tasks.load() }
+        try await waitFor { RestoreProtocol.count("/api/tasks") == 1 }
+        now = calendar.date(byAdding: .day, value: 1, to: now)!
+        let newDay = TaskDay.string(from: now)
+        try RestoreProtocol.respond("/api/tasks", data: taskBoardBody(day: oldDay))
+        try await waitFor { RestoreProtocol.count("/api/tasks") == 1 }
+        try requireState(tasks.board == nil && tasks.isLoading, "A GET crossing midnight never displays the previous daily state")
+        try RestoreProtocol.respond("/api/tasks", data: taskBoardBody(day: newDay))
+        await loading.value
+        try requireState(tasks.board?.day == newDay, "A request crossing midnight reloads with the fresh local day")
+
+        let creating = Task { await tasks.create(title: "After midnight", kind: .daily, stat: .vitality, difficulty: 2) }
+        try await waitFor { RestoreProtocol.count("/api/tasks") == 1 }
+        now = calendar.date(byAdding: .day, value: 1, to: now)!
+        let latestDay = TaskDay.string(from: now)
+        await tasks.reloadIfDayChanged()
+        try requireState(RestoreProtocol.count("/api/tasks") == 1, "Midnight refresh waits for a pending mutation")
+        try RestoreProtocol.respond("/api/tasks", data: taskBoardBody(day: newDay))
+        try await waitFor { RestoreProtocol.count("/api/tasks") == 1 }
+        try requireState(tasks.board == nil && tasks.isLoading, "A mutation crossing midnight clears the old daily board while reloading")
+        try RestoreProtocol.respond("/api/tasks", data: taskBoardBody(xp: 0, empty: true, day: latestDay))
+        let created = await creating.value
+        try requireState(created && tasks.board?.day == latestDay && !tasks.isLoading && tasks.action.isEmpty, "A successful mutation survives rollover and admits only today's fresh board")
+        print("PASS: Task GETs and mutations crossing midnight reload the current local day")
     }
 
     @MainActor private static func checkPassphraseControl() throws {
@@ -184,6 +288,12 @@ enum NativeRestoreStateChecks {
         defer { session.invalidateAndCancel() }
         let client = APIClient(baseURL: URL(string: "http://127.0.0.1:50321")!, csrf: "synthetic", session: session)
         let store = AppStore(client: client)
+        let taskLoad = Task { await store.tasks.load() }
+        try await waitFor { RestoreProtocol.count("/api/tasks") == 1 }
+        try RestoreProtocol.respond("/api/tasks", data: taskBoardBody())
+        await taskLoad.value
+        let oldTaskMove = Task { await store.tasks.move("synthetic-task", to: .done) }
+        try await waitFor { RestoreProtocol.count("/api/tasks/synthetic-task/status") == 1 }
         let preview: BackupInspection = try APIClient.decoder.decode(BackupInspection.self, from: JSONSerialization.data(withJSONObject: [
             "inspection_id": "synthetic-ticket", "expires_at": ISO8601DateFormatter().string(from: Date().addingTimeInterval(300)),
             "created_at": "2026-01-01T00:00:00Z", "app_version": "0.1.0", "documents": 1, "sources": 1,
@@ -232,6 +342,9 @@ enum NativeRestoreStateChecks {
         try await waitFor { RestoreProtocol.count("/api/backups/restore") == 1 }
         try requireState(store.draft.modelId.isEmpty && store.savedSettings.modelId.isEmpty, "Restore must clear model drafts before its first await")
         try requireState(store.memory.record == nil && store.memory.status == nil && store.memory.results.isEmpty, "Restore must synchronously revoke cached and pending memory state")
+        try requireState(store.tasks.isRestoring && store.tasks.board == nil, "AppStore restore revokes the task board and player synchronously")
+        await store.tasks.load()
+        try requireState(RestoreProtocol.count("/api/tasks") == 0, "AppStore keeps task reads blocked during restore")
         try requireState(!store.memory.scheduleEdited && !store.memory.scheduleDraft.processCards, "Old paid schedule must be revoked synchronously")
         try requireState(store.memory.query.isEmpty, "Restore must clear the previous snapshot's search query")
         store.quickSearch.model.present()
@@ -240,6 +353,9 @@ enum NativeRestoreStateChecks {
         // New action sentinels share the same model instance and source IDs as old requests.
         store.action = "new-model-action"; store.busySources = [source.id, mail.id]
         store.memory.action = "new-memory-action"
+        try RestoreProtocol.respond("/api/tasks/synthetic-task/status", data: taskBoardBody(xp: 999))
+        await oldTaskMove.value
+        try requireState(store.tasks.board == nil && store.tasks.isRestoring, "Old task mutations cannot cross the AppStore restore epoch")
         let encodedModel = try JSONSerialization.jsonObject(with: APIClient.encoder.encode(model)) as! [String: Any]
         try RestoreProtocol.respond("/api/settings", data: ["settings": encodedModel, "token_saved": true])
         try RestoreProtocol.respond("/api/sources/source/test", data: ["source": sourceBody()])
@@ -279,7 +395,7 @@ enum NativeRestoreStateChecks {
             if outcome == .timeout { try RestoreProtocol.timeout("/api/backups/restore") }
             else { try RestoreProtocol.respond("/api/backups/restore", data: [:], failed: true) }
             await restore.value
-            try requireState(store.isRestoring && store.memory.isRestoring && store.memory.record == nil, "A failed or ambiguous POST must never readmit cached memory")
+            try requireState(store.isRestoring && store.memory.isRestoring && store.tasks.isRestoring && store.tasks.board == nil && store.memory.record == nil, "A failed or ambiguous POST must never readmit cached memory")
             try requireState(RestoreProtocol.count("/api/bootstrap") == 0, "An unknown restore result must not be treated as a successful completion")
             try requireState(store.backups.inspection.restoreRequest() == nil && store.backups.error != nil, "A failed restore must revoke the old inspection and explain recovery")
             store.quickSearch.model.present()
@@ -301,10 +417,11 @@ enum NativeRestoreStateChecks {
         await restore.value
         try requireState(store.draft.modelId.isEmpty && store.savedSettings.modelId.isEmpty && !store.tokenSaved, "Bootstrap failure must retain cleared model state")
         if outcome == .bootstrapFailure {
-            try requireState(store.isRestoring && store.memory.isRestoring, "Bootstrap failure must keep uncertain memory admission fail closed")
+            try requireState(store.isRestoring && store.memory.isRestoring && store.tasks.isRestoring && store.tasks.board == nil, "Bootstrap failure must keep uncertain memory admission fail closed")
             print("PASS: Failed restore bootstrap keeps model and paid schedule state revoked")
         } else {
             try requireState(!store.isRestoring && !store.memory.isRestoring && store.memory.status?.records == 0 && store.memory.synchronizationPaused, "Successful restore must readmit only fresh paused server state")
+            try requireState(!store.tasks.isRestoring && store.tasks.board?.player.xp == 0 && store.tasks.board?.tasks.isEmpty == true, "AppStore reloads fresh restored tasks using its configured client")
             try requireState(store.backups.error == nil, "Successful resynchronization must finish without a hidden decoding failure")
             print("PASS: Actual BackupViewModel restore admission rejects old responses and readmits only fresh server state")
         }

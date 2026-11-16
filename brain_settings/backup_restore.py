@@ -180,12 +180,14 @@ def _safe_state(target, sources, previous_generation, foreign):
 
 def _restored_configs(staged, foreign):
     settings, sources, schedule = validate_configs(staged)
+    settings = settings.model_copy(update={"gigacode_auto_cards": False})
     if foreign:
         settings = settings.model_copy(
             update={
                 "model_id": "",
                 "model_name": "",
                 "allow_private_network": False,
+                "cli_path": "",
                 "requires_reauthentication": True,
             }
         )

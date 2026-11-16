@@ -1,12 +1,12 @@
 import { apiRequest } from './api.mjs';
 import { createCatalog } from './catalog.mjs';
-import { endpointScope, changeEndpoint, changePrivateNetwork, sameEndpoint } from './endpoint-policy.mjs';
+import { endpointScope, changeEndpoint, changePrivateNetwork, sameEndpoint, requiresToken, cliPathIssue, changeCLIPath, changeModel, changeGigaCodeAutoCards } from './endpoint-policy.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const tokenInput = $('#api-token');
-const symbols = { openrouter: '↗', simpleclaw: 'S', deepseek: '≈', openai: '✳', custom: '⌘' };
+const symbols = { gigacode_cli: '⌘', ollama: '◉', openrouter: '↗', simpleclaw: 'S', deepseek: '≈', openai: '✳', custom: '⌘' };
 let state = {
-  csrf: '', providers: [], draft: { provider: 'openrouter', base_url: '', model_id: '', model_name: '', allow_private_network: false },
+  csrf: '', providers: [], draft: { provider: 'openrouter', base_url: '', model_id: '', model_name: '', allow_private_network: false, cli_path: '', gigacode_auto_cards: false },
   tokenSaved: false, storageAvailable: true, ready: false, busy: '', scopeVersion: 0,
   draftVersion: 0, catalogRequest: 0, credentialRequest: 0, connection: null, savedSettings: null,
   mutationScope: null,
@@ -15,8 +15,8 @@ const catalog = createCatalog({ onSelect: selectModel, onRefresh: loadModels });
 
 function provider() { return state.providers.find((item) => item.id === state.draft.provider); }
 function scope() { return endpointScope(state.draft); }
-function payload() { return { ...scope(), token: tokenInput.value || null }; }
-function tokenExists() { return Boolean(tokenInput.value || state.tokenSaved); }
+function payload() { return { ...scope(), token: requiresToken(provider()) ? tokenInput.value || null : null }; }
+function tokenExists() { return !requiresToken(provider()) || Boolean(tokenInput.value || state.tokenSaved); }
 
 function actionMessage(message, kind = '') {
   const element = $('#action-message');
@@ -58,8 +58,8 @@ function updateSummary() {
   $('#summary-provider').textContent = provider()?.label || '—';
   $('#summary-model').textContent = state.draft.model_name || state.draft.model_id || 'Не выбрана';
   $('#summary-model').title = state.draft.model_id;
-  $('#summary-token').textContent = tokenInput.value ? 'Введён, не сохранён' : state.tokenSaved ? 'Сохранён в Keychain' : 'Не добавлен';
-  $('#summary-connection').textContent = state.connection ? state.connection.status === 'ok' ? 'API отвечает' : 'Есть замечание' : 'Не проверено';
+  $('#summary-token').textContent = !requiresToken(provider()) ? (state.draft.provider === 'gigacode_cli' ? 'Вход через GigaCode CLI' : 'Не требуется') : tokenInput.value ? 'Введён, не сохранён' : state.tokenSaved ? 'Сохранён в Keychain' : 'Не добавлен';
+  $('#summary-connection').textContent = state.connection ? state.connection.status === 'ok' ? (state.draft.provider === 'gigacode_cli' ? 'CLI доступен' : 'API отвечает') : 'Есть замечание' : 'Не проверено';
   $('#summary-connection').dataset.state = state.connection ? state.connection.status === 'ok' ? 'ok' : 'error' : '';
   $('#selected-model-name').textContent = state.draft.model_name || state.draft.model_id || 'Модель пока не выбрана';
   $('#selected-model-id').textContent = state.draft.model_id || 'Выберите из каталога или укажите ID';
@@ -70,7 +70,7 @@ function updateSummary() {
     : 'Токен не сохраняется в браузере и не появляется в настройках.';
   tokenInput.placeholder = state.tokenSaved ? 'Токен сохранён в Связке ключей' : 'Вставьте ваш API-токен';
   const saved = state.savedSettings;
-  const complete = state.tokenSaved && !tokenInput.value && saved
+  const complete = (!requiresToken(provider()) || state.tokenSaved) && !tokenInput.value && saved
     && sameEndpoint(saved, state.draft)
     && saved.model_id === state.draft.model_id && Boolean(state.draft.model_id);
   $('#setup-badge').classList.toggle('complete', complete);
@@ -112,10 +112,21 @@ function updateProviderFields() {
     button.setAttribute('aria-pressed', String(button.dataset.provider === state.draft.provider));
   });
   const custom = state.draft.provider === 'custom';
+  const cli = state.draft.provider === 'gigacode_cli';
+  $('#cli-settings').hidden = !cli;
+  $('#cli-path').value = state.draft.cli_path || '';
+  $('#gigacode-auto-cards').checked = scope().gigacode_auto_cards;
+  $('#token-panel').hidden = !requiresToken(provider());
+  $('#storage-warning').hidden = !requiresToken(provider()) || (state.storageAvailable && !state.storageWarning);
+  for (const selector of ['.catalog-toolbar', '.catalog-caption', '.catalog-columns', '#model-list', '.pricing-note', '.sort-note']) $(selector).hidden = cli;
+  $('#show-more-models').hidden = cli || $('#show-more-models').hidden;
+  $('#manual-model').open = cli;
+  $('#model-id').placeholder = cli ? 'default' : 'Например, provider/model-name';
+  $('#manual-model .field-hint').textContent = cli ? 'default — модель из настроек CLI. Можно указать точный ID другой модели. Стоимость определяется вашим подключением GigaCode; цена неизвестна.' : 'Подойдёт, если провайдер не отдаёт каталог. Используйте точный ID из его документации.';
   $('#custom-endpoint').hidden = !custom;
   $('#custom-private-network').hidden = !custom;
   $('#allow-private-network').checked = scope().allow_private_network;
-  $('#preset-endpoint').hidden = custom;
+  $('#preset-endpoint').hidden = custom || cli;
   $('#base-url').value = state.draft.base_url;
   $('#preset-endpoint-text').textContent = state.draft.base_url;
   const keyLink = provider()?.key_url;
@@ -129,6 +140,7 @@ function updateProviderFields() {
 
 async function checkCredential() {
   if (!state.ready || !scope().base_url) return;
+  if (!requiresToken(provider())) { state = { ...state, tokenSaved: false }; updateSummary(); return; }
   if (state.mutationScope === JSON.stringify(scope())) return;
   const version = state.scopeVersion;
   const request = state.credentialRequest + 1;
@@ -147,7 +159,7 @@ async function chooseProvider(id) {
   if (id === state.draft.provider) return;
   const item = state.providers.find((entry) => entry.id === id);
   if (!item) return;
-  state = { ...state, draft: { ...changeEndpoint(state.draft, id, item.base_url || ''), model_id: '', model_name: '' }, tokenSaved: false, scopeVersion: state.scopeVersion + 1, catalogRequest: state.catalogRequest + 1 };
+  state = { ...state, draft: { ...changeEndpoint(state.draft, id, item.base_url || ''), model_id: id === 'gigacode_cli' ? 'default' : '', model_name: id === 'gigacode_cli' ? 'Модель из настроек CLI' : '' }, tokenSaved: false, scopeVersion: state.scopeVersion + 1, catalogRequest: state.catalogRequest + 1 };
   resetTokenField();
   changed();
   catalog.clear();
@@ -158,13 +170,13 @@ async function chooseProvider(id) {
 }
 
 function selectModel(model) {
-  state = { ...state, draft: { ...state.draft, model_id: model.id, model_name: model.name || model.id } };
+  state = { ...state, draft: changeModel(state.draft, model.id, model.name || model.id) };
   $('#model-id').value = model.id;
   changed();
 }
 
 async function loadModels() {
-  if (!state.ready) return;
+  if (!state.ready || state.draft.provider === 'gigacode_cli') return;
   const request = state.catalogRequest + 1;
   const version = state.scopeVersion;
   state = { ...state, catalogRequest: request };
@@ -182,6 +194,8 @@ async function loadModels() {
 }
 
 function validateDraft() {
+  const pathIssue = state.draft.provider === 'gigacode_cli' ? cliPathIssue(state.draft.cli_path || '') : null;
+  if (pathIssue) { actionMessage(pathIssue, 'error'); $('#cli-path').focus(); return false; }
   if (!scope().base_url) { actionMessage('Укажите адрес API.', 'error'); $('#base-url').focus(); return false; }
   if (!tokenExists()) { actionMessage('Вставьте API-токен выбранного провайдера.', 'error'); tokenInput.focus(); return false; }
   if (!state.draft.model_id.trim()) { actionMessage('Выберите модель из каталога или укажите её ID вручную.', 'error'); $('#manual-model').open = true; $('#model-id').focus(); return false; }
@@ -205,7 +219,7 @@ async function saveSettings(event) {
     state = { ...state, draft: { ...result.settings }, tokenSaved: result.token_saved };
     resetTokenField();
     updateProviderFields();
-    actionMessage('Настройки сохранены. Токен находится в Связке ключей macOS.');
+    actionMessage(state.draft.provider === 'gigacode_cli' ? 'GigaCode CLI сохранён. Для фоновых карточек нужны разрешение CLI и автогенерация в настройках памяти.' : requiresToken(provider()) ? 'Настройки сохранены. Токен находится в Связке ключей macOS.' : 'Настройки сохранены. API-токен не требуется.');
   } catch (error) { if (version === state.draftVersion) actionMessage(error.message, 'error'); }
   finally { setBusy(''); }
 }
@@ -247,7 +261,7 @@ async function bootstrap() {
   $('#bootstrap-error').hidden = true;
   try {
     const result = await apiRequest('/api/bootstrap');
-    state = { ...state, csrf: result.csrf_token, providers: result.providers, draft: { ...result.settings }, savedSettings: { ...result.settings }, tokenSaved: result.token_saved, storageAvailable: result.storage.available, ready: true };
+    state = { ...state, csrf: result.csrf_token, providers: result.providers, draft: { ...result.settings }, savedSettings: { ...result.settings }, tokenSaved: result.token_saved, storageAvailable: result.storage.available, storageWarning: result.warning || null, ready: true };
     $('#storage-warning').hidden = state.storageAvailable && !result.warning;
     if (result.warning) $('#storage-warning').textContent = result.warning;
     renderProviders();
@@ -269,6 +283,15 @@ $('#base-url').addEventListener('input', () => {
   resetTokenField(); changed(); catalog.clear(); catalog.loading(false);
 });
 $('#base-url').addEventListener('blur', checkCredential);
+$('#cli-path').addEventListener('input', () => {
+  state = { ...state, draft: changeCLIPath(state.draft, $('#cli-path').value), tokenSaved: false, scopeVersion: state.scopeVersion + 1, catalogRequest: state.catalogRequest + 1 };
+  $('#gigacode-auto-cards').checked = scope().gigacode_auto_cards;
+  resetTokenField(); changed(); catalog.clear(); catalog.loading(false);
+});
+$('#gigacode-auto-cards').addEventListener('change', () => {
+  state = { ...state, draft: changeGigaCodeAutoCards(state.draft, $('#gigacode-auto-cards').checked), scopeVersion: state.scopeVersion + 1 };
+  changed();
+});
 $('#allow-private-network').addEventListener('change', () => {
   state = { ...state, draft: changePrivateNetwork(state.draft, $('#allow-private-network').checked), scopeVersion: state.scopeVersion + 1, catalogRequest: state.catalogRequest + 1 };
   changed(); catalog.clear(); catalog.loading(false);
@@ -283,7 +306,7 @@ tokenInput.addEventListener('input', () => {
   changed();
 });
 $('#toggle-token').addEventListener('click', () => { const visible = tokenInput.type === 'password'; tokenInput.type = visible ? 'text' : 'password'; $('#toggle-token').setAttribute('aria-pressed', String(visible)); $('#toggle-token').setAttribute('aria-label', visible ? 'Скрыть введённый токен' : 'Показать введённый токен'); });
-$('#model-id').addEventListener('input', () => { state = { ...state, draft: { ...state.draft, model_id: $('#model-id').value, model_name: $('#model-id').value } }; changed(); });
+$('#model-id').addEventListener('input', () => { state = { ...state, draft: changeModel(state.draft, $('#model-id').value, $('#model-id').value) }; $('#gigacode-auto-cards').checked = scope().gigacode_auto_cards; changed(); });
 $('#settings-form').addEventListener('submit', saveSettings);
 $('#test-connection').addEventListener('click', testConnection);
 $('#delete-token').addEventListener('click', () => { $('#delete-confirm').hidden = false; $('#cancel-delete').focus(); });

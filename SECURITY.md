@@ -4,7 +4,7 @@
 
 ## Supported versions
 
-Security fixes target the current **0.2.x** release line on a best-effort basis. There is no long-term support commitment, response-time SLA, security certification, or guarantee that every vulnerability has been found. Use the latest reviewed release and its locked dependencies.
+Security fixes target the current **0.3.x** release line on a best-effort basis. There is no long-term support commitment, response-time SLA, security certification, or guarantee that every vulnerability has been found. Use the latest reviewed release and its locked dependencies.
 
 Second Brain is a personal macOS application with a local service and a shared MCP memory. Its security model assumes a trusted operating-system account. It is not designed to be a public network service or a multi-user hosted application.
 
@@ -50,6 +50,30 @@ user-registered Client ID and delegated read permissions. Outlook credentials
 are stored in Keychain; no client secret is required. Both connectors ship in 0.2.0. See [Outlook setup](docs/outlook-setup.md#english) and
 [source access boundaries](docs/security.en.md#outbound-connections-and-source-access).
 
+**Version 0.3.0** introduced the experimental GigaCode CLI provider; **0.3.2**
+adds a separate, default-off permission for automatic cards/retries.
+The separately installed CLI uses its existing login; Second Brain requests no
+model API token and treats the connection as external-model processing. Automatic
+cards/retries launch it only with that permission and enabled, unpaused Memory
+automation. Every backup restore clears this permission. Built-in file, shell and network tools
+may remain available despite `--safe-mode`; a private working directory and
+process limits are not a sandbox. CLI history/configuration and traffic follow
+its own client. See the [CLI boundary](docs/security.en.md#experimental-gigacode-cli-boundary-since-030).
+
+**Version 0.3.3** excludes recognized GigaCode card-generation sessions from
+Qwen history import to prevent repeated external-model requests. New prompts
+carry a service marker; legacy prompts and reserved standard temporary-workspace
+metadata are also recognized. Original logs stay unchanged. Pause automatic
+cards and fully reimport affected sources before resuming an existing loop;
+old assistant-only chunks or missing/unsupported logs need explicit exclusions
+when provenance cannot be recovered. See [recovery](docs/user-guide.en.md#when-gigacode-imports-its-own-service-chats).
+
+**Version 0.4.0** stores tasks and their completion history in the local memory
+database. They are included in backups, but excluded from memory search, model
+cards and MCP. Task requests retain the loopback/CSRF boundary. Local SQLite and
+managed backup copies are unencrypted. Restoring a pre-tracker backup replaces
+the tracker with an empty one; older apps cannot restore 0.4.0 backups.
+
 Source permissions apply to every connected MCP client; an agent may still send
 permitted text to its cloud model. The semantic index requires separate local
 opt-in and installed weights. Managed backups include the whole cache, including
@@ -63,7 +87,7 @@ found. Do not disable operating-system protections to run an untrusted download.
 
 ## Версии и область применения
 
-Исправления безопасности предназначены для текущей ветки **0.2.x** по мере возможностей сопровождения. Долгосрочная поддержка, сроки ответа, сертификация и обнаружение всех возможных уязвимостей не гарантируются. Используйте последний проверенный выпуск и зафиксированные зависимости.
+Исправления безопасности предназначены для текущей ветки **0.3.x** по мере возможностей сопровождения. Долгосрочная поддержка, сроки ответа, сертификация и обнаружение всех возможных уязвимостей не гарантируются. Используйте последний проверенный выпуск и зафиксированные зависимости.
 
 Second Brain рассчитан на личный Mac и доверенную учётную запись ОС. Локальный сервис и общая MCP-память не предназначены для публикации в интернете или использования как многопользовательский хостинг.
 
@@ -106,6 +130,29 @@ loopback, link-local и известные адреса метаданных о�
 Microsoft по коду, собственным Client ID и делегированными правами чтения.
 Секреты Outlook хранятся в Keychain; client secret не нужен. Оба источника входят в 0.2.0. См. [настройку Outlook](docs/outlook-setup.md#russian) и
 [границы доступа](docs/security.ru.md).
+
+**В версии 0.3.0** добавлен экспериментальный провайдер GigaCode CLI; **0.3.2**
+добавляет отдельное, по умолчанию выключенное разрешение автокарточек/повторов. Отдельно установленный CLI использует текущий вход; API-токен
+модели в Second Brain не вводится, обработка считается внешней. Автогенерация и
+автоповторы запускают CLI только с этим разрешением и включённой автоматизацией
+Памяти без паузы. Любое восстановление копии сбрасывает разрешение. Встроенные файловые, shell- и сетевые инструменты
+могут оставаться доступны при `--safe-mode`; рабочая папка и лимиты процесса не
+являются sandbox. История/конфигурация и сеть определяются самим CLI. Подробнее —
+[граница CLI](docs/security.ru.md#граница-экспериментального-gigacode-cli-с-030).
+
+**Версия 0.3.3** исключает распознанные сессии генерации карточек GigaCode из
+импорта истории Qwen, предотвращая повторные запросы внешней модели. Новые
+запросы помечаются; распознаются также старый фиксированный запрос и метаданные
+служебного каталога в стандартной временной папке. Исходные журналы не меняются.
+При уже возникшем цикле выключите автокарточки и полностью повторите импорт
+источника до возобновления. Для старых ответов без запроса, отсутствующих или
+неподдерживаемых журналов могут потребоваться явные исключения. См. [восстановление](docs/user-guide.ru.md#если-gigacode-импортирует-собственные-служебные-чаты).
+
+**Версия 0.4.0** хранит задачи и историю выполнения в локальной базе памяти.
+Они входят в копии, но не в поиск памяти, карточки модели или MCP. Запросы задач
+сохраняют границы loopback/CSRF. SQLite и управляемые локальные копии не зашифрованы.
+Восстановление копии до трекера заменяет его пустым; старое приложение не сможет
+восстановить копию 0.4.0.
 
 Разрешения источника действуют для всех MCP-клиентов; агент может передавать
 разрешённый текст своей облачной модели. Семантический индекс включается отдельно

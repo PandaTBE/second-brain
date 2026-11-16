@@ -700,3 +700,65 @@ def test_retention_failure_is_visible_and_preserves_existing_copy(seeded, monkey
         service.create_local()
     assert first_path.exists()
     assert service.status()["last_error"]
+
+
+# Captured from the synthetic, complete 0.3.3 schema before tracker migration.
+PRE_TRACKER_SCHEMA = "35b7ba6c045026f02b7011a23745b3b97af7ce505276941d8d26b56ea220067f"
+
+
+def seed_task(store, identifier="synthetic-task"):
+    with store._connection(write=True) as connection:
+        connection.execute(
+            "INSERT INTO tracker_tasks VALUES (?, 'daily', 'Synthetic task', "
+            "'vitality', 2, '2026-11-16', NULL)", (identifier,),
+        )
+        connection.execute(
+            "INSERT INTO tracker_progress VALUES (?, '2026-11-16', 'done', 25, '2026-11-16')",
+            (identifier,),
+        )
+
+
+def legacy_archive(service, tmp_path, *, extra_sql=None, manifest_schema=None):
+    from brain_settings.backup_archive import schema_fingerprint
+
+    original = local_path(service)
+    database = tmp_path / "legacy.sqlite3"
+    with zipfile.ZipFile(original) as archive:
+        database.write_bytes(archive.read("memory.sqlite3"))
+    with sqlite3.connect(database) as connection:
+        connection.execute("DROP TABLE tracker_progress")
+        connection.execute("DROP TABLE tracker_tasks")
+        fingerprint = schema_fingerprint(connection)
+        if extra_sql:
+            connection.execute(extra_sql)
+    destination = tmp_path / "legacy.zip"
+
+    def transform(entries):
+        updated = replace_entry(entries, "memory.sqlite3", database.read_bytes())
+        return [
+            (info, json.dumps({**json.loads(payload),
+                               "schema_fingerprint": manifest_schema or fingerprint,
+                               "app_version": "0.3.3"}).encode()
+             if info.filename == "manifest.json" else payload)
+            for info, payload in updated
+        ]
+
+    rewrite_zip(original, destination, transform)
+    return destination
+
+
+def test_tasks_and_progress_round_trip_with_current_backup(seeded):
+    service, _ = seeded
+    seed_task(service.store)
+    original = local_path(service)
+    with service.store._connection(write=True) as connection:
+        connection.execute("UPDATE tracker_tasks SET deleted_at='2026-11-17'")
+        connection.execute("DELETE FROM tracker_progress")
+    preview = service.inspect(original)
+    assert any("задач" in warning.lower() for warning in preview["warnings"])
+    assert service.restore(preview["inspection_id"])["restored"]
+    with service.store._connection() as connection:
+        assert connection.execute("SELECT deleted_at FROM tracker_tasks").fetchone()[0] is None
+        assert tuple(connection.execute(
+            "SELECT period,status,xp FROM tracker_progress"
+        ).fetchone()) == ("2026-11-16", "done", 25)

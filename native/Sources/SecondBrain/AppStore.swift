@@ -2,15 +2,16 @@ import SwiftUI
 import SecondBrainCore
 
 enum AppSection: String, CaseIterable, Identifiable {
-    case overview = "Обзор", memory = "Память", model = "Модель и API", sources = "Источники", backups = "Резервные копии", mcp = "Подключение MCP"
+    case overview = "Обзор", memory = "Память", tasks = "Задачи", model = "Модель и API", sources = "Источники", backups = "Резервные копии", mcp = "Подключение MCP"
     var id: String { rawValue }
-    var symbol: String { switch self { case .overview: "square.grid.2x2"; case .memory: "brain.head.profile"; case .model: "cpu"; case .sources: "tray.full"; case .backups: "externaldrive.badge.timemachine"; case .mcp: "point.3.connected.trianglepath.dotted" } }
+    var symbol: String { switch self { case .overview: "square.grid.2x2"; case .memory: "brain.head.profile"; case .tasks: "checklist"; case .model: "cpu"; case .sources: "tray.full"; case .backups: "externaldrive.badge.timemachine"; case .mcp: "point.3.connected.trianglepath.dotted" } }
 }
 
 @MainActor
 final class AppStore: ObservableObject {
     let service = BackendService()
     let memory: MemoryViewModel
+    let tasks: TasksViewModel
     let backups = BackupViewModel()
     lazy var quickSearch = QuickSearchController(memory: memory)
     @Published var section: AppSection = .overview
@@ -52,6 +53,7 @@ final class AppStore: ObservableObject {
     init(client: APIClient? = nil) {
         self.client = client
         memory = MemoryViewModel(client: client)
+        tasks = TasksViewModel(client: client)
         if let client { configureBackups(client) }
     }
 
@@ -89,6 +91,8 @@ final class AppStore: ObservableObject {
             guard lifetime == restoreEpoch else { return }
             if let client { await memory.configure(client) }
             guard lifetime == restoreEpoch else { return }
+            if let client { await tasks.configure(client) }
+            guard lifetime == restoreEpoch else { return }
             if publicCatalog || tokenSaved { await loadCatalog() }
         } catch { if lifetime == restoreEpoch { startupError = error.localizedDescription; await service.stop() } }
     }
@@ -99,7 +103,9 @@ final class AppStore: ObservableObject {
     func changeProvider(_ id: String) {
         guard id != draft.provider, let provider = providers.first(where: { $0.id == id }) else { return }
         credentialTask?.cancel()
-        draft = ModelSettings(provider: id, baseUrl: provider.baseUrl)
+        draft = ModelSettings(provider: id, baseUrl: provider.baseUrl,
+                              modelId: id == "gigacode_cli" ? "default" : "",
+                              modelName: id == "gigacode_cli" ? "Модель из настроек CLI" : "")
         tokenDraft = ""; tokenSaved = false; models = []; catalogError = nil; catalogWarning = nil; catalogUpdated = nil
         scopeRevision += 1; catalogRevision += 1; catalogLoading = false; changed()
         Task { await refreshCredential(); if publicCatalog || tokenSaved { await loadCatalog() } }
@@ -127,6 +133,20 @@ final class AppStore: ObservableObject {
         credentialTask = Task { await refreshCredential() }
     }
 
+    func changeCLIPath(_ value: String) {
+        guard draft.isCLI, value != draft.cliPath else { return }
+        credentialTask?.cancel()
+        draft = draft.replacingCLIPath(value); tokenDraft = ""; tokenSaved = false; storageWarning = nil
+        scopeRevision += 1; catalogRevision += 1; catalogLoading = false
+        models = []; catalogError = nil; catalogWarning = nil; catalogUpdated = nil; changed()
+    }
+
+    func changeGigaCodeAutoCards(_ enabled: Bool) {
+        let updated = draft.settingGigaCodeAutoCards(enabled)
+        guard updated != draft else { return }
+        draft = updated; scopeRevision += 1; changed()
+    }
+
     func changeToken(_ value: String) {
         tokenDraft = value
         if !publicCatalog { catalogRevision += 1; catalogLoading = false; models = []; catalogError = nil; catalogWarning = nil }
@@ -134,9 +154,9 @@ final class AppStore: ObservableObject {
     }
 
     func selectModel(_ model: ModelInfo) {
-        draft.modelId = model.id; draft.modelName = model.name; changed()
+        draft = draft.replacingModel(id: model.id, name: model.name); changed()
     }
-    func enterModelID(_ value: String) { draft.modelId = value; draft.modelName = value; changed() }
+    func enterModelID(_ value: String) { draft = draft.replacingModel(id: value, name: value); changed() }
 
     func refreshCredential() async {
         guard !isRestoring else { return }
@@ -156,6 +176,7 @@ final class AppStore: ObservableObject {
 
     func loadCatalog() async {
         guard !isRestoring, let client, !draft.baseUrl.isEmpty else { return }
+        guard !draft.isCLI else { models = []; catalogError = nil; catalogWarning = nil; catalogUpdated = nil; return }
         catalogRevision += 1
         let epoch = catalogRevision; let scope = scopeRevision
         catalogLoading = true; catalogError = nil; catalogWarning = nil
@@ -171,6 +192,9 @@ final class AppStore: ObservableObject {
     private func validate() -> Bool {
         if draft.baseUrl.isEmpty { showError("Укажите адрес API."); return false }
         if let issue = draft.customEndpointValidationMessage { showError(issue); return false }
+        if draft.isCLI && !draft.cliPath.isEmpty && (!draft.cliPath.hasPrefix("/") || draft.cliPath.contains(where: { $0.isNewline || $0.asciiValue == 0 })) {
+            showError("Укажите абсолютный путь к GigaCode CLI без аргументов команды."); return false
+        }
         if !hasToken { showError("Вставьте API-токен выбранного провайдера."); return false }
         if draft.modelId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { showError("Выберите модель или укажите точный ID вручную."); return false }
         return true
@@ -204,7 +228,7 @@ final class AppStore: ObservableObject {
             if savingScope == scopeRevision { tokenSaved = result.tokenSaved; storageWarning = nil }
             guard revision == draftRevision else { notice = "Предыдущие настройки сохранены. Текущие изменения ещё не сохранены."; noticeIsError = false; return }
             draft = result.settings; tokenSaved = result.tokenSaved; tokenDraft = ""
-            notice = result.settings.isLocal ? "Локальная модель сохранена. API-токен не требуется." : "Настройки сохранены. Токен — в Связке ключей macOS."; noticeIsError = false
+            notice = result.settings.isCLI ? "GigaCode CLI сохранён. Для фоновых карточек нужны разрешение CLI и автогенерация в настройках памяти." : result.settings.isLocal ? "Локальная модель сохранена. API-токен не требуется." : "Настройки сохранены. Токен — в Связке ключей macOS."; noticeIsError = false
         } catch { if lifetime == restoreEpoch, revision == draftRevision { showError(error.localizedDescription) } }
     }
 
@@ -249,6 +273,7 @@ final class AppStore: ObservableObject {
         restoreEpoch = UUID(); let lifetime = restoreEpoch
         isRestoring = true
         memory.invalidateForRestore()
+        tasks.invalidateForRestore()
         credentialTask?.cancel(); credentialTask = nil
         quickSearch.close(restoreFocus: false)
         draftRevision += 1; scopeRevision += 1; catalogRevision += 1; credentialRevision += 1
@@ -277,6 +302,8 @@ final class AppStore: ObservableObject {
         await refreshSources()
         guard lifetime == restoreEpoch else { throw CancellationError() }
         await memory.restoreDidComplete(client)
+        guard lifetime == restoreEpoch else { throw CancellationError() }
+        await tasks.restoreDidComplete(client)
         guard lifetime == restoreEpoch else { throw CancellationError() }
         isRestoring = false
     }

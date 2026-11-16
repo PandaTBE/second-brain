@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f6f7f5">
+  <title>Задачи — Second Brain</title>
+  <link rel="icon" type="image/svg+xml" href="/static/mark.svg">
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/tasks.css">
+  <script type="module" src="/static/tasks.mjs"></script>
+</head>
+<body class="tasks-page">
+  <a class="skip-link" href="#main">Перейти к задачам</a>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Навигация">
+      <a class="brand" href="/"><img src="/static/mark.svg" width="38" height="38" alt=""><span>Second Brain<small>Личная память для ИИ</small></span></a>
+      <div class="sidebar-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
+      <nav class="navigation" aria-label="Разделы">
+        <a class="nav-item" href="/"><span class="nav-icon" aria-hidden="true">⌘</span>Модель и API</a>
+        <a class="nav-item active" href="/static/tasks.html" aria-current="page"><span class="nav-icon" aria-hidden="true">✓</span>Задачи</a>
+      </nav>
+      <div class="sidebar-bottom"><div class="local-badge"><span class="status-dot"></span>Локальное приложение</div><p>Маленькие шаги.<br>Заметный прогресс.</p></div>
+    </aside>
+    <main id="main" class="main-content">
+      <div class="breadcrumb">Рабочее пространство <span>/</span> Задачи</div>
+      <header class="page-header tasks-header">
+        <div><div class="eyebrow">КАЖДЫЙ ШАГ ИМЕЕТ ЗНАЧЕНИЕ</div><h1>Задачи</h1><p>Освободите голову. Выберите дело. Станьте чуть сильнее.</p></div>
+        <button id="refresh-tasks" type="button" class="button secondary"><span aria-hidden="true">↻</span> Обновить</button>
+      </header>
+      <div id="tasks-error" class="notice error" role="alert" hidden><span id="tasks-error-text"></span><button id="retry-tasks" type="button" class="text-button">Повторить загрузку</button></div>
+      <noscript><p class="notice error">Для доски задач включите JavaScript в браузере.</p></noscript>
+
+      <section class="system-panel" aria-labelledby="system-heading">
+        <div class="player-overview">
+          <div class="system-topline"><h2 id="system-heading">Система</h2><span class="rank-badge">РАНГ <strong id="player-rank">—</strong></span></div>
+          <div class="level-line"><span class="level-number" id="player-level">—</span><div><strong>Уровень</strong><span id="player-xp">Загружаем опыт…</span></div></div>
+          <label class="xp-label" for="player-progress"><span id="xp-caption">Прогресс уровня</span><span id="xp-percent">—</span></label>
+          <progress id="player-progress" max="1" value="0" aria-describedby="xp-remaining"></progress>
+          <p id="xp-remaining" class="system-hint">За выполненные дела вы получаете опыт.</p>
+        </div>
+        <div class="characteristics"><h3>Ваши характеристики</h3><dl class="stats-grid">
+          <div><dt><span aria-hidden="true">↗</span> Сила</dt><dd id="stat-strength">—</dd></div>
+          <div><dt><span aria-hidden="true">↝</span> Ловкость</dt><dd id="stat-agility">—</dd></div>
+          <div><dt><span aria-hidden="true">✧</span> Интеллект</dt><dd id="stat-intelligence">—</dd></div>
+          <div><dt><span aria-hidden="true">♡</span> Выносливость</dt><dd id="stat-vitality">—</dd></div>
+          <div><dt><span aria-hidden="true">◎</span> Восприятие</dt><dd id="stat-perception">—</dd></div>
+        </dl><p class="system-hint">Выполненная задача развивает выбранную характеристику.</p></div>
+      </section>
+      <p id="level-notice" class="level-notice" role="status" aria-live="polite" aria-atomic="true"></p>
+
+      <section class="panel create-panel" aria-labelledby="create-heading">
+        <div class="create-heading"><h2 id="create-heading">Следующий шаг</h2><p>Одно дело — одна карточка.</p></div>
+        <form id="task-form">
+          <fieldset id="task-fields" disabled>
+            <legend class="visually-hidden">Новая задача</legend>
+            <label class="title-field" for="task-title">Что хотите сделать?<input id="task-title" name="title" type="text" placeholder="Например, прочитать главу книги" required maxlength="200" autocomplete="off"></label>
+            <div class="create-options">
+              <label for="task-kind">Повторение<select id="task-kind" name="kind"><option value="todo">Обычная задача</option><option value="daily">Ежедневная задача</option></select></label>
+              <label for="task-stat">Характеристика<select id="task-stat" name="stat"><option value="strength">Сила</option><option value="agility">Ловкость</option><option value="intelligence" selected>Интеллект</option><option value="vitality">Выносливость</option><option value="perception">Восприятие</option></select></label>
+              <label for="task-difficulty">Сложность и награда<select id="task-difficulty" name="difficulty"><option value="1">Лёгкая · 10 XP</option><option value="2">Средняя · 25 XP</option><option value="3">Сложная · 50 XP</option></select></label>
+              <button type="submit" class="button primary"><span aria-hidden="true">+</span> Добавить задачу</button>
+            </div>
+          </fieldset>
+          <p class="form-hint">Ежедневные задачи возвращаются в «К выполнению» каждый новый день. За пропуски нет штрафов.</p>
+        </form>
+      </section>
+
+      <section class="board-section" aria-labelledby="board-heading">
+        <div class="board-heading"><div><h2 id="board-heading">Моя доска</h2><p id="board-date"></p></div><span id="board-summary">Подключаемся…</span></div>
+        <p id="action-status" class="action-status" role="status" aria-live="polite" aria-atomic="true">Загружаем задачи…</p>
+        <p id="board-help" class="board-help">Переносите карточки кнопками со стрелками или перетаскиванием. Возврат из «Готово» отменяет награду.</p>
+        <div id="task-board" class="task-board" aria-busy="true" aria-describedby="board-help">
+          <section class="task-column" data-status="todo" aria-labelledby="heading-todo"><header><h3 id="heading-todo"><span class="column-dot todo" aria-hidden="true"></span>К выполнению</h3><span class="column-count" id="count-todo" aria-label="Количество задач">—</span></header><ul id="list-todo" class="task-list"><li class="column-empty">Загружаем задачи…</li></ul></section>
+          <section class="task-column" data-status="doing" aria-labelledby="heading-doing"><header><h3 id="heading-doing"><span class="column-dot doing" aria-hidden="true"></span>В работе</h3><span class="column-count" id="count-doing" aria-label="Количество задач">—</span></header><ul id="list-doing" class="task-list"><li class="column-empty">Загружаем задачи…</li></ul></section>
+          <section class="task-column" data-status="done" aria-labelledby="heading-done"><header><h3 id="heading-done"><span class="column-dot done" aria-hidden="true"></span>Готово</h3><span class="column-count" id="count-done" aria-label="Количество задач">—</span></header><ul id="list-done" class="task-list"><li class="column-empty">Загружаем задачи…</li></ul></section>
+        </div>
+      </section>
+      <footer class="page-footer"><span>Задачи и прогресс хранятся на этом Mac.</span><span>Second Brain должен оставаться запущенным.</span></footer>
+    </main>
+  </div>
+</body>
+</html>
