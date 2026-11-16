@@ -30,6 +30,7 @@ from .source_policy_routes import create_source_policy_router
 from .source_recovery_routes import create_source_recovery_router
 from .source_storage import MailImportRequest, SourceCreate
 from .sources import SourceService
+from .tasks import create_task_router
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ def create_app(data_dir: Path | None = None, vault=None, transport=None,
     application.include_router(create_backup_router(backup_service, memory_service, source_service))
     application.state.memory_service = memory_service
     application.include_router(create_memory_router(memory_service))
+    application.include_router(create_task_router(memory_service.store))
     application.include_router(create_connected_source_router(source_service))
     application.include_router(create_source_policy_router(memory_service))
     application.include_router(create_source_recovery_router(source_service))
@@ -89,6 +91,8 @@ def create_app(data_dir: Path | None = None, vault=None, transport=None,
                        "или выбранные материалы и подключение Apple Заметок/Outlook/Notion/GitHub.")
         elif request.url.path.startswith("/api/backups"):
             message = "Проверьте путь, параметры копии и выбранный архив."
+        elif request.url.path.startswith("/api/tasks"):
+            message = "Проверьте название, тип, характеристику и дату задачи."
         elif request.url.path.startswith("/api/memory"):
             message = "Проверьте источник, размер пакета и параметры расписания памяти."
         error = AppError("validation_error", message, 422)

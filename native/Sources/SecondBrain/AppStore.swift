@@ -2,15 +2,16 @@ import SwiftUI
 import SecondBrainCore
 
 enum AppSection: String, CaseIterable, Identifiable {
-    case overview = "Обзор", memory = "Память", model = "Модель и API", sources = "Источники", backups = "Резервные копии", mcp = "Подключение MCP"
+    case overview = "Обзор", memory = "Память", tasks = "Задачи", model = "Модель и API", sources = "Источники", backups = "Резервные копии", mcp = "Подключение MCP"
     var id: String { rawValue }
-    var symbol: String { switch self { case .overview: "square.grid.2x2"; case .memory: "brain.head.profile"; case .model: "cpu"; case .sources: "tray.full"; case .backups: "externaldrive.badge.timemachine"; case .mcp: "point.3.connected.trianglepath.dotted" } }
+    var symbol: String { switch self { case .overview: "square.grid.2x2"; case .memory: "brain.head.profile"; case .tasks: "checklist"; case .model: "cpu"; case .sources: "tray.full"; case .backups: "externaldrive.badge.timemachine"; case .mcp: "point.3.connected.trianglepath.dotted" } }
 }
 
 @MainActor
 final class AppStore: ObservableObject {
     let service = BackendService()
     let memory: MemoryViewModel
+    let tasks: TasksViewModel
     let backups = BackupViewModel()
     lazy var quickSearch = QuickSearchController(memory: memory)
     @Published var section: AppSection = .overview
@@ -52,6 +53,7 @@ final class AppStore: ObservableObject {
     init(client: APIClient? = nil) {
         self.client = client
         memory = MemoryViewModel(client: client)
+        tasks = TasksViewModel(client: client)
         if let client { configureBackups(client) }
     }
 
@@ -88,6 +90,8 @@ final class AppStore: ObservableObject {
             await refreshSources()
             guard lifetime == restoreEpoch else { return }
             if let client { await memory.configure(client) }
+            guard lifetime == restoreEpoch else { return }
+            if let client { await tasks.configure(client) }
             guard lifetime == restoreEpoch else { return }
             if publicCatalog || tokenSaved { await loadCatalog() }
         } catch { if lifetime == restoreEpoch { startupError = error.localizedDescription; await service.stop() } }
@@ -269,6 +273,7 @@ final class AppStore: ObservableObject {
         restoreEpoch = UUID(); let lifetime = restoreEpoch
         isRestoring = true
         memory.invalidateForRestore()
+        tasks.invalidateForRestore()
         credentialTask?.cancel(); credentialTask = nil
         quickSearch.close(restoreFocus: false)
         draftRevision += 1; scopeRevision += 1; catalogRevision += 1; credentialRevision += 1
@@ -297,6 +302,8 @@ final class AppStore: ObservableObject {
         await refreshSources()
         guard lifetime == restoreEpoch else { throw CancellationError() }
         await memory.restoreDidComplete(client)
+        guard lifetime == restoreEpoch else { throw CancellationError() }
+        await tasks.restoreDidComplete(client)
         guard lifetime == restoreEpoch else { throw CancellationError() }
         isRestoring = false
     }

@@ -67,6 +67,8 @@ enum CoreChecks {
             ("Facts retain independent source proofs and explicit projection", memoryFactsContract),
             ("Fact history preserves observed snapshots and scoped pagination", memoryFactHistoryContract),
             ("Fact source actions refresh policy-scoped claims before use", memoryFactActionScopes),
+            ("Task boards and requests preserve the server contract", taskContract),
+            ("Task days follow the local Gregorian date across time zones", taskLocalDay),
         ]
         let optionalChecks = stage5Checks
         var failures: [String] = []

@@ -31,11 +31,15 @@ ARCHIVE_FILES = ("memory.sqlite3", *CONFIG_FILES)
 MAX_CONFIG_BYTES = 1_048_576
 
 
-def schema_fingerprint(connection):
+def schema_fingerprint(connection, exclude_prefix=None):
     rows = connection.execute(
         "SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY type,name"
     ).fetchall()
-    normalized = [list(row[:3]) + [" ".join((row[3] or "").split())] for row in rows]
+    normalized = [
+        list(row[:3]) + [" ".join((row[3] or "").split())]
+        for row in rows
+        if exclude_prefix is None or not row[2].startswith(exclude_prefix)
+    ]
     return hashlib.sha256(json_bytes(normalized)).hexdigest()
 
 
@@ -128,7 +132,7 @@ def pack(directory, destination, maximum):
         raise AppError("backup_too_large", "Размер архива превышает 128 МиБ.")
 
 
-def _validate_manifest(manifest, expected_schema, maximum):
+def _validate_manifest(manifest, expected_schema, maximum, legacy_schema=None):
     from uuid import UUID
 
     expected_keys = {
@@ -146,7 +150,9 @@ def _validate_manifest(manifest, expected_schema, maximum):
         or manifest["format"] != "second-brain-backup"
         or type(manifest["format_version"]) is not int
         or manifest["format_version"] != 1
-        or manifest["schema_fingerprint"] != expected_schema
+        or manifest["schema_fingerprint"] not in (
+            (expected_schema, legacy_schema) if legacy_schema else (expected_schema,)
+        )
         or not isinstance(manifest["files"], dict)
         or set(manifest["files"]) != set(ARCHIVE_FILES)
     ):
@@ -176,7 +182,7 @@ def _validate_manifest(manifest, expected_schema, maximum):
             raise ValueError("Invalid manifest file metadata")
 
 
-def unpack(source, destination, expected_schema, maximum):
+def unpack(source, destination, expected_schema, maximum, *, legacy_schema=None):
     try:
         with regular_file(source, maximum) as stream, zipfile.ZipFile(stream) as archive:
             entries = archive.infolist()
@@ -198,7 +204,7 @@ def unpack(source, destination, expected_schema, maximum):
                 with archive.open(entry) as input_file:
                     copy_bounded(input_file, destination / entry.filename, bound)
         manifest = json.loads(bounded_read(destination / "manifest.json", 16384))
-        _validate_manifest(manifest, expected_schema, maximum)
+        _validate_manifest(manifest, expected_schema, maximum, legacy_schema)
         for name in ARCHIVE_FILES:
             if manifest["files"][name] != checksum(destination / name):
                 raise ValueError("Archive checksum mismatch")
@@ -209,7 +215,8 @@ def unpack(source, destination, expected_schema, maximum):
         ) as connection:
             connection.execute("PRAGMA trusted_schema=OFF")
             connection.execute("PRAGMA query_only=ON")
-            if schema_fingerprint(connection) != expected_schema or connection.execute(
+            actual_schema = schema_fingerprint(connection)
+            if actual_schema != manifest["schema_fingerprint"] or connection.execute(
                 "PRAGMA integrity_check"
             ).fetchall() != [("ok",)]:
                 raise ValueError("Unsupported or damaged SQLite database")
@@ -217,6 +224,19 @@ def unpack(source, destination, expected_schema, maximum):
                 "documents": connection.execute("SELECT count(*) FROM documents").fetchone()[0],
                 "sources": len(SourcesStore(destination).load()),
             }
+        if actual_schema != expected_schema:
+            from .tasks import migrate
+
+            # Only the extracted, checksum-verified copy may be upgraded.
+            with closing(sqlite3.connect(database)) as connection:
+                connection.execute("PRAGMA trusted_schema=OFF")
+                connection.execute("PRAGMA journal_mode=DELETE")
+                migrate(connection)
+                connection.commit()
+                if schema_fingerprint(connection) != expected_schema or connection.execute(
+                    "PRAGMA integrity_check"
+                ).fetchall() != [("ok",)]:
+                    raise ValueError("Unsupported or damaged migrated SQLite database")
         return manifest, counts
     except AppError:
         raise

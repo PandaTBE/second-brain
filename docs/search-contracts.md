@@ -364,8 +364,9 @@ Format v1 is a flat ZIP containing **exactly** `manifest.json`, `memory.sqlite3`
 `installation_id` UUID, `schema_fingerprint` and `files`; each file metadata entry
 has exact byte size and lowercase SHA-256. Known lazy progress/provider tables are
 normalized before the SQLite Backup API snapshot/configuration capture. Only the
-current exact schema fingerprint is accepted; this is not a general migration
-loader for unknown or older database schemas. Configuration schemas, checksums
+current exact schema fingerprint or the exact pre-tracker 0.3.x fingerprint is
+accepted. The latter is migrated only in the inspected staging copy and restores
+an empty tracker. Unknown schemas are rejected. Configuration schemas, checksums
 and SQLite integrity are validated before live-state changes.
 
 The database copy includes all cached/hidden text, policies, index generations,
@@ -582,3 +583,32 @@ vectors prove retrieval behavior, not semantic relevance.
   `benchmark-baseline-10000.json`; inspect their hardware, fixture hash and timing
   scope before comparison. Root execution records final full-suite validation
   and the Stage 0 commit in the development plan.
+
+## Task board HTTP contract (0.4.0)
+
+Tasks use the existing loopback and CSRF boundary and success/data envelope.
+They are independent of memory retrieval and have no MCP tool.
+
+| Method | Path | Input |
+| --- | --- | --- |
+| GET | `/api/tasks` | Query `day=YYYY-MM-DD` |
+| POST | `/api/tasks` | JSON `day`, `title`, `kind`, `stat`, `difficulty` |
+| POST | `/api/tasks/{id}/status` | JSON `day`, `status` |
+| DELETE | `/api/tasks/{id}` | JSON `day` |
+
+Every successful request returns the full board: `day`, `tasks`, `player`.
+Each task has `id`, `title`, `kind`, `stat`, `difficulty`, `status`, `xp`.
+Player fields are `xp`, `level`, `rank`, `level_xp`, `next_level_xp`, `stats`.
+`kind` is `todo` or `daily`; `status` is `todo`, `doing` or `done`; `stat` is
+`strength`, `agility`, `intelligence`, `vitality` or `perception`. Difficulty is
+strict integer 1, 2 or 3 (10/25/50 XP). Titles are stripped, 1–200 characters,
+without NUL; at most 500 non-deleted tasks are allowed. Extra request fields are
+rejected. Day is a real ISO date within one day of the server's UTC date, allowing
+all current local timezones. Clients compute it from local calendar fields.
+
+Completion is idempotent per task/period. Daily periods use the requested day;
+ordinary tasks use a single period. XP is derived from completed rows, reversed
+when moved out of Done, and retained after soft deletion. Level is
+`1 + isqrt(total_xp // 50)`; ranks E/D/C/B/A/S advance every five levels.
+Stats are each completed stat's XP divided by 10, rounded down.
+Database operations use the store's restore-aware transaction boundary.

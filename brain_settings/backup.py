@@ -102,6 +102,7 @@ class BackupService:
             _complete_schema(template)
             with template._connection() as connection:
                 self.expected_schema = schema_fingerprint(connection)
+                self.legacy_schema = schema_fingerprint(connection, exclude_prefix="tracker_")
 
     def _load(self):
         if not self._path.exists():
@@ -348,7 +349,8 @@ class BackupService:
                 extracted = staging / "contents"
                 extracted.mkdir(mode=0o700)
                 manifest, counts = unpack(
-                    archive, extracted, self.expected_schema, MAX_ARCHIVE_BYTES
+                    archive, extracted, self.expected_schema, MAX_ARCHIVE_BYTES,
+                    legacy_schema=self.legacy_schema,
                 )
                 foreign = manifest["installation_id"] != self.installation_id
                 preview = self._preview(manifest, counts, extracted, foreign)
@@ -400,6 +402,7 @@ class BackupService:
             "warnings": [
                 WARNING,
                 "После восстановления автоматическая обработка будет приостановлена.",
+                "Задачи и опыт будут заменены данными копии; копии 0.3.x очистят задачи и опыт.",
             ],
         }
 

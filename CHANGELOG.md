@@ -9,6 +9,27 @@ listed in the release notes; preparing local artifacts does not publish a releas
 
 No changes yet.
 
+## [0.4.0] — 2026-11-16
+
+### Added
+
+- Local kanban in the native macOS app and web interface: ordinary tasks and
+  daily tasks, three status columns, drag and drop and keyboard-accessible actions.
+- Completion awards 10/25/50 XP by difficulty, increases one of five stats, and
+  raises the player's level and rank. Repeating completion never duplicates XP;
+  moving out of Done reverses that completion's reward. Deleting preserves earned XP.
+- Daily tasks start fresh each local calendar day without losing earlier rewards.
+  Tasks and progress persist in the existing SQLite database and managed backups;
+  they are not exposed through memory search, cards or MCP.
+
+### Compatibility
+
+- Backup v1 now accepts the exact pre-tracker 0.3.x schema and migrates only the
+  inspected staging copy. Restoring such a backup replaces current tasks/progress
+  with an empty tracker. Unknown schemas remain rejected. Older applications
+  cannot restore 0.4.0 backups.
+- Existing 0.3.3 GigaCode feedback-loop protections remain included.
+
 ## [0.3.3] — 2026-11-11
 
 ### Fixed

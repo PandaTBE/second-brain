@@ -2,6 +2,7 @@
 /.data/
 /work/
 /outputs/
+/graphify-out/
 /.codex/
 /.claude/
 /.serena/

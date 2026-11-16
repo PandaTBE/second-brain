@@ -2,7 +2,7 @@
 
 **A shared, source-backed memory for AI assistants, stored on your Mac.**
 
-**0.3.3 · macOS 14+ · Native SwiftUI app · MIT**
+**0.4.0 · macOS 14+ · Native SwiftUI app · MIT**
 
 [English](#english) · [Русский](#russian) · [Documentation](docs/README.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
 
@@ -82,7 +82,7 @@ local SQLite/configuration snapshots, optional scheduled local copies and separa
 password-encrypted age exports. Local copies remain unencrypted. Inspection
 precedes restoration; imported jobs stay paused and another installation requires
 new credentials and explicit local/Notes scope selection. The current format has
-a 128 MiB limit and requires the exact supported schema. See
+a 128 MiB limit and accepts the exact current or pre-tracker 0.3.x schema. See
 [backup and recovery](docs/user-guide.en.md#managed-backups).
 
 **New in 0.3.0 — GigaCode CLI:** create cards manually through a separately
@@ -98,6 +98,12 @@ sandbox. See [setup and limits](docs/user-guide.en.md#gigacode-cli-experimental-
 history import to stop card-generation feedback loops. For an existing loop,
 disable automatic cards, update, fully reimport the affected source, then resume.
 Original chat files stay unchanged; see [recovery steps](docs/user-guide.en.md#when-gigacode-imports-its-own-service-chats).
+
+**New in 0.4.0 — Tasks:** a local kanban board in the native app and web interface,
+with ordinary tasks, recurring dailies, XP, levels, ranks and five character stats.
+Daily tasks reset each local day; earlier rewards stay saved. Tasks and progress
+share the memory database and backups, without entering memory search or MCP.
+See [tasks and progression](docs/user-guide.en.md#tasks).
 
 ### Sources
 
@@ -127,7 +133,7 @@ implicitly purge its imported copy.
 
 ### Install and launch
 
-**Prebuilt application:** use `Second-Brain-0.3.3-macos-arm64.zip` from the
+**Prebuilt application:** use `Second-Brain-0.4.0-macos-arm64.zip` from the
 repository's **Releases → Assets**. It contains the native app and its Python
 service. On an **Apple Silicon Mac with macOS 14+**, extract it, move
 **Second Brain.app** to **Applications**, and open it. **Xcode, Python, uv and a
@@ -139,7 +145,7 @@ notarization**. macOS can block an app downloaded from the internet. If you trus
 the release and have checked its checksum, use Apple's documented **System
 Settings → Privacy & Security → Open Anyway** flow. Do not disable Gatekeeper.
 See the [installation guide](docs/user-guide.en.md#2-requirements-and-installation)
-and [release notes](docs/releases/0.3.3.md) for the package's limits.
+and [release notes](docs/releases/0.4.0.md) for the package's limits.
 
 The release starts with a separate local archive in
 `~/Library/Application Support/Second Brain`. It does not include a maintainer's
@@ -359,7 +365,7 @@ SQLite/конфигурационные снимки, локальные коп�
 age-архив с паролем. Локальные копии не зашифрованы. Восстановлению предшествует
 проверка, задания остаются на паузе; другая установка требует нового входа и
 явного выбора локальных путей/папок Notes. Формат ограничен 128 МиБ и точной
-поддерживаемой схемой. См. [копии и восстановление](docs/user-guide.ru.md#managed-backups).
+поддерживаемой схемой либо точной схемой 0.3.x до трекера. См. [копии и восстановление](docs/user-guide.ru.md#managed-backups).
 
 **Новое в 0.3.0 — GigaCode CLI:** ручное создание карточек через отдельно
 установленный headless CLI с выполненным входом, без API-токена модели в Second
@@ -374,6 +380,12 @@ Brain. `default` использует модель из настроек CLI; м
 импорта истории Qwen, останавливая цикл генерации карточек. Если цикл уже возник,
 выключите автокарточки, обновитесь, полностью повторите импорт источника и лишь
 затем включайте автоматизацию. Исходные чаты не меняются; см. [порядок восстановления](docs/user-guide.ru.md#если-gigacode-импортирует-собственные-служебные-чаты).
+
+**Новое в 0.4.0 — Задачи:** локальный канбан в приложении и вебе, обычные и
+ежедневные задачи, XP, уровни, ранги и пять характеристик. Daily начинают новый
+день по местной дате, сохраняя прежние награды. Задачи и прогресс входят в общую
+базу и резервные копии, не попадают в поиск памяти и MCP.
+См. [задачи и прокачку](docs/user-guide.ru.md#tasks).
 
 ### Источники
 
@@ -403,7 +415,7 @@ Brain. `default` использует модель из настроек CLI; м
 ### Установка
 
 **Готовое приложение:** в **Releases → Assets** этого репозитория выберите
-`Second-Brain-0.3.3-macos-arm64.zip`. Архив содержит нативное приложение и его
+`Second-Brain-0.4.0-macos-arm64.zip`. Архив содержит нативное приложение и его
 Python-сервис. На **Mac с Apple Silicon и macOS 14+** распакуйте его, перенесите
 **Second Brain.app** в **Программы** и откройте. **Устанавливать Xcode, Python, uv
 или исходники пользователю не требуется.** Сборки для Intel в этом архиве нет.
@@ -413,7 +425,7 @@ Apple**. macOS может заблокировать загруженное из
 доверяете выпуску и проверили контрольную сумму, используйте описанный Apple путь
 **Системные настройки → Конфиденциальность и безопасность → Всё равно открыть**.
 Не отключайте Gatekeeper. Подробнее — в [руководстве по установке](docs/user-guide.ru.md#2-требования-и-установка)
-и [примечаниях к выпуску](docs/releases/0.3.3.md).
+и [примечаниях к выпуску](docs/releases/0.4.0.md).
 
 Готовая сборка создаёт отдельный архив в
 `~/Library/Application Support/Second Brain`. Она не содержит памяти,
@@ -514,6 +526,6 @@ CSRF. Известные форматы секретов маскируются 
 [инструкции разработчика](docs/development.md). Тесты используют синтетические
 источники и подставные credentials; отдельные CoreChecks проверяют Swift-логику.
 
-Лицензия — [MIT](LICENSE). Изменения `0.3.3`: [CHANGELOG](CHANGELOG.md).
+Лицензия — [MIT](LICENSE). Изменения `0.4.0`: [CHANGELOG](CHANGELOG.md).
 Порядок публикации: [руководство по релизу](docs/releasing.md).
 Правила общения: [кодекс поведения](CODE_OF_CONDUCT.md).

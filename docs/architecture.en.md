@@ -271,7 +271,8 @@ under the same boundary. Its v1 ZIP contains exactly `manifest.json`,
 is `memory_schedule.json`). The manifest records app/format versions, timezone-aware
 creation time, random installation UUID, exact schema fingerprint and per-file
 sizes/SHA-256. Known lazy progress tables are normalized before snapshotting;
-unknown/different schemas are rejected rather than migrated from untrusted input.
+Only the exact current schema or the exact pre-tracker 0.3.x schema is accepted.
+The latter is migrated in the extracted staging copy; unknown schemas are rejected.
 Policies, vectors and fact snapshots live in the database. Keychain contents,
 model weights and machine-local backup preferences/inventory are not exported.
 
@@ -359,6 +360,24 @@ checks policy and revision inside its write transaction. Revocation cannot
 cancel a disclosure that already occurred. MCP visibility remains a separate
 recipient decision: local card processing does not make an agent's own model
 local. There is no verified per-client identity or project authorization layer.
+
+## Tasks and progression in 0.4.0
+
+`tasks.py` adds `tracker_tasks` and `tracker_progress` in `memory.sqlite3` under
+the existing store schema/write/maintenance locks. Tasks never enter memory
+retrieval, card generation or MCP. Native `TasksViewModel` and `static/tasks.mjs`
+replace their board from the same HTTP response; no XP arithmetic is duplicated
+in clients. Ordinary tasks use a single progress period; daily tasks use the
+client's local ISO calendar date, validated within one day of the UTC date.
+A new daily period starts implicitly in To Do, without a scheduler.
+
+The primary key `(task_id, period)` makes completion idempotent. Total and per-stat
+XP are derived from completed progress rows; undo removes the current reward,
+while soft deletion preserves earned history. Level/rank derive from total XP.
+Backups include the tracker. Restoring the exact pre-tracker schema initializes
+empty tracker tables in staging; restoring any backup replaces task progress.
+The native view invalidates pending requests at restore, and both clients refresh
+the local day after midnight or returning to the foreground.
 
 ## Trust boundaries
 

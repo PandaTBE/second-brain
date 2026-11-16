@@ -68,6 +68,8 @@ def exercise_http(client, helper, user_home):
     assert initial["records"] == 1 and not initial["scheduler"]["process_cards"]
     assert client.get("/").status_code == 200, "Bundled static HTML is missing"
     assert client.get("/static/memory-atlas.mjs").status_code == 200
+    for asset in ("tasks.html", "tasks.mjs", "tasks-model.mjs", "tasks.css"):
+        assert client.get(f"/static/{asset}").status_code == 200, f"Task asset is missing: {asset}"
     hits = data(client.get("/api/memory/search", params={"q": "portable"}))["results"]
     assert len(hits) == 1, "Frozen SQLite FTS5 search failed"
     configuration = data(client.get("/api/memory/mcp"))

@@ -611,6 +611,42 @@ Reconnect MCP or restart the client after moving the project, upgrading source s
 
 For example, ask an agent: “Find in Second Brain why we chose this authentication approach, and show the original material.” A connected server does not guarantee a memory search on every message. Retrieved source text is untrusted data, not an instruction to execute.
 
+<a id="tasks"></a>
+
+## Tasks and progression (0.4.0)
+
+Open **Задачи** in the native sidebar or menu (Command–Shift–T), or follow
+**Задачи** in the local web interface. Both views use the same local board.
+Create a task with a title, ordinary/daily type, a characteristic, and difficulty.
+Move cards between **К выполнению**, **В работе** and **Готово** using buttons or
+drag and drop. The title is limited to 200 characters and the board to 500 active
+tasks. Deletion asks for confirmation and preserves already earned rewards.
+
+Ordinary tasks retain their status until changed. A daily task starts in To Do
+on each new local calendar day; earlier completions and XP remain saved. Keep
+the Mac's date and time correct. The board refreshes when active, at day rollover,
+and on return to the app/tab. Missed days cause no penalty or automatic rewards.
+
+Difficulty awards **10 / 25 / 50 XP**. Completing a task increases its selected
+stat: strength, agility, intelligence, vitality or perception (one point per
+10 accumulated stat XP). The profile shows total XP, level, rank and progress to
+the next level. Level 2 requires 50 XP, level 3 requires 200 XP; later thresholds
+are `50 × (level − 1)²`. Rank rises from E through D, C, B, A to S every five levels.
+Completing the same task again does not duplicate rewards. Moving it out of Done
+reverses that completion's XP; returning it to Done restores the reward once.
+
+Tasks and completion history persist in `memory.sqlite3`, beside memory cards,
+and are included in managed backups and encrypted exports. Tasks do not enter
+memory search, cards or MCP and do not call a model. Restoring a backup replaces
+the entire board and progression with the saved state. An accepted 0.3.x backup
+has no tracker and therefore restores an empty board with zero XP. Older app
+versions cannot restore 0.4.0 backups. Downgrading an upgraded database to 0.3.x
+is unsupported; older apps cannot back up that schema. Back up before upgrading.
+
+The interaction follows [Trello's board/list/card pattern](https://trello.com/guide/trello-101)
+and [Habitica's task and progression concept](https://habitica.com/static/features).
+No external account is required.
+
 ## 9. Data, backup, and removal
 
 The portable release stores data in `~/Library/Application Support/Second Brain`;
@@ -649,8 +685,10 @@ Keep the password separately: Keychain API/mail/OAuth credentials never enter
 the archive and cannot unlock it. Working data, local copies and temporary
 plaintext staging remain unencrypted by this export feature.
 
-The current format accepts only its exact supported SQLite schema and allowlisted
-files. Both plaintext archive and total unpacked content, including the manifest,
+The current format accepts its exact supported SQLite schema or the exact
+pre-tracker 0.3.x schema, with allowlisted files. The latter is migrated only in
+the inspected staging copy and restores an empty tracker. Both plaintext archive
+and total unpacked content, including the manifest,
 are limited to 128 MiB; encrypted output permits its bounded age overhead. Larger
 archives, damaged files, traversal/symlink entries or unknown schemas are rejected.
 This is not a general importer for arbitrary SQLite or ZIP files.

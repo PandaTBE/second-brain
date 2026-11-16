@@ -68,6 +68,12 @@ cards and fully reimport affected sources before resuming an existing loop;
 old assistant-only chunks or missing/unsupported logs need explicit exclusions
 when provenance cannot be recovered. See [recovery](docs/user-guide.en.md#when-gigacode-imports-its-own-service-chats).
 
+**Version 0.4.0** stores tasks and their completion history in the local memory
+database. They are included in backups, but excluded from memory search, model
+cards and MCP. Task requests retain the loopback/CSRF boundary. Local SQLite and
+managed backup copies are unencrypted. Restoring a pre-tracker backup replaces
+the tracker with an empty one; older apps cannot restore 0.4.0 backups.
+
 Source permissions apply to every connected MCP client; an agent may still send
 permitted text to its cloud model. The semantic index requires separate local
 opt-in and installed weights. Managed backups include the whole cache, including
@@ -141,6 +147,12 @@ Microsoft по коду, собственным Client ID и делегиров�
 При уже возникшем цикле выключите автокарточки и полностью повторите импорт
 источника до возобновления. Для старых ответов без запроса, отсутствующих или
 неподдерживаемых журналов могут потребоваться явные исключения. См. [восстановление](docs/user-guide.ru.md#если-gigacode-импортирует-собственные-служебные-чаты).
+
+**Версия 0.4.0** хранит задачи и историю выполнения в локальной базе памяти.
+Они входят в копии, но не в поиск памяти, карточки модели или MCP. Запросы задач
+сохраняют границы loopback/CSRF. SQLite и управляемые локальные копии не зашифрованы.
+Восстановление копии до трекера заменяет его пустым; старое приложение не сможет
+восстановить копию 0.4.0.
 
 Разрешения источника действуют для всех MCP-клиентов; агент может передавать
 разрешённый текст своей облачной модели. Семантический индекс включается отдельно
